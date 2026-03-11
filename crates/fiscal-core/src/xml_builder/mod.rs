@@ -11,7 +11,8 @@
 //!     .recipient(recipient)
 //!     .payments(vec![payment])
 //!     .build()?                              // Built
-//!     .xml()                                 // &str
+//!     .sign_with(|xml| sign(xml))?           // Signed
+//!     .signed_xml()                          // &str
 //! ```
 
 pub mod access_key;
@@ -27,7 +28,7 @@ pub mod total;
 pub mod transp;
 
 pub use access_key::build_access_key;
-pub use builder::{Built, Draft, InvoiceBuilder};
+pub use builder::{Built, Draft, InvoiceBuilder, Signed};
 
 use crate::FiscalError;
 use crate::constants::{NFE_NAMESPACE, NFE_VERSION};

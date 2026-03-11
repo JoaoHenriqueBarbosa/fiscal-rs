@@ -8,11 +8,13 @@
 //!     .recipient(recipient)
 //!     .payments(vec![payment])
 //!     .build()?                              // Built
-//!     .xml()                                 // &str
+//!     .sign_with(|xml| sign(xml))?           // Signed
+//!     .signed_xml()                          // &str
 //! ```
 //!
 //! The typestate pattern ensures at compile time that `xml()` / `access_key()`
-//! are only available after a successful `build()`.
+//! are only available after a successful `build()`, and `signed_xml()` is only
+//! available after a successful `sign_with()`.
 
 use std::marker::PhantomData;
 
@@ -30,6 +32,9 @@ pub struct Draft;
 /// Marker: invoice has been built (XML and access key available, no setters).
 pub struct Built;
 
+/// Marker: invoice has been signed (signed XML available).
+pub struct Signed;
+
 // ── Builder ──────────────────────────────────────────────────────────────────
 
 /// Typestate builder for NF-e / NFC-e XML documents.
@@ -38,6 +43,8 @@ pub struct Built;
 /// Calling [`build()`](InvoiceBuilder::build) validates the data and
 /// transitions to [`Built`], which exposes [`xml()`](InvoiceBuilder::xml)
 /// and [`access_key()`](InvoiceBuilder::access_key).
+/// Calling [`sign_with()`](InvoiceBuilder::sign_with) on `Built` transitions
+/// to [`Signed`], which exposes [`signed_xml()`](InvoiceBuilder::signed_xml).
 pub struct InvoiceBuilder<State = Draft> {
     // Required from construction
     issuer: IssuerData,
@@ -85,6 +92,9 @@ pub struct InvoiceBuilder<State = Draft> {
     // Present only after build
     result_xml: Option<String>,
     result_access_key: Option<String>,
+
+    // Present only after sign
+    result_signed_xml: Option<String>,
 
     _state: PhantomData<State>,
 }
@@ -136,6 +146,7 @@ impl InvoiceBuilder<Draft> {
             export: None,
             result_xml: None,
             result_access_key: None,
+            result_signed_xml: None,
             _state: PhantomData,
         }
     }
@@ -410,6 +421,7 @@ impl InvoiceBuilder<Draft> {
             export: data.export,
             result_xml: Some(result.xml),
             result_access_key: Some(result.access_key),
+            result_signed_xml: None,
             _state: PhantomData,
         })
     }
@@ -430,5 +442,234 @@ impl InvoiceBuilder<Built> {
         self.result_access_key
             .as_deref()
             .expect("Built state always has access key")
+    }
+
+    /// Sign the XML using the provided signing function.
+    ///
+    /// The signing function receives the unsigned XML and must return
+    /// the signed XML or an error. This keeps `fiscal-core` independent
+    /// of the crypto implementation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use fiscal_core::xml_builder::{InvoiceBuilder, Draft, Built, Signed};
+    /// # use fiscal_core::FiscalError;
+    /// // Assuming `builder` is an InvoiceBuilder<Built>:
+    /// # fn example(builder: InvoiceBuilder<Built>) -> Result<(), FiscalError> {
+    /// let signed = builder.sign_with(|xml| {
+    ///     // In real code, call fiscal_crypto::certificate::sign_xml() here.
+    ///     Ok(format!("{xml}<Signature/>"))
+    /// })?;
+    /// assert!(signed.signed_xml().contains("<Signature/>"));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError`] if the signing function returns an error.
+    pub fn sign_with<F>(self, signer: F) -> Result<InvoiceBuilder<Signed>, FiscalError>
+    where
+        F: FnOnce(&str) -> Result<String, FiscalError>,
+    {
+        let unsigned_xml = self
+            .result_xml
+            .as_deref()
+            .expect("Built state always has XML");
+
+        let signed_xml = signer(unsigned_xml)?;
+
+        Ok(InvoiceBuilder {
+            issuer: self.issuer,
+            environment: self.environment,
+            model: self.model,
+            series: self.series,
+            invoice_number: self.invoice_number,
+            emission_type: self.emission_type,
+            issued_at: self.issued_at,
+            operation_nature: self.operation_nature,
+            items: self.items,
+            recipient: self.recipient,
+            payments: self.payments,
+            change_amount: self.change_amount,
+            payment_card_details: self.payment_card_details,
+            contingency: self.contingency,
+            operation_type: self.operation_type,
+            purpose_code: self.purpose_code,
+            intermediary_indicator: self.intermediary_indicator,
+            emission_process: self.emission_process,
+            consumer_type: self.consumer_type,
+            buyer_presence: self.buyer_presence,
+            print_format: self.print_format,
+            references: self.references,
+            transport: self.transport,
+            billing: self.billing,
+            withdrawal: self.withdrawal,
+            delivery: self.delivery,
+            authorized_xml: self.authorized_xml,
+            additional_info: self.additional_info,
+            intermediary: self.intermediary,
+            ret_trib: self.ret_trib,
+            tech_responsible: self.tech_responsible,
+            purchase: self.purchase,
+            export: self.export,
+            result_xml: self.result_xml,
+            result_access_key: self.result_access_key,
+            result_signed_xml: Some(signed_xml),
+            _state: PhantomData,
+        })
+    }
+}
+
+// ── Signed methods (accessors) ──────────────────────────────────────────────
+
+impl InvoiceBuilder<Signed> {
+    /// The signed XML string (includes `<Signature>` element).
+    pub fn signed_xml(&self) -> &str {
+        self.result_signed_xml
+            .as_deref()
+            .expect("Signed state always has signed XML")
+    }
+
+    /// The 44-digit access key.
+    pub fn access_key(&self) -> &str {
+        self.result_access_key
+            .as_deref()
+            .expect("Signed state always has access key")
+    }
+
+    /// The unsigned XML (before signing).
+    pub fn unsigned_xml(&self) -> &str {
+        self.result_xml
+            .as_deref()
+            .expect("Signed state always has unsigned XML")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::newtypes::{Cents, IbgeCode, Rate};
+    use crate::types::{
+        InvoiceItemData, InvoiceModel, IssuerData, PaymentData, SefazEnvironment, TaxRegime,
+    };
+
+    /// Standard Brazilian timezone offset (UTC-3).
+    fn br_offset() -> chrono::FixedOffset {
+        chrono::FixedOffset::west_opt(3 * 3600).unwrap()
+    }
+
+    /// Build a minimal InvoiceBuilder in Draft state.
+    fn sample_builder() -> InvoiceBuilder<Draft> {
+        let issuer = IssuerData::new(
+            "12345678000199",
+            "123456789",
+            "Test Company",
+            TaxRegime::SimplesNacional,
+            "SP",
+            IbgeCode("3550308".to_string()),
+            "Sao Paulo",
+            "Av Paulista",
+            "1000",
+            "Bela Vista",
+            "01310100",
+        )
+        .trade_name("Test");
+
+        let item = InvoiceItemData::new(
+            1,
+            "1",
+            "Product A",
+            "84715010",
+            "5102",
+            "UN",
+            2.0,
+            Cents(1000),
+            Cents(2000),
+            "102",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+
+        let payment = PaymentData::new("01", Cents(2000));
+
+        let offset = br_offset();
+        let issued_at = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+            .unwrap()
+            .and_hms_opt(10, 30, 0)
+            .unwrap()
+            .and_local_timezone(offset)
+            .unwrap();
+
+        InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(issued_at)
+            .add_item(item)
+            .payments(vec![payment])
+    }
+
+    /// Build a minimal InvoiceBuilder<Built>.
+    fn built_builder() -> InvoiceBuilder<Built> {
+        sample_builder().build().expect("build should succeed")
+    }
+
+    #[test]
+    fn sign_with_identity_fn() {
+        let built = built_builder();
+        let original_xml = built.xml().to_string();
+
+        let signed = built
+            .sign_with(|xml| Ok(xml.to_string()))
+            .expect("identity signer should not fail");
+
+        assert_eq!(signed.signed_xml(), original_xml);
+    }
+
+    #[test]
+    fn sign_with_failing_fn() {
+        let built = built_builder();
+
+        let result =
+            built.sign_with(|_xml| Err(FiscalError::Certificate("test signing failure".into())));
+
+        let err = match result {
+            Err(e) => e,
+            Ok(_) => panic!("expected sign_with to return Err"),
+        };
+        assert_eq!(err, FiscalError::Certificate("test signing failure".into()),);
+    }
+
+    #[test]
+    fn signed_accessors() {
+        let built = built_builder();
+        let original_xml = built.xml().to_string();
+        let original_key = built.access_key().to_string();
+
+        let signed = built
+            .sign_with(|xml| Ok(format!("{xml}<Signature/>")))
+            .expect("signer should succeed");
+
+        assert_eq!(signed.signed_xml(), format!("{original_xml}<Signature/>"),);
+        assert_eq!(signed.access_key(), original_key);
+        assert_eq!(signed.unsigned_xml(), original_xml);
+    }
+
+    #[test]
+    fn built_still_works() {
+        let built = built_builder();
+
+        // Verify Built accessors are available and correct.
+        let xml = built.xml();
+        assert!(xml.contains("<NFe"));
+        assert!(xml.contains("</NFe>"));
+        assert!(xml.contains("<infNFe"));
+
+        let key = built.access_key();
+        assert_eq!(key.len(), 44);
+        assert!(key.chars().all(|c| c.is_ascii_digit()));
     }
 }
