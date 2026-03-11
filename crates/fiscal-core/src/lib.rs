@@ -20,3 +20,6 @@ pub mod tax_pis_cofins_ipi;
 pub mod types;
 pub mod xml_builder;
 pub mod xml_utils;
+
+pub mod sealed;
+pub mod traits;
