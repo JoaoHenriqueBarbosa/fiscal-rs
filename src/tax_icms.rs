@@ -122,6 +122,1115 @@ pub fn create_icms_totals() -> IcmsTotals {
     IcmsTotals::default()
 }
 
+// ── IcmsCst enum (normal regime) ────────────────────────────────────────────
+
+/// ICMS CST variant for normal tax regime (Lucro Real / Presumido).
+///
+/// Each variant carries **only** the fields that are valid for that CST,
+/// giving compile-time safety instead of runtime string matching against a
+/// flat struct full of `Option`s.
+///
+/// Simples Nacional / CSOSN variants are **not** included here (see R7).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum IcmsCst {
+    /// CST 00 — Tributada integralmente.
+    Cst00 {
+        orig: String,
+        mod_bc: String,
+        v_bc: Cents,
+        p_icms: Rate,
+        v_icms: Cents,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+    },
+    /// CST 02 — Tributacao monofasica propria sobre combustiveis.
+    Cst02 {
+        orig: String,
+        q_bc_mono: Option<i64>,
+        ad_rem_icms: Rate,
+        v_icms_mono: Cents,
+    },
+    /// CST 10 — Tributada e com cobranca do ICMS por substituicao tributaria.
+    Cst10 {
+        orig: String,
+        mod_bc: String,
+        v_bc: Cents,
+        p_icms: Rate,
+        v_icms: Cents,
+        v_bc_fcp: Option<Cents>,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+        mod_bc_st: String,
+        p_mva_st: Option<Rate>,
+        p_red_bc_st: Option<Rate>,
+        v_bc_st: Cents,
+        p_icms_st: Rate,
+        v_icms_st: Cents,
+        v_bc_fcp_st: Option<Cents>,
+        p_fcp_st: Option<Rate>,
+        v_fcp_st: Option<Cents>,
+        v_icms_st_deson: Option<Cents>,
+        mot_des_icms_st: Option<String>,
+    },
+    /// CST 15 — Tributacao monofasica propria e com responsabilidade pela
+    /// retencao sobre combustiveis.
+    Cst15 {
+        orig: String,
+        q_bc_mono: Option<i64>,
+        ad_rem_icms: Rate,
+        v_icms_mono: Cents,
+        q_bc_mono_reten: Option<i64>,
+        ad_rem_icms_reten: Rate,
+        v_icms_mono_reten: Cents,
+        p_red_ad_rem: Option<Rate>,
+        mot_red_ad_rem: Option<String>,
+    },
+    /// CST 20 — Com reducao de base de calculo.
+    Cst20 {
+        orig: String,
+        mod_bc: String,
+        p_red_bc: Rate,
+        v_bc: Cents,
+        p_icms: Rate,
+        v_icms: Cents,
+        v_bc_fcp: Option<Cents>,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+    },
+    /// CST 30 — Isenta ou nao tributada e com cobranca do ICMS por ST.
+    Cst30 {
+        orig: String,
+        mod_bc_st: String,
+        p_mva_st: Option<Rate>,
+        p_red_bc_st: Option<Rate>,
+        v_bc_st: Cents,
+        p_icms_st: Rate,
+        v_icms_st: Cents,
+        v_bc_fcp_st: Option<Cents>,
+        p_fcp_st: Option<Rate>,
+        v_fcp_st: Option<Cents>,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+    },
+    /// CST 40 — Isenta.
+    Cst40 {
+        orig: String,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+    },
+    /// CST 41 — Nao tributada.
+    Cst41 {
+        orig: String,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+    },
+    /// CST 50 — Suspensao.
+    Cst50 {
+        orig: String,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+    },
+    /// CST 51 — Diferimento.
+    Cst51 {
+        orig: String,
+        mod_bc: Option<String>,
+        p_red_bc: Option<Rate>,
+        c_benef_rbc: Option<String>,
+        v_bc: Option<Cents>,
+        p_icms: Option<Rate>,
+        v_icms_op: Option<Cents>,
+        p_dif: Option<Rate>,
+        v_icms_dif: Option<Cents>,
+        v_icms: Option<Cents>,
+        v_bc_fcp: Option<Cents>,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+        p_fcp_dif: Option<Rate>,
+        v_fcp_dif: Option<Cents>,
+        v_fcp_efet: Option<Cents>,
+    },
+    /// CST 53 — Tributacao monofasica sobre combustiveis com recolhimento
+    /// diferido.
+    Cst53 {
+        orig: String,
+        q_bc_mono: Option<i64>,
+        ad_rem_icms: Option<Rate>,
+        v_icms_mono_op: Option<Cents>,
+        p_dif: Option<Rate>,
+        v_icms_mono_dif: Option<Cents>,
+        v_icms_mono: Option<Cents>,
+    },
+    /// CST 60 — ICMS cobrado anteriormente por substituicao tributaria.
+    Cst60 {
+        orig: String,
+        v_bc_st_ret: Option<Cents>,
+        p_st: Option<Rate>,
+        v_icms_substituto: Option<Cents>,
+        v_icms_st_ret: Option<Cents>,
+        v_bc_fcp_st_ret: Option<Cents>,
+        p_fcp_st_ret: Option<Rate>,
+        v_fcp_st_ret: Option<Cents>,
+        p_red_bc_efet: Option<Rate>,
+        v_bc_efet: Option<Cents>,
+        p_icms_efet: Option<Rate>,
+        v_icms_efet: Option<Cents>,
+    },
+    /// CST 61 — Tributacao monofasica sobre combustiveis cobrada anteriormente.
+    Cst61 {
+        orig: String,
+        q_bc_mono_ret: Option<i64>,
+        ad_rem_icms_ret: Rate,
+        v_icms_mono_ret: Cents,
+    },
+    /// CST 70 — Reducao de base de calculo e cobranca do ICMS por ST.
+    Cst70 {
+        orig: String,
+        mod_bc: String,
+        p_red_bc: Rate,
+        v_bc: Cents,
+        p_icms: Rate,
+        v_icms: Cents,
+        v_bc_fcp: Option<Cents>,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+        mod_bc_st: String,
+        p_mva_st: Option<Rate>,
+        p_red_bc_st: Option<Rate>,
+        v_bc_st: Cents,
+        p_icms_st: Rate,
+        v_icms_st: Cents,
+        v_bc_fcp_st: Option<Cents>,
+        p_fcp_st: Option<Rate>,
+        v_fcp_st: Option<Cents>,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+        v_icms_st_deson: Option<Cents>,
+        mot_des_icms_st: Option<String>,
+    },
+    /// CST 90 — Outros.
+    Cst90 {
+        orig: String,
+        mod_bc: Option<String>,
+        v_bc: Option<Cents>,
+        p_red_bc: Option<Rate>,
+        c_benef_rbc: Option<String>,
+        p_icms: Option<Rate>,
+        v_icms_op: Option<Cents>,
+        p_dif: Option<Rate>,
+        v_icms_dif: Option<Cents>,
+        v_icms: Option<Cents>,
+        v_bc_fcp: Option<Cents>,
+        p_fcp: Option<Rate>,
+        v_fcp: Option<Cents>,
+        p_fcp_dif: Option<Rate>,
+        v_fcp_dif: Option<Cents>,
+        v_fcp_efet: Option<Cents>,
+        mod_bc_st: Option<String>,
+        p_mva_st: Option<Rate>,
+        p_red_bc_st: Option<Rate>,
+        v_bc_st: Option<Cents>,
+        p_icms_st: Option<Rate>,
+        v_icms_st: Option<Cents>,
+        v_bc_fcp_st: Option<Cents>,
+        p_fcp_st: Option<Rate>,
+        v_fcp_st: Option<Cents>,
+        v_icms_deson: Option<Cents>,
+        mot_des_icms: Option<String>,
+        ind_deduz_deson: Option<String>,
+        v_icms_st_deson: Option<Cents>,
+        mot_des_icms_st: Option<String>,
+    },
+}
+
+impl IcmsCst {
+    /// Return the two-character CST code for this variant.
+    pub fn cst_code(&self) -> &str {
+        match self {
+            Self::Cst00 { .. } => "00",
+            Self::Cst02 { .. } => "02",
+            Self::Cst10 { .. } => "10",
+            Self::Cst15 { .. } => "15",
+            Self::Cst20 { .. } => "20",
+            Self::Cst30 { .. } => "30",
+            Self::Cst40 { .. } => "40",
+            Self::Cst41 { .. } => "41",
+            Self::Cst50 { .. } => "50",
+            Self::Cst51 { .. } => "51",
+            Self::Cst53 { .. } => "53",
+            Self::Cst60 { .. } => "60",
+            Self::Cst61 { .. } => "61",
+            Self::Cst70 { .. } => "70",
+            Self::Cst90 { .. } => "90",
+        }
+    }
+}
+
+impl TryFrom<&IcmsData> for IcmsCst {
+    type Error = FiscalError;
+
+    /// Convert from the flat [`IcmsData`] struct into a typed [`IcmsCst`]
+    /// variant.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::MissingRequiredField`] when a field required by
+    /// the target CST variant is `None`, or
+    /// [`FiscalError::UnsupportedIcmsCst`] for unrecognized CST codes.
+    fn try_from(d: &IcmsData) -> Result<Self, FiscalError> {
+        let cst = d.cst.as_deref().ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "CST".to_string(),
+        })?;
+
+        match cst {
+            "00" => Ok(Self::Cst00 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBC".to_string(),
+                })?,
+                v_bc: d.v_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBC".to_string(),
+                })?,
+                p_icms: d.p_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMS".to_string(),
+                })?,
+                v_icms: d.v_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMS".to_string(),
+                })?,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+            }),
+
+            "02" => Ok(Self::Cst02 {
+                orig: d.orig.clone(),
+                q_bc_mono: d.q_bc_mono,
+                ad_rem_icms: d.ad_rem_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "adRemICMS".to_string(),
+                })?,
+                v_icms_mono: d.v_icms_mono.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMSMono".to_string(),
+                })?,
+            }),
+
+            "10" => Ok(Self::Cst10 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBC".to_string(),
+                })?,
+                v_bc: d.v_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBC".to_string(),
+                })?,
+                p_icms: d.p_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMS".to_string(),
+                })?,
+                v_icms: d.v_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMS".to_string(),
+                })?,
+                v_bc_fcp: d.v_bc_fcp,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+                mod_bc_st: d.mod_bc_st.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBCST".to_string(),
+                })?,
+                p_mva_st: d.p_mva_st,
+                p_red_bc_st: d.p_red_bc_st,
+                v_bc_st: d.v_bc_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBCST".to_string(),
+                })?,
+                p_icms_st: d.p_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMSST".to_string(),
+                })?,
+                v_icms_st: d.v_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMSST".to_string(),
+                })?,
+                v_bc_fcp_st: d.v_bc_fcp_st,
+                p_fcp_st: d.p_fcp_st,
+                v_fcp_st: d.v_fcp_st,
+                v_icms_st_deson: d.v_icms_st_deson,
+                mot_des_icms_st: d.mot_des_icms_st.clone(),
+            }),
+
+            "15" => Ok(Self::Cst15 {
+                orig: d.orig.clone(),
+                q_bc_mono: d.q_bc_mono,
+                ad_rem_icms: d.ad_rem_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "adRemICMS".to_string(),
+                })?,
+                v_icms_mono: d.v_icms_mono.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMSMono".to_string(),
+                })?,
+                q_bc_mono_reten: d.q_bc_mono_reten,
+                ad_rem_icms_reten: d.ad_rem_icms_reten.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "adRemICMSReten".to_string(),
+                    }
+                })?,
+                v_icms_mono_reten: d.v_icms_mono_reten.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "vICMSMonoReten".to_string(),
+                    }
+                })?,
+                p_red_ad_rem: d.p_red_ad_rem,
+                mot_red_ad_rem: d.mot_red_ad_rem.clone(),
+            }),
+
+            "20" => Ok(Self::Cst20 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBC".to_string(),
+                })?,
+                p_red_bc: d.p_red_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pRedBC".to_string(),
+                })?,
+                v_bc: d.v_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBC".to_string(),
+                })?,
+                p_icms: d.p_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMS".to_string(),
+                })?,
+                v_icms: d.v_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMS".to_string(),
+                })?,
+                v_bc_fcp: d.v_bc_fcp,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+            }),
+
+            "30" => Ok(Self::Cst30 {
+                orig: d.orig.clone(),
+                mod_bc_st: d.mod_bc_st.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBCST".to_string(),
+                })?,
+                p_mva_st: d.p_mva_st,
+                p_red_bc_st: d.p_red_bc_st,
+                v_bc_st: d.v_bc_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBCST".to_string(),
+                })?,
+                p_icms_st: d.p_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMSST".to_string(),
+                })?,
+                v_icms_st: d.v_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMSST".to_string(),
+                })?,
+                v_bc_fcp_st: d.v_bc_fcp_st,
+                p_fcp_st: d.p_fcp_st,
+                v_fcp_st: d.v_fcp_st,
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+            }),
+
+            "40" => Ok(Self::Cst40 {
+                orig: d.orig.clone(),
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+            }),
+
+            "41" => Ok(Self::Cst41 {
+                orig: d.orig.clone(),
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+            }),
+
+            "50" => Ok(Self::Cst50 {
+                orig: d.orig.clone(),
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+            }),
+
+            "51" => Ok(Self::Cst51 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone(),
+                p_red_bc: d.p_red_bc,
+                c_benef_rbc: d.c_benef_rbc.clone(),
+                v_bc: d.v_bc,
+                p_icms: d.p_icms,
+                v_icms_op: d.v_icms_op,
+                p_dif: d.p_dif,
+                v_icms_dif: d.v_icms_dif,
+                v_icms: d.v_icms,
+                v_bc_fcp: d.v_bc_fcp,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+                p_fcp_dif: d.p_fcp_dif,
+                v_fcp_dif: d.v_fcp_dif,
+                v_fcp_efet: d.v_fcp_efet,
+            }),
+
+            "53" => Ok(Self::Cst53 {
+                orig: d.orig.clone(),
+                q_bc_mono: d.q_bc_mono,
+                ad_rem_icms: d.ad_rem_icms,
+                v_icms_mono_op: d.v_icms_mono_op,
+                p_dif: d.p_dif,
+                v_icms_mono_dif: d.v_icms_mono_dif,
+                v_icms_mono: d.v_icms_mono,
+            }),
+
+            "60" => Ok(Self::Cst60 {
+                orig: d.orig.clone(),
+                v_bc_st_ret: d.v_bc_st_ret,
+                p_st: d.p_st,
+                v_icms_substituto: d.v_icms_substituto,
+                v_icms_st_ret: d.v_icms_st_ret,
+                v_bc_fcp_st_ret: d.v_bc_fcp_st_ret,
+                p_fcp_st_ret: d.p_fcp_st_ret,
+                v_fcp_st_ret: d.v_fcp_st_ret,
+                p_red_bc_efet: d.p_red_bc_efet,
+                v_bc_efet: d.v_bc_efet,
+                p_icms_efet: d.p_icms_efet,
+                v_icms_efet: d.v_icms_efet,
+            }),
+
+            "61" => Ok(Self::Cst61 {
+                orig: d.orig.clone(),
+                q_bc_mono_ret: d.q_bc_mono_ret,
+                ad_rem_icms_ret: d.ad_rem_icms_ret.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "adRemICMSRet".to_string(),
+                    }
+                })?,
+                v_icms_mono_ret: d.v_icms_mono_ret.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "vICMSMonoRet".to_string(),
+                    }
+                })?,
+            }),
+
+            "70" => Ok(Self::Cst70 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBC".to_string(),
+                })?,
+                p_red_bc: d.p_red_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pRedBC".to_string(),
+                })?,
+                v_bc: d.v_bc.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBC".to_string(),
+                })?,
+                p_icms: d.p_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMS".to_string(),
+                })?,
+                v_icms: d.v_icms.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMS".to_string(),
+                })?,
+                v_bc_fcp: d.v_bc_fcp,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+                mod_bc_st: d.mod_bc_st.clone().ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "modBCST".to_string(),
+                })?,
+                p_mva_st: d.p_mva_st,
+                p_red_bc_st: d.p_red_bc_st,
+                v_bc_st: d.v_bc_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vBCST".to_string(),
+                })?,
+                p_icms_st: d.p_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "pICMSST".to_string(),
+                })?,
+                v_icms_st: d.v_icms_st.ok_or_else(|| FiscalError::MissingRequiredField {
+                    field: "vICMSST".to_string(),
+                })?,
+                v_bc_fcp_st: d.v_bc_fcp_st,
+                p_fcp_st: d.p_fcp_st,
+                v_fcp_st: d.v_fcp_st,
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+                v_icms_st_deson: d.v_icms_st_deson,
+                mot_des_icms_st: d.mot_des_icms_st.clone(),
+            }),
+
+            "90" => Ok(Self::Cst90 {
+                orig: d.orig.clone(),
+                mod_bc: d.mod_bc.clone(),
+                v_bc: d.v_bc,
+                p_red_bc: d.p_red_bc,
+                c_benef_rbc: d.c_benef_rbc.clone(),
+                p_icms: d.p_icms,
+                v_icms_op: d.v_icms_op,
+                p_dif: d.p_dif,
+                v_icms_dif: d.v_icms_dif,
+                v_icms: d.v_icms,
+                v_bc_fcp: d.v_bc_fcp,
+                p_fcp: d.p_fcp,
+                v_fcp: d.v_fcp,
+                p_fcp_dif: d.p_fcp_dif,
+                v_fcp_dif: d.v_fcp_dif,
+                v_fcp_efet: d.v_fcp_efet,
+                mod_bc_st: d.mod_bc_st.clone(),
+                p_mva_st: d.p_mva_st,
+                p_red_bc_st: d.p_red_bc_st,
+                v_bc_st: d.v_bc_st,
+                p_icms_st: d.p_icms_st,
+                v_icms_st: d.v_icms_st,
+                v_bc_fcp_st: d.v_bc_fcp_st,
+                p_fcp_st: d.p_fcp_st,
+                v_fcp_st: d.v_fcp_st,
+                v_icms_deson: d.v_icms_deson,
+                mot_des_icms: d.mot_des_icms.clone(),
+                ind_deduz_deson: d.ind_deduz_deson.clone(),
+                v_icms_st_deson: d.v_icms_st_deson,
+                mot_des_icms_st: d.mot_des_icms_st.clone(),
+            }),
+
+            other => Err(FiscalError::UnsupportedIcmsCst(other.to_string())),
+        }
+    }
+}
+
+/// Build the ICMS XML fragment and accumulate totals from a typed [`IcmsCst`]
+/// variant.
+///
+/// This is the compile-time-safe counterpart of the original
+/// [`build_icms_xml`] code path for normal-regime CSTs. It can be used
+/// directly by new code that already has an `IcmsCst`, or indirectly via the
+/// unchanged [`build_icms_xml`] public API (which converts internally).
+///
+/// # Errors
+///
+/// Returns [`FiscalError`] if XML field serialization fails (should not happen
+/// when the enum is correctly constructed).
+pub fn build_icms_cst_xml(
+    cst: &IcmsCst,
+    totals: &mut IcmsTotals,
+) -> Result<(String, Vec<TaxField>), FiscalError> {
+    match cst {
+        IcmsCst::Cst00 {
+            orig,
+            mod_bc,
+            v_bc,
+            p_icms,
+            v_icms,
+            p_fcp,
+            v_fcp,
+        } => {
+            totals.v_bc = accum(totals.v_bc, Some(*v_bc));
+            totals.v_icms = accum(totals.v_icms, Some(*v_icms));
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let fields = filter_fields(vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "00")),
+                Some(TaxField::new("modBC", mod_bc.as_str())),
+                Some(TaxField::new("vBC", fc2(Some(*v_bc)).unwrap())),
+                Some(TaxField::new("pICMS", fc4(Some(*p_icms)).unwrap())),
+                Some(TaxField::new("vICMS", fc2(Some(*v_icms)).unwrap())),
+                optional_field("pFCP", fc4(*p_fcp).as_deref()),
+                optional_field("vFCP", fc2(*v_fcp).as_deref()),
+            ]);
+            Ok(("ICMS00".to_string(), fields))
+        }
+
+        IcmsCst::Cst02 {
+            orig,
+            q_bc_mono,
+            ad_rem_icms,
+            v_icms_mono,
+        } => {
+            totals.q_bc_mono = accum_raw(totals.q_bc_mono, *q_bc_mono);
+            totals.v_icms_mono = accum(totals.v_icms_mono, Some(*v_icms_mono));
+            let fields = filter_fields(vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "02")),
+                optional_field("qBCMono", fc4_raw(*q_bc_mono).as_deref()),
+                Some(TaxField::new("adRemICMS", fc4(Some(*ad_rem_icms)).unwrap())),
+                Some(TaxField::new("vICMSMono", fc2(Some(*v_icms_mono)).unwrap())),
+            ]);
+            Ok(("ICMS02".to_string(), fields))
+        }
+
+        IcmsCst::Cst10 {
+            orig,
+            mod_bc,
+            v_bc,
+            p_icms,
+            v_icms,
+            v_bc_fcp,
+            p_fcp,
+            v_fcp,
+            mod_bc_st,
+            p_mva_st,
+            p_red_bc_st,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st,
+            p_fcp_st,
+            v_fcp_st,
+            v_icms_st_deson,
+            mot_des_icms_st,
+        } => {
+            totals.v_bc = accum(totals.v_bc, Some(*v_bc));
+            totals.v_icms = accum(totals.v_icms, Some(*v_icms));
+            totals.v_bc_st = accum(totals.v_bc_st, Some(*v_bc_st));
+            totals.v_st = accum(totals.v_st, Some(*v_icms_st));
+            totals.v_fcp_st = accum(totals.v_fcp_st, *v_fcp_st);
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "10")),
+                Some(TaxField::new("modBC", mod_bc.as_str())),
+                Some(TaxField::new("vBC", fc2(Some(*v_bc)).unwrap())),
+                Some(TaxField::new("pICMS", fc4(Some(*p_icms)).unwrap())),
+                Some(TaxField::new("vICMS", fc2(Some(*v_icms)).unwrap())),
+            ];
+            // FCP fields
+            fields_opt.push(optional_field("vBCFCP", fc2(*v_bc_fcp).as_deref()));
+            fields_opt.push(optional_field("pFCP", fc4(*p_fcp).as_deref()));
+            fields_opt.push(optional_field("vFCP", fc2(*v_fcp).as_deref()));
+            // ST fields
+            fields_opt.push(Some(TaxField::new("modBCST", mod_bc_st.as_str())));
+            if let Some(v) = p_mva_st {
+                fields_opt.push(Some(TaxField::new("pMVAST", fc4(Some(*v)).unwrap())));
+            }
+            if let Some(v) = p_red_bc_st {
+                fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
+            }
+            fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            // FCP ST fields
+            fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
+            fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
+            fields_opt.push(optional_field("vFCPST", fc2(*v_fcp_st).as_deref()));
+            // ST desoneration
+            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
+            Ok(("ICMS10".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst15 {
+            orig,
+            q_bc_mono,
+            ad_rem_icms,
+            v_icms_mono,
+            q_bc_mono_reten,
+            ad_rem_icms_reten,
+            v_icms_mono_reten,
+            p_red_ad_rem,
+            mot_red_ad_rem,
+        } => {
+            totals.q_bc_mono = accum_raw(totals.q_bc_mono, *q_bc_mono);
+            totals.v_icms_mono = accum(totals.v_icms_mono, Some(*v_icms_mono));
+            totals.q_bc_mono_reten = accum_raw(totals.q_bc_mono_reten, *q_bc_mono_reten);
+            totals.v_icms_mono_reten = accum(totals.v_icms_mono_reten, Some(*v_icms_mono_reten));
+            let mut fields = filter_fields(vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "15")),
+                optional_field("qBCMono", fc4_raw(*q_bc_mono).as_deref()),
+                Some(TaxField::new("adRemICMS", fc4(Some(*ad_rem_icms)).unwrap())),
+                Some(TaxField::new("vICMSMono", fc2(Some(*v_icms_mono)).unwrap())),
+                optional_field("qBCMonoReten", fc4_raw(*q_bc_mono_reten).as_deref()),
+                Some(TaxField::new("adRemICMSReten", fc4(Some(*ad_rem_icms_reten)).unwrap())),
+                Some(TaxField::new("vICMSMonoReten", fc2(Some(*v_icms_mono_reten)).unwrap())),
+            ]);
+            if p_red_ad_rem.is_some() {
+                fields.push(TaxField::new("pRedAdRem", fc4(*p_red_ad_rem).unwrap()));
+                fields.push(required_field("motRedAdRem", mot_red_ad_rem.as_deref())?);
+            }
+            Ok(("ICMS15".to_string(), fields))
+        }
+
+        IcmsCst::Cst20 {
+            orig,
+            mod_bc,
+            p_red_bc,
+            v_bc,
+            p_icms,
+            v_icms,
+            v_bc_fcp,
+            p_fcp,
+            v_fcp,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+        } => {
+            totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            totals.v_bc = accum(totals.v_bc, Some(*v_bc));
+            totals.v_icms = accum(totals.v_icms, Some(*v_icms));
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "20")),
+                Some(TaxField::new("modBC", mod_bc.as_str())),
+                Some(TaxField::new("pRedBC", fc4(Some(*p_red_bc)).unwrap())),
+                Some(TaxField::new("vBC", fc2(Some(*v_bc)).unwrap())),
+                Some(TaxField::new("pICMS", fc4(Some(*p_icms)).unwrap())),
+                Some(TaxField::new("vICMS", fc2(Some(*v_icms)).unwrap())),
+            ];
+            // FCP fields
+            fields_opt.push(optional_field("vBCFCP", fc2(*v_bc_fcp).as_deref()));
+            fields_opt.push(optional_field("pFCP", fc4(*p_fcp).as_deref()));
+            fields_opt.push(optional_field("vFCP", fc2(*v_fcp).as_deref()));
+            // Desoneration
+            fields_opt.push(optional_field("vICMSDeson", fc2(*v_icms_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
+            fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
+            Ok(("ICMS20".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst30 {
+            orig,
+            mod_bc_st,
+            p_mva_st,
+            p_red_bc_st,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st,
+            p_fcp_st,
+            v_fcp_st,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+        } => {
+            totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            totals.v_bc_st = accum(totals.v_bc_st, Some(*v_bc_st));
+            totals.v_st = accum(totals.v_st, Some(*v_icms_st));
+            totals.v_fcp_st = accum(totals.v_fcp_st, *v_fcp_st);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "30")),
+            ];
+            // ST fields
+            fields_opt.push(Some(TaxField::new("modBCST", mod_bc_st.as_str())));
+            if let Some(v) = p_mva_st {
+                fields_opt.push(Some(TaxField::new("pMVAST", fc4(Some(*v)).unwrap())));
+            }
+            if let Some(v) = p_red_bc_st {
+                fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
+            }
+            fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            // FCP ST
+            fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
+            fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
+            fields_opt.push(optional_field("vFCPST", fc2(*v_fcp_st).as_deref()));
+            // Desoneration
+            fields_opt.push(optional_field("vICMSDeson", fc2(*v_icms_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
+            fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
+            Ok(("ICMS30".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst40 {
+            orig,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+        }
+        | IcmsCst::Cst41 {
+            orig,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+        }
+        | IcmsCst::Cst50 {
+            orig,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+        } => {
+            totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", cst.cst_code())),
+            ];
+            // Desoneration
+            fields_opt.push(optional_field("vICMSDeson", fc2(*v_icms_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
+            fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
+            Ok(("ICMS40".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst51 {
+            orig,
+            mod_bc,
+            p_red_bc,
+            c_benef_rbc,
+            v_bc,
+            p_icms,
+            v_icms_op,
+            p_dif,
+            v_icms_dif,
+            v_icms,
+            v_bc_fcp,
+            p_fcp,
+            v_fcp,
+            p_fcp_dif,
+            v_fcp_dif,
+            v_fcp_efet,
+        } => {
+            totals.v_bc = accum(totals.v_bc, *v_bc);
+            totals.v_icms = accum(totals.v_icms, *v_icms);
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "51")),
+                optional_field("modBC", mod_bc.as_deref()),
+                optional_field("pRedBC", fc4(*p_red_bc).as_deref()),
+                optional_field("cBenefRBC", c_benef_rbc.as_deref()),
+                optional_field("vBC", fc2(*v_bc).as_deref()),
+                optional_field("pICMS", fc4(*p_icms).as_deref()),
+                optional_field("vICMSOp", fc2(*v_icms_op).as_deref()),
+                optional_field("pDif", fc4(*p_dif).as_deref()),
+                optional_field("vICMSDif", fc2(*v_icms_dif).as_deref()),
+                optional_field("vICMS", fc2(*v_icms).as_deref()),
+                optional_field("vBCFCP", fc2(*v_bc_fcp).as_deref()),
+                optional_field("pFCP", fc4(*p_fcp).as_deref()),
+                optional_field("vFCP", fc2(*v_fcp).as_deref()),
+                optional_field("pFCPDif", fc4(*p_fcp_dif).as_deref()),
+                optional_field("vFCPDif", fc2(*v_fcp_dif).as_deref()),
+                optional_field("vFCPEfet", fc2(*v_fcp_efet).as_deref()),
+            ];
+            Ok(("ICMS51".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst53 {
+            orig,
+            q_bc_mono,
+            ad_rem_icms,
+            v_icms_mono_op,
+            p_dif,
+            v_icms_mono_dif,
+            v_icms_mono,
+        } => {
+            totals.q_bc_mono = accum_raw(totals.q_bc_mono, *q_bc_mono);
+            totals.v_icms_mono = accum(totals.v_icms_mono, *v_icms_mono);
+            totals.q_bc_mono_reten = accum_raw(totals.q_bc_mono_reten, None);
+            totals.v_icms_mono_reten = accum(totals.v_icms_mono_reten, None);
+            let fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "53")),
+                optional_field("qBCMono", fc4_raw(*q_bc_mono).as_deref()),
+                optional_field("adRemICMS", fc4(*ad_rem_icms).as_deref()),
+                optional_field("vICMSMonoOp", fc2(*v_icms_mono_op).as_deref()),
+                optional_field("pDif", fc4(*p_dif).as_deref()),
+                optional_field("vICMSMonoDif", fc2(*v_icms_mono_dif).as_deref()),
+                optional_field("vICMSMono", fc2(*v_icms_mono).as_deref()),
+            ];
+            Ok(("ICMS53".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst60 {
+            orig,
+            v_bc_st_ret,
+            p_st,
+            v_icms_substituto,
+            v_icms_st_ret,
+            v_bc_fcp_st_ret,
+            p_fcp_st_ret,
+            v_fcp_st_ret,
+            p_red_bc_efet,
+            v_bc_efet,
+            p_icms_efet,
+            v_icms_efet,
+        } => {
+            totals.v_fcp_st_ret = accum(totals.v_fcp_st_ret, *v_fcp_st_ret);
+            let fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "60")),
+                optional_field("vBCSTRet", fc2(*v_bc_st_ret).as_deref()),
+                optional_field("pST", fc4(*p_st).as_deref()),
+                optional_field("vICMSSubstituto", fc2(*v_icms_substituto).as_deref()),
+                optional_field("vICMSSTRet", fc2(*v_icms_st_ret).as_deref()),
+                optional_field("vBCFCPSTRet", fc2(*v_bc_fcp_st_ret).as_deref()),
+                optional_field("pFCPSTRet", fc4(*p_fcp_st_ret).as_deref()),
+                optional_field("vFCPSTRet", fc2(*v_fcp_st_ret).as_deref()),
+                optional_field("pRedBCEfet", fc4(*p_red_bc_efet).as_deref()),
+                optional_field("vBCEfet", fc2(*v_bc_efet).as_deref()),
+                optional_field("pICMSEfet", fc4(*p_icms_efet).as_deref()),
+                optional_field("vICMSEfet", fc2(*v_icms_efet).as_deref()),
+            ];
+            Ok(("ICMS60".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst61 {
+            orig,
+            q_bc_mono_ret,
+            ad_rem_icms_ret,
+            v_icms_mono_ret,
+        } => {
+            totals.q_bc_mono_ret = accum_raw(totals.q_bc_mono_ret, *q_bc_mono_ret);
+            totals.v_icms_mono_ret = accum(totals.v_icms_mono_ret, Some(*v_icms_mono_ret));
+            let fields = filter_fields(vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "61")),
+                optional_field("qBCMonoRet", fc4_raw(*q_bc_mono_ret).as_deref()),
+                Some(TaxField::new("adRemICMSRet", fc4(Some(*ad_rem_icms_ret)).unwrap())),
+                Some(TaxField::new("vICMSMonoRet", fc2(Some(*v_icms_mono_ret)).unwrap())),
+            ]);
+            Ok(("ICMS61".to_string(), fields))
+        }
+
+        IcmsCst::Cst70 {
+            orig,
+            mod_bc,
+            p_red_bc,
+            v_bc,
+            p_icms,
+            v_icms,
+            v_bc_fcp,
+            p_fcp,
+            v_fcp,
+            mod_bc_st,
+            p_mva_st,
+            p_red_bc_st,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st,
+            p_fcp_st,
+            v_fcp_st,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+            v_icms_st_deson,
+            mot_des_icms_st,
+        } => {
+            totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            totals.v_bc = accum(totals.v_bc, Some(*v_bc));
+            totals.v_icms = accum(totals.v_icms, Some(*v_icms));
+            totals.v_bc_st = accum(totals.v_bc_st, Some(*v_bc_st));
+            totals.v_st = accum(totals.v_st, Some(*v_icms_st));
+            totals.v_fcp_st = accum(totals.v_fcp_st, *v_fcp_st);
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "70")),
+                Some(TaxField::new("modBC", mod_bc.as_str())),
+                Some(TaxField::new("pRedBC", fc4(Some(*p_red_bc)).unwrap())),
+                Some(TaxField::new("vBC", fc2(Some(*v_bc)).unwrap())),
+                Some(TaxField::new("pICMS", fc4(Some(*p_icms)).unwrap())),
+                Some(TaxField::new("vICMS", fc2(Some(*v_icms)).unwrap())),
+            ];
+            // FCP
+            fields_opt.push(optional_field("vBCFCP", fc2(*v_bc_fcp).as_deref()));
+            fields_opt.push(optional_field("pFCP", fc4(*p_fcp).as_deref()));
+            fields_opt.push(optional_field("vFCP", fc2(*v_fcp).as_deref()));
+            // ST
+            fields_opt.push(Some(TaxField::new("modBCST", mod_bc_st.as_str())));
+            if let Some(v) = p_mva_st {
+                fields_opt.push(Some(TaxField::new("pMVAST", fc4(Some(*v)).unwrap())));
+            }
+            if let Some(v) = p_red_bc_st {
+                fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
+            }
+            fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            // FCP ST
+            fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
+            fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
+            fields_opt.push(optional_field("vFCPST", fc2(*v_fcp_st).as_deref()));
+            // Desoneration
+            fields_opt.push(optional_field("vICMSDeson", fc2(*v_icms_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
+            fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
+            // ST desoneration
+            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
+            Ok(("ICMS70".to_string(), filter_fields(fields_opt)))
+        }
+
+        IcmsCst::Cst90 {
+            orig,
+            mod_bc,
+            v_bc,
+            p_red_bc,
+            c_benef_rbc,
+            p_icms,
+            v_icms_op,
+            p_dif,
+            v_icms_dif,
+            v_icms,
+            v_bc_fcp,
+            p_fcp,
+            v_fcp,
+            p_fcp_dif,
+            v_fcp_dif,
+            v_fcp_efet,
+            mod_bc_st,
+            p_mva_st,
+            p_red_bc_st,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st,
+            p_fcp_st,
+            v_fcp_st,
+            v_icms_deson,
+            mot_des_icms,
+            ind_deduz_deson,
+            v_icms_st_deson,
+            mot_des_icms_st,
+        } => {
+            totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            totals.v_bc = accum(totals.v_bc, *v_bc);
+            totals.v_icms = accum(totals.v_icms, *v_icms);
+            totals.v_bc_st = accum(totals.v_bc_st, *v_bc_st);
+            totals.v_st = accum(totals.v_st, *v_icms_st);
+            totals.v_fcp_st = accum(totals.v_fcp_st, *v_fcp_st);
+            totals.v_fcp = accum(totals.v_fcp, *v_fcp);
+            let mut fields_opt: Vec<Option<TaxField>> = vec![
+                Some(TaxField::new("orig", orig.as_str())),
+                Some(TaxField::new("CST", "90")),
+                optional_field("modBC", mod_bc.as_deref()),
+                optional_field("vBC", fc2(*v_bc).as_deref()),
+                optional_field("pRedBC", fc4(*p_red_bc).as_deref()),
+                optional_field("cBenefRBC", c_benef_rbc.as_deref()),
+                optional_field("pICMS", fc4(*p_icms).as_deref()),
+                optional_field("vICMSOp", fc2(*v_icms_op).as_deref()),
+                optional_field("pDif", fc4(*p_dif).as_deref()),
+                optional_field("vICMSDif", fc2(*v_icms_dif).as_deref()),
+                optional_field("vICMS", fc2(*v_icms).as_deref()),
+            ];
+            // FCP
+            fields_opt.push(optional_field("vBCFCP", fc2(*v_bc_fcp).as_deref()));
+            fields_opt.push(optional_field("pFCP", fc4(*p_fcp).as_deref()));
+            fields_opt.push(optional_field("vFCP", fc2(*v_fcp).as_deref()));
+            // FCP deferral
+            fields_opt.push(optional_field("pFCPDif", fc4(*p_fcp_dif).as_deref()));
+            fields_opt.push(optional_field("vFCPDif", fc2(*v_fcp_dif).as_deref()));
+            fields_opt.push(optional_field("vFCPEfet", fc2(*v_fcp_efet).as_deref()));
+            // ST (all optional for CST 90)
+            fields_opt.push(optional_field("modBCST", mod_bc_st.as_deref()));
+            fields_opt.push(optional_field("pMVAST", fc4(*p_mva_st).as_deref()));
+            fields_opt.push(optional_field("pRedBCST", fc4(*p_red_bc_st).as_deref()));
+            fields_opt.push(optional_field("vBCST", fc2(*v_bc_st).as_deref()));
+            fields_opt.push(optional_field("pICMSST", fc4(*p_icms_st).as_deref()));
+            fields_opt.push(optional_field("vICMSST", fc2(*v_icms_st).as_deref()));
+            // FCP ST
+            fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
+            fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
+            fields_opt.push(optional_field("vFCPST", fc2(*v_fcp_st).as_deref()));
+            // Desoneration
+            fields_opt.push(optional_field("vICMSDeson", fc2(*v_icms_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
+            fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
+            // ST desoneration
+            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
+            Ok(("ICMS90".to_string(), filter_fields(fields_opt)))
+        }
+    }
+}
+
 // ── Helper: format field values ─────────────────────────────────────────────
 
 /// Format a monetary [`Cents`] value (2 decimal places) returning `Option<String>`.
@@ -141,43 +1250,12 @@ fn fc4_raw(v: Option<i64>) -> Option<String> {
 
 // ── Domain field-block helpers ──────────────────────────────────────────────
 
-/// FCP (Fundo de Combate a Pobreza): vBCFCP, pFCP, vFCP
-fn fcp_fields(d: &IcmsData) -> Vec<Option<TaxField>> {
-    vec![
-        optional_field("vBCFCP", fc2(d.v_bc_fcp).as_deref()),
-        optional_field("pFCP", fc4(d.p_fcp).as_deref()),
-        optional_field("vFCP", fc2(d.v_fcp).as_deref()),
-    ]
-}
-
 /// FCP-ST: vBCFCPST, pFCPST, vFCPST
 fn fcp_st_fields(d: &IcmsData) -> Vec<Option<TaxField>> {
     vec![
         optional_field("vBCFCPST", fc2(d.v_bc_fcp_st).as_deref()),
         optional_field("pFCPST", fc4(d.p_fcp_st).as_deref()),
         optional_field("vFCPST", fc2(d.v_fcp_st).as_deref()),
-    ]
-}
-
-/// ST base (required modBCST): modBCST ... vICMSST
-fn st_fields(d: &IcmsData) -> Vec<Result<TaxField, FiscalError>> {
-    vec![
-        required_field("modBCST", d.mod_bc_st.as_deref()),
-        Ok(optional_field("pMVAST", fc4(d.p_mva_st).as_deref())).and_then(|f| match f {
-            Some(f) => Ok(f),
-            None => Err(FiscalError::MissingRequiredField {
-                field: "_skip_".to_string(),
-            }),
-        }),
-        Ok(optional_field("pRedBCST", fc4(d.p_red_bc_st).as_deref())).and_then(|f| match f {
-            Some(f) => Ok(f),
-            None => Err(FiscalError::MissingRequiredField {
-                field: "_skip_".to_string(),
-            }),
-        }),
-        required_field("vBCST", fc2(d.v_bc_st).as_deref()),
-        required_field("pICMSST", fc4(d.p_icms_st).as_deref()),
-        required_field("vICMSST", fc2(d.v_icms_st).as_deref()),
     ]
 }
 
@@ -209,14 +1287,6 @@ fn desoneration_fields(d: &IcmsData) -> Vec<Option<TaxField>> {
         optional_field("vICMSDeson", fc2(d.v_icms_deson).as_deref()),
         optional_field("motDesICMS", d.mot_des_icms.as_deref()),
         optional_field("indDeduzDeson", d.ind_deduz_deson.as_deref()),
-    ]
-}
-
-/// ST desoneration: vICMSSTDeson, motDesICMSST
-fn st_desoneration_fields(d: &IcmsData) -> Vec<Option<TaxField>> {
-    vec![
-        optional_field("vICMSSTDeson", fc2(d.v_icms_st_deson).as_deref()),
-        optional_field("motDesICMSST", d.mot_des_icms_st.as_deref()),
     ]
 }
 
@@ -454,372 +1524,13 @@ pub fn merge_icms_totals(target: &mut IcmsTotals, source: &IcmsTotals) {
 fn calculate_cst(
     data: &IcmsData,
     totals: &mut IcmsTotals,
-    cst: &str,
+    _cst: &str,
 ) -> Result<(String, Vec<TaxField>), FiscalError> {
-    match cst {
-        "00" => calc_cst_00(data, totals),
-        "02" => calc_cst_02(data, totals),
-        "10" => calc_cst_10(data, totals),
-        "15" => calc_cst_15(data, totals),
-        "20" => calc_cst_20(data, totals),
-        "30" => calc_cst_30(data, totals),
-        "40" | "41" | "50" => calc_cst_40(data, totals),
-        "51" => calc_cst_51(data, totals),
-        "53" => calc_cst_53(data, totals),
-        "60" => calc_cst_60(data, totals),
-        "61" => calc_cst_61(data, totals),
-        "70" => calc_cst_70(data, totals),
-        "90" => calc_cst_90(data, totals),
-        _ => Err(FiscalError::UnsupportedIcmsCst(cst.to_string())),
-    }
-}
-
-/// CST 00 - Tributada integralmente
-fn calc_cst_00(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let fields = filter_fields(vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        Some(required_field("modBC", d.mod_bc.as_deref())?),
-        Some(required_field("vBC", fc2(d.v_bc).as_deref())?),
-        Some(required_field("pICMS", fc4(d.p_icms).as_deref())?),
-        Some(required_field("vICMS", fc2(d.v_icms).as_deref())?),
-        optional_field("pFCP", fc4(d.p_fcp).as_deref()),
-        optional_field("vFCP", fc2(d.v_fcp).as_deref()),
-    ]);
-
-    Ok(("ICMS00".to_string(), fields))
-}
-
-/// CST 02 - Tributacao monofasica propria sobre combustiveis
-fn calc_cst_02(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.q_bc_mono = accum_raw(t.q_bc_mono, d.q_bc_mono);
-    t.v_icms_mono = accum(t.v_icms_mono, d.v_icms_mono);
-
-    let fields = filter_fields(vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("qBCMono", fc4_raw(d.q_bc_mono).as_deref()),
-        Some(required_field("adRemICMS", fc4(d.ad_rem_icms).as_deref())?),
-        Some(required_field("vICMSMono", fc2(d.v_icms_mono).as_deref())?),
-    ]);
-
-    Ok(("ICMS02".to_string(), fields))
-}
-
-/// CST 10 - Tributada e com cobranca do ICMS por ST
-fn calc_cst_10(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_bc_st = accum(t.v_bc_st, d.v_bc_st);
-    t.v_st = accum(t.v_st, d.v_icms_st);
-    t.v_fcp_st = accum(t.v_fcp_st, d.v_fcp_st);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        Some(required_field("modBC", d.mod_bc.as_deref())?),
-        Some(required_field("vBC", fc2(d.v_bc).as_deref())?),
-        Some(required_field("pICMS", fc4(d.p_icms).as_deref())?),
-        Some(required_field("vICMS", fc2(d.v_icms).as_deref())?),
-    ];
-
-    // FCP fields
-    fields_opt.extend(fcp_fields(d));
-    // ST fields
-    let st = collect_st_fields(d)?;
-    for f in st {
-        fields_opt.push(Some(f));
-    }
-    // FCP ST fields
-    fields_opt.extend(fcp_st_fields(d));
-    // ST desoneration fields
-    fields_opt.extend(st_desoneration_fields(d));
-
-    Ok(("ICMS10".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 15 - Tributacao monofasica propria e com responsabilidade pela retencao sobre combustiveis
-fn calc_cst_15(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.q_bc_mono = accum_raw(t.q_bc_mono, d.q_bc_mono);
-    t.v_icms_mono = accum(t.v_icms_mono, d.v_icms_mono);
-    t.q_bc_mono_reten = accum_raw(t.q_bc_mono_reten, d.q_bc_mono_reten);
-    t.v_icms_mono_reten = accum(t.v_icms_mono_reten, d.v_icms_mono_reten);
-
-    let mut fields = filter_fields(vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("qBCMono", fc4_raw(d.q_bc_mono).as_deref()),
-        Some(required_field("adRemICMS", fc4(d.ad_rem_icms).as_deref())?),
-        Some(required_field("vICMSMono", fc2(d.v_icms_mono).as_deref())?),
-        optional_field("qBCMonoReten", fc4_raw(d.q_bc_mono_reten).as_deref()),
-        Some(required_field(
-            "adRemICMSReten",
-            fc4(d.ad_rem_icms_reten).as_deref(),
-        )?),
-        Some(required_field(
-            "vICMSMonoReten",
-            fc2(d.v_icms_mono_reten).as_deref(),
-        )?),
-    ]);
-
-    if d.p_red_ad_rem.is_some() {
-        fields.push(required_field("pRedAdRem", fc4(d.p_red_ad_rem).as_deref())?);
-        fields.push(required_field("motRedAdRem", d.mot_red_ad_rem.as_deref())?);
-    }
-
-    Ok(("ICMS15".to_string(), fields))
-}
-
-/// CST 20 - Com reducao de base de calculo
-fn calc_cst_20(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_icms_deson = accum(t.v_icms_deson, d.v_icms_deson);
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        Some(required_field("modBC", d.mod_bc.as_deref())?),
-        Some(required_field("pRedBC", fc4(d.p_red_bc).as_deref())?),
-        Some(required_field("vBC", fc2(d.v_bc).as_deref())?),
-        Some(required_field("pICMS", fc4(d.p_icms).as_deref())?),
-        Some(required_field("vICMS", fc2(d.v_icms).as_deref())?),
-    ];
-
-    // FCP fields
-    fields_opt.extend(fcp_fields(d));
-    // Desoneration fields
-    fields_opt.extend(desoneration_fields(d));
-
-    Ok(("ICMS20".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 30 - Isenta ou nao tributada e com cobranca do ICMS por ST
-fn calc_cst_30(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_icms_deson = accum(t.v_icms_deson, d.v_icms_deson);
-    t.v_bc_st = accum(t.v_bc_st, d.v_bc_st);
-    t.v_st = accum(t.v_st, d.v_icms_st);
-    t.v_fcp_st = accum(t.v_fcp_st, d.v_fcp_st);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-    ];
-
-    // ST fields
-    let st = collect_st_fields(d)?;
-    for f in st {
-        fields_opt.push(Some(f));
-    }
-    // FCP ST fields
-    fields_opt.extend(fcp_st_fields(d));
-    // Desoneration fields
-    fields_opt.extend(desoneration_fields(d));
-
-    Ok(("ICMS30".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 40/41/50 - Isenta / Nao tributada / Suspensao
-fn calc_cst_40(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_icms_deson = accum(t.v_icms_deson, d.v_icms_deson);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-    ];
-
-    // Desoneration fields
-    fields_opt.extend(desoneration_fields(d));
-
-    Ok(("ICMS40".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 51 - Diferimento
-fn calc_cst_51(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("modBC", d.mod_bc.as_deref()),
-        optional_field("pRedBC", fc4(d.p_red_bc).as_deref()),
-        optional_field("cBenefRBC", d.c_benef_rbc.as_deref()),
-        optional_field("vBC", fc2(d.v_bc).as_deref()),
-        optional_field("pICMS", fc4(d.p_icms).as_deref()),
-        optional_field("vICMSOp", fc2(d.v_icms_op).as_deref()),
-        optional_field("pDif", fc4(d.p_dif).as_deref()),
-        optional_field("vICMSDif", fc2(d.v_icms_dif).as_deref()),
-        optional_field("vICMS", fc2(d.v_icms).as_deref()),
-        optional_field("vBCFCP", fc2(d.v_bc_fcp).as_deref()),
-        optional_field("pFCP", fc4(d.p_fcp).as_deref()),
-        optional_field("vFCP", fc2(d.v_fcp).as_deref()),
-        optional_field("pFCPDif", fc4(d.p_fcp_dif).as_deref()),
-        optional_field("vFCPDif", fc2(d.v_fcp_dif).as_deref()),
-        optional_field("vFCPEfet", fc2(d.v_fcp_efet).as_deref()),
-    ];
-
-    Ok(("ICMS51".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 53 - Tributacao monofasica sobre combustiveis com recolhimento diferido
-fn calc_cst_53(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.q_bc_mono = accum_raw(t.q_bc_mono, d.q_bc_mono);
-    t.v_icms_mono = accum(t.v_icms_mono, d.v_icms_mono);
-    t.q_bc_mono_reten = accum_raw(t.q_bc_mono_reten, d.q_bc_mono_reten);
-    t.v_icms_mono_reten = accum(t.v_icms_mono_reten, d.v_icms_mono_reten);
-
-    let fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("qBCMono", fc4_raw(d.q_bc_mono).as_deref()),
-        optional_field("adRemICMS", fc4(d.ad_rem_icms).as_deref()),
-        optional_field("vICMSMonoOp", fc2(d.v_icms_mono_op).as_deref()),
-        optional_field("pDif", fc4(d.p_dif).as_deref()),
-        optional_field("vICMSMonoDif", fc2(d.v_icms_mono_dif).as_deref()),
-        optional_field("vICMSMono", fc2(d.v_icms_mono).as_deref()),
-    ];
-
-    Ok(("ICMS53".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 60 - ICMS cobrado anteriormente por ST
-fn calc_cst_60(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_fcp_st_ret = accum(t.v_fcp_st_ret, d.v_fcp_st_ret);
-
-    let fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("vBCSTRet", fc2(d.v_bc_st_ret).as_deref()),
-        optional_field("pST", fc4(d.p_st).as_deref()),
-        optional_field("vICMSSubstituto", fc2(d.v_icms_substituto).as_deref()),
-        optional_field("vICMSSTRet", fc2(d.v_icms_st_ret).as_deref()),
-        optional_field("vBCFCPSTRet", fc2(d.v_bc_fcp_st_ret).as_deref()),
-        optional_field("pFCPSTRet", fc4(d.p_fcp_st_ret).as_deref()),
-        optional_field("vFCPSTRet", fc2(d.v_fcp_st_ret).as_deref()),
-        optional_field("pRedBCEfet", fc4(d.p_red_bc_efet).as_deref()),
-        optional_field("vBCEfet", fc2(d.v_bc_efet).as_deref()),
-        optional_field("pICMSEfet", fc4(d.p_icms_efet).as_deref()),
-        optional_field("vICMSEfet", fc2(d.v_icms_efet).as_deref()),
-    ];
-
-    Ok(("ICMS60".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 61 - Tributacao monofasica sobre combustiveis cobrada anteriormente
-fn calc_cst_61(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.q_bc_mono_ret = accum_raw(t.q_bc_mono_ret, d.q_bc_mono_ret);
-    t.v_icms_mono_ret = accum(t.v_icms_mono_ret, d.v_icms_mono_ret);
-
-    let fields = filter_fields(vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("qBCMonoRet", fc4_raw(d.q_bc_mono_ret).as_deref()),
-        Some(required_field(
-            "adRemICMSRet",
-            fc4(d.ad_rem_icms_ret).as_deref(),
-        )?),
-        Some(required_field(
-            "vICMSMonoRet",
-            fc2(d.v_icms_mono_ret).as_deref(),
-        )?),
-    ]);
-
-    Ok(("ICMS61".to_string(), fields))
-}
-
-/// CST 70 - Reducao de BC e cobranca do ICMS por ST
-fn calc_cst_70(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_icms_deson = accum(t.v_icms_deson, d.v_icms_deson);
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_bc_st = accum(t.v_bc_st, d.v_bc_st);
-    t.v_st = accum(t.v_st, d.v_icms_st);
-    t.v_fcp_st = accum(t.v_fcp_st, d.v_fcp_st);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        Some(required_field("modBC", d.mod_bc.as_deref())?),
-        Some(required_field("pRedBC", fc4(d.p_red_bc).as_deref())?),
-        Some(required_field("vBC", fc2(d.v_bc).as_deref())?),
-        Some(required_field("pICMS", fc4(d.p_icms).as_deref())?),
-        Some(required_field("vICMS", fc2(d.v_icms).as_deref())?),
-    ];
-
-    // FCP fields
-    fields_opt.extend(fcp_fields(d));
-    // ST fields
-    let st = collect_st_fields(d)?;
-    for f in st {
-        fields_opt.push(Some(f));
-    }
-    // FCP ST fields
-    fields_opt.extend(fcp_st_fields(d));
-    // Desoneration fields
-    fields_opt.extend(desoneration_fields(d));
-    // ST desoneration fields
-    fields_opt.extend(st_desoneration_fields(d));
-
-    Ok(("ICMS70".to_string(), filter_fields(fields_opt)))
-}
-
-/// CST 90 - Outros
-fn calc_cst_90(d: &IcmsData, t: &mut IcmsTotals) -> Result<(String, Vec<TaxField>), FiscalError> {
-    t.v_icms_deson = accum(t.v_icms_deson, d.v_icms_deson);
-    t.v_bc = accum(t.v_bc, d.v_bc);
-    t.v_icms = accum(t.v_icms, d.v_icms);
-    t.v_bc_st = accum(t.v_bc_st, d.v_bc_st);
-    t.v_st = accum(t.v_st, d.v_icms_st);
-    t.v_fcp_st = accum(t.v_fcp_st, d.v_fcp_st);
-    t.v_fcp = accum(t.v_fcp, d.v_fcp);
-
-    let mut fields_opt: Vec<Option<TaxField>> = vec![
-        Some(required_field("orig", Some(d.orig.as_str()))?),
-        Some(required_field("CST", d.cst.as_deref())?),
-        optional_field("modBC", d.mod_bc.as_deref()),
-        optional_field("vBC", fc2(d.v_bc).as_deref()),
-        optional_field("pRedBC", fc4(d.p_red_bc).as_deref()),
-        optional_field("cBenefRBC", d.c_benef_rbc.as_deref()),
-        optional_field("pICMS", fc4(d.p_icms).as_deref()),
-        optional_field("vICMSOp", fc2(d.v_icms_op).as_deref()),
-        optional_field("pDif", fc4(d.p_dif).as_deref()),
-        optional_field("vICMSDif", fc2(d.v_icms_dif).as_deref()),
-        optional_field("vICMS", fc2(d.v_icms).as_deref()),
-    ];
-
-    // FCP fields
-    fields_opt.extend(fcp_fields(d));
-
-    // FCP deferral fields
-    fields_opt.push(optional_field("pFCPDif", fc4(d.p_fcp_dif).as_deref()));
-    fields_opt.push(optional_field("vFCPDif", fc2(d.v_fcp_dif).as_deref()));
-    fields_opt.push(optional_field("vFCPEfet", fc2(d.v_fcp_efet).as_deref()));
-
-    // ST fields (all optional for CST 90)
-    fields_opt.push(optional_field("modBCST", d.mod_bc_st.as_deref()));
-    fields_opt.push(optional_field("pMVAST", fc4(d.p_mva_st).as_deref()));
-    fields_opt.push(optional_field("pRedBCST", fc4(d.p_red_bc_st).as_deref()));
-    fields_opt.push(optional_field("vBCST", fc2(d.v_bc_st).as_deref()));
-    fields_opt.push(optional_field("pICMSST", fc4(d.p_icms_st).as_deref()));
-    fields_opt.push(optional_field("vICMSST", fc2(d.v_icms_st).as_deref()));
-
-    // FCP ST fields
-    fields_opt.extend(fcp_st_fields(d));
-    // Desoneration fields
-    fields_opt.extend(desoneration_fields(d));
-    // ST desoneration fields
-    fields_opt.extend(st_desoneration_fields(d));
-
-    Ok(("ICMS90".to_string(), filter_fields(fields_opt)))
+    // Convert the flat IcmsData into a typed IcmsCst variant, then delegate
+    // to build_icms_cst_xml. This gives us one canonical code path for
+    // XML generation while keeping the old public API intact.
+    let typed = IcmsCst::try_from(data)?;
+    build_icms_cst_xml(&typed, totals)
 }
 
 // ── CSOSN builders (Simples Nacional) ───────────────────────────────────────
