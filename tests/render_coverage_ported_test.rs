@@ -46,78 +46,8 @@ fn make_issuer_simples() -> IssuerData {
 
 /// Base item for ICMS CST 00 with PIS/COFINS CST 01
 fn make_base_item() -> InvoiceItemData {
-    InvoiceItemData {
-        item_number: 1,
-        product_code: "001".into(),
-        description: "Produto Teste".into(),
-        ncm: "61091000".into(),
-        cfop: "5102".into(),
-        unit_of_measure: "UN".into(),
-        quantity: 1.0,
-        unit_price: Cents(10000),
-        total_price: Cents(10000),
-        c_ean: None,
-        c_ean_trib: None,
-        cest: None,
-        v_frete: None,
-        v_seg: None,
-        v_desc: None,
-        v_outro: None,
-        orig: None,
-        icms_cst: "00".into(),
-        icms_rate: Rate(1800),
-        icms_amount: Cents(1800),
-        icms_mod_bc: Some(0),
-        icms_red_bc: None,
-        icms_mod_bc_st: None,
-        icms_p_mva_st: None,
-        icms_red_bc_st: None,
-        icms_v_bc_st: None,
-        icms_p_icms_st: None,
-        icms_v_icms_st: None,
-        icms_v_icms_deson: None,
-        icms_mot_des_icms: None,
-        icms_p_fcp: None,
-        icms_v_fcp: None,
-        icms_v_bc_fcp: None,
-        icms_p_fcp_st: None,
-        icms_v_fcp_st: None,
-        icms_v_bc_fcp_st: None,
-        icms_p_cred_sn: None,
-        icms_v_cred_icms_sn: None,
-        icms_v_icms_substituto: None,
-        pis_cst: "01".into(),
-        pis_v_bc: None,
-        pis_p_pis: None,
-        pis_v_pis: None,
-        pis_q_bc_prod: None,
-        pis_v_aliq_prod: None,
-        cofins_cst: "01".into(),
-        cofins_v_bc: None,
-        cofins_p_cofins: None,
-        cofins_v_cofins: None,
-        cofins_q_bc_prod: None,
-        cofins_v_aliq_prod: None,
-        ipi_cst: None,
-        ipi_c_enq: None,
-        ipi_v_bc: None,
-        ipi_p_ipi: None,
-        ipi_v_ipi: None,
-        ipi_q_unid: None,
-        ipi_v_unid: None,
-        ii_v_bc: None,
-        ii_v_desp_adu: None,
-        ii_v_ii: None,
-        ii_v_iof: None,
-        rastro: None,
-        veic_prod: None,
-        med: None,
-        arma: None,
-        n_recopi: None,
-        inf_ad_prod: None,
-        obs_item: None,
-        dfe_referenciado: None,
-    }
+    InvoiceItemData::new(1, "001", "Produto Teste", "61091000", "5102", "UN", 1.0, Cents(10000), Cents(10000), "00", Rate(1800), Cents(1800), "01", "01")
+        .icms_mod_bc(0)
 }
 
 /// Base invoice builder factory for model 55
@@ -127,10 +57,7 @@ fn make_base_builder() -> InvoiceBuilder {
         .invoice_number(1)
         .issued_at(make_issued_at())
         .items(vec![make_base_item()])
-        .payments(vec![PaymentData {
-            method: "01".into(),
-            amount: Cents(10000),
-        }])
+        .payments(vec![PaymentData::new("01", Cents(10000))])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -158,40 +85,10 @@ mod render_complete_nfe_55 {
             .invoice_number(1)
             .issued_at(make_issued_at())
             .items(vec![item])
-            .payments(vec![PaymentData {
-                method: "01".into(),
-                amount: Cents(10000),
-            }])
-            .recipient(RecipientData {
-                tax_id: "12345678901".into(),
-                name: "Cliente Teste".into(),
-                state_code: Some("SP".into()),
-                ..Default::default()
-            })
-            .withdrawal(LocationData {
-                tax_id: "99887766000100".into(),
-                name: Some("Empresa Origem".into()),
-                street: "Rua Retirada".into(),
-                number: "50".into(),
-                complement: None,
-                district: "Industrial".into(),
-                city_code: IbgeCode("4106902".into()),
-                city_name: "Curitiba".into(),
-                state_code: "PR".into(),
-                zip_code: None,
-            })
-            .delivery(LocationData {
-                tax_id: "11222333000181".into(),
-                name: Some("Empresa Destino".into()),
-                street: "Rua Entrega".into(),
-                number: "200".into(),
-                complement: None,
-                district: "Centro".into(),
-                city_code: IbgeCode("3550308".into()),
-                city_name: "Sao Paulo".into(),
-                state_code: "SP".into(),
-                zip_code: None,
-            })
+            .payments(vec![PaymentData::new("01", Cents(10000))])
+            .recipient(RecipientData::new("12345678901", "Cliente Teste").state_code("SP"))
+            .withdrawal(LocationData::new("99887766000100", "Rua Retirada", "50", "Industrial", IbgeCode("4106902".into()), "Curitiba", "PR").name("Empresa Origem"))
+            .delivery(LocationData::new("11222333000181", "Rua Entrega", "200", "Centro", IbgeCode("3550308".into()), "Sao Paulo", "SP").name("Empresa Destino"))
             .authorized_xml(vec![AuthorizedXml::new("12345678000195")])
             .billing(BillingData::new()
                 .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))

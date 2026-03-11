@@ -453,13 +453,11 @@ proptest! {
         v_fcp_uf_dest in reasonable_cents(),
         v_icms_uf_dest in reasonable_cents(),
     ) {
-        let source = IcmsTotals {
-            v_bc: Cents(v_bc), v_icms: Cents(v_icms), v_icms_deson: Cents(v_icms_deson),
-            v_bc_st: Cents(v_bc_st), v_st: Cents(v_st), v_fcp: Cents(v_fcp), v_fcp_st: Cents(v_fcp_st),
-            v_fcp_st_ret: Cents(v_fcp_st_ret), v_fcp_uf_dest: Cents(v_fcp_uf_dest),
-            v_icms_uf_dest: Cents(v_icms_uf_dest),
-            ..IcmsTotals::default()
-        };
+        let source = IcmsTotals::new()
+            .v_bc(Cents(v_bc)).v_icms(Cents(v_icms)).v_icms_deson(Cents(v_icms_deson))
+            .v_bc_st(Cents(v_bc_st)).v_st(Cents(v_st)).v_fcp(Cents(v_fcp)).v_fcp_st(Cents(v_fcp_st))
+            .v_fcp_st_ret(Cents(v_fcp_st_ret)).v_fcp_uf_dest(Cents(v_fcp_uf_dest))
+            .v_icms_uf_dest(Cents(v_icms_uf_dest));
         let mut target = create_icms_totals();
         merge_icms_totals(&mut target, &source);
         prop_assert_eq!(target, source);
@@ -477,9 +475,9 @@ proptest! {
         c_icms in reasonable_cents(),
         c_st in reasonable_cents(),
     ) {
-        let a = IcmsTotals { v_bc: Cents(a_bc), v_icms: Cents(a_icms), v_st: Cents(a_st), ..IcmsTotals::new() };
-        let b = IcmsTotals { v_bc: Cents(b_bc), v_icms: Cents(b_icms), v_st: Cents(b_st), ..IcmsTotals::new() };
-        let c = IcmsTotals { v_bc: Cents(c_bc), v_icms: Cents(c_icms), v_st: Cents(c_st), ..IcmsTotals::new() };
+        let a = IcmsTotals::new().v_bc(Cents(a_bc)).v_icms(Cents(a_icms)).v_st(Cents(a_st));
+        let b = IcmsTotals::new().v_bc(Cents(b_bc)).v_icms(Cents(b_icms)).v_st(Cents(b_st));
+        let c = IcmsTotals::new().v_bc(Cents(c_bc)).v_icms(Cents(c_icms)).v_st(Cents(c_st));
 
         // (a + b) + c
         let mut left = a.clone();
@@ -506,14 +504,8 @@ proptest! {
         b_deson in reasonable_cents(),
         b_fcp in reasonable_cents(),
     ) {
-        let a = IcmsTotals {
-            v_bc: Cents(a_bc), v_icms: Cents(a_icms), v_icms_deson: Cents(a_deson), v_fcp: Cents(a_fcp),
-            ..Default::default()
-        };
-        let b = IcmsTotals {
-            v_bc: Cents(b_bc), v_icms: Cents(b_icms), v_icms_deson: Cents(b_deson), v_fcp: Cents(b_fcp),
-            ..Default::default()
-        };
+        let a = IcmsTotals::new().v_bc(Cents(a_bc)).v_icms(Cents(a_icms)).v_icms_deson(Cents(a_deson)).v_fcp(Cents(a_fcp));
+        let b = IcmsTotals::new().v_bc(Cents(b_bc)).v_icms(Cents(b_icms)).v_icms_deson(Cents(b_deson)).v_fcp(Cents(b_fcp));
 
         // a + b
         let mut ab = a.clone();

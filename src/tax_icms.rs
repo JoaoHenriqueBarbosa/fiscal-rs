@@ -68,6 +68,36 @@ pub struct IcmsPartData {
     pub ind_deduz_deson: Option<String>,
 }
 
+impl IcmsPartData {
+    /// Create a new `IcmsPartData` with all required fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        orig: impl Into<String>, cst: impl Into<String>, mod_bc: impl Into<String>,
+        v_bc: Cents, p_icms: Rate, v_icms: Cents,
+        mod_bc_st: impl Into<String>, v_bc_st: Cents, p_icms_st: Rate, v_icms_st: Cents,
+        p_bc_op: Rate, uf_st: impl Into<String>,
+    ) -> Self {
+        Self {
+            orig: orig.into(), cst: cst.into(), mod_bc: mod_bc.into(),
+            v_bc, p_red_bc: None, p_icms, v_icms,
+            mod_bc_st: mod_bc_st.into(), p_mva_st: None, p_red_bc_st: None,
+            v_bc_st, p_icms_st, v_icms_st,
+            v_bc_fcp_st: None, p_fcp_st: None, v_fcp_st: None,
+            p_bc_op, uf_st: uf_st.into(),
+            v_icms_deson: None, mot_des_icms: None, ind_deduz_deson: None,
+        }
+    }
+    pub fn p_red_bc(mut self, v: Rate) -> Self { self.p_red_bc = Some(v); self }
+    pub fn p_mva_st(mut self, v: Rate) -> Self { self.p_mva_st = Some(v); self }
+    pub fn p_red_bc_st(mut self, v: Rate) -> Self { self.p_red_bc_st = Some(v); self }
+    pub fn v_bc_fcp_st(mut self, v: Cents) -> Self { self.v_bc_fcp_st = Some(v); self }
+    pub fn p_fcp_st(mut self, v: Rate) -> Self { self.p_fcp_st = Some(v); self }
+    pub fn v_fcp_st(mut self, v: Cents) -> Self { self.v_fcp_st = Some(v); self }
+    pub fn v_icms_deson(mut self, v: Cents) -> Self { self.v_icms_deson = Some(v); self }
+    pub fn mot_des_icms(mut self, v: impl Into<String>) -> Self { self.mot_des_icms = Some(v.into()); self }
+    pub fn ind_deduz_deson(mut self, v: impl Into<String>) -> Self { self.ind_deduz_deson = Some(v.into()); self }
+}
+
 /// Data for building the ICMSST XML group (ST repasse).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -87,6 +117,33 @@ pub struct IcmsStData {
     pub v_bc_efet: Option<Cents>,
     pub p_icms_efet: Option<Rate>,
     pub v_icms_efet: Option<Cents>,
+}
+
+impl IcmsStData {
+    /// Create a new `IcmsStData` with required fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        orig: impl Into<String>, cst: impl Into<String>,
+        v_bc_st_ret: Cents, v_icms_st_ret: Cents,
+        v_bc_st_dest: Cents, v_icms_st_dest: Cents,
+    ) -> Self {
+        Self {
+            orig: orig.into(), cst: cst.into(),
+            v_bc_st_ret, p_st: None, v_icms_substituto: None, v_icms_st_ret,
+            v_bc_fcp_st_ret: None, p_fcp_st_ret: None, v_fcp_st_ret: None,
+            v_bc_st_dest, v_icms_st_dest,
+            p_red_bc_efet: None, v_bc_efet: None, p_icms_efet: None, v_icms_efet: None,
+        }
+    }
+    pub fn p_st(mut self, v: Rate) -> Self { self.p_st = Some(v); self }
+    pub fn v_icms_substituto(mut self, v: Cents) -> Self { self.v_icms_substituto = Some(v); self }
+    pub fn v_bc_fcp_st_ret(mut self, v: Cents) -> Self { self.v_bc_fcp_st_ret = Some(v); self }
+    pub fn p_fcp_st_ret(mut self, v: Rate) -> Self { self.p_fcp_st_ret = Some(v); self }
+    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self { self.v_fcp_st_ret = Some(v); self }
+    pub fn p_red_bc_efet(mut self, v: Rate) -> Self { self.p_red_bc_efet = Some(v); self }
+    pub fn v_bc_efet(mut self, v: Cents) -> Self { self.v_bc_efet = Some(v); self }
+    pub fn p_icms_efet(mut self, v: Rate) -> Self { self.p_icms_efet = Some(v); self }
+    pub fn v_icms_efet(mut self, v: Cents) -> Self { self.v_icms_efet = Some(v); self }
 }
 
 /// Data for building the ICMSUFDest XML group (interstate destination).
@@ -150,6 +207,20 @@ impl IcmsTotals {
     pub fn new() -> Self {
         Self::default()
     }
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = v; self }
+    pub fn v_icms(mut self, v: Cents) -> Self { self.v_icms = v; self }
+    pub fn v_icms_deson(mut self, v: Cents) -> Self { self.v_icms_deson = v; self }
+    pub fn v_bc_st(mut self, v: Cents) -> Self { self.v_bc_st = v; self }
+    pub fn v_st(mut self, v: Cents) -> Self { self.v_st = v; self }
+    pub fn v_fcp(mut self, v: Cents) -> Self { self.v_fcp = v; self }
+    pub fn v_fcp_st(mut self, v: Cents) -> Self { self.v_fcp_st = v; self }
+    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self { self.v_fcp_st_ret = v; self }
+    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_fcp_uf_dest = v; self }
+    pub fn v_icms_uf_dest(mut self, v: Cents) -> Self { self.v_icms_uf_dest = v; self }
+    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self { self.v_icms_uf_remet = v; self }
+    pub fn v_icms_mono(mut self, v: Cents) -> Self { self.v_icms_mono = v; self }
+    pub fn v_icms_mono_reten(mut self, v: Cents) -> Self { self.v_icms_mono_reten = v; self }
+    pub fn v_icms_mono_ret(mut self, v: Cents) -> Self { self.v_icms_mono_ret = v; self }
 }
 
 /// Create a zeroed-out ICMS totals.

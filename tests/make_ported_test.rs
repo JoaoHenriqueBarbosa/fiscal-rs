@@ -1243,16 +1243,11 @@ mod tag_icms_uf_dest_ported {
 
     #[test]
     fn test_tagicmsufdest_builds_icms_uf_dest_group() {
-        let (xml, totals) = build_icms_uf_dest_xml(&IcmsUfDestData {
-            v_bc_uf_dest: Cents(100),
-            v_bc_fcp_uf_dest: Some(Cents(100)),
-            p_fcp_uf_dest: Some(Rate(100)),
-            p_icms_uf_dest: Rate(100),
-            p_icms_inter: Rate(100),
-            v_fcp_uf_dest: Some(Cents(100)),
-            v_icms_uf_dest: Cents(100),
-            v_icms_uf_remet: Some(Cents(100)),
-        })
+        let (xml, totals) = build_icms_uf_dest_xml(
+            &IcmsUfDestData::new(Cents(100), Rate(100), Rate(100), Cents(100))
+                .v_bc_fcp_uf_dest(Cents(100)).p_fcp_uf_dest(Rate(100))
+                .v_fcp_uf_dest(Cents(100)).v_icms_uf_remet(Cents(100))
+        )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMSUFDest");
@@ -1438,18 +1433,11 @@ mod tag_icms_part_ported {
 
     #[test]
     fn test_tagicmspart_builds_icms_part_group() {
-        let (xml, totals) = build_icms_part_xml(&IcmsPartData {
-            orig: "0".into(), cst: "90".into(), mod_bc: "1".into(),
-            v_bc: Cents(20000), p_red_bc: Some(Rate(500)),
-            p_icms: Rate(1000), v_icms: Cents(2000),
-            mod_bc_st: "4".into(), p_mva_st: Some(Rate(3000)),
-            p_red_bc_st: Some(Rate(0)),
-            v_bc_st: Cents(6000), p_icms_st: Rate(100), v_icms_st: Cents(100),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)),
-            v_fcp_st: Some(Cents(100)),
-            p_bc_op: Rate(100), uf_st: "EX".into(),
-            v_icms_deson: None, mot_des_icms: None, ind_deduz_deson: None,
-        })
+        let (xml, totals) = build_icms_part_xml(
+            &IcmsPartData::new("0", "90", "1", Cents(20000), Rate(1000), Cents(2000), "4", Cents(6000), Rate(100), Cents(100), Rate(100), "EX")
+                .p_red_bc(Rate(500)).p_mva_st(Rate(3000)).p_red_bc_st(Rate(0))
+                .v_bc_fcp_st(Cents(100)).p_fcp_st(Rate(100)).v_fcp_st(Cents(100))
+        )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMS");
@@ -1490,16 +1478,13 @@ mod tag_icms_st_ported {
 
     #[test]
     fn test_tagicmsst_builds_icmsst_repasse_group() {
-        let (xml, totals) = build_icms_st_xml(&IcmsStData {
-            orig: "0".into(), cst: "41".into(),
-            v_bc_st_ret: Cents(20000), v_icms_st_ret: Cents(2000),
-            v_bc_st_dest: Cents(3000), v_icms_st_dest: Cents(200),
-            v_bc_fcp_st_ret: Some(Cents(200)), p_fcp_st_ret: Some(Rate(200)),
-            v_fcp_st_ret: Some(Cents(200)),
-            p_st: Some(Rate(200)), v_icms_substituto: Some(Cents(200)),
-            p_red_bc_efet: Some(Rate(200)), v_bc_efet: Some(Cents(200)),
-            p_icms_efet: Some(Rate(200)), v_icms_efet: Some(Cents(200)),
-        })
+        let (xml, totals) = build_icms_st_xml(
+            &IcmsStData::new("0", "41", Cents(20000), Cents(2000), Cents(3000), Cents(200))
+                .v_bc_fcp_st_ret(Cents(200)).p_fcp_st_ret(Rate(200)).v_fcp_st_ret(Cents(200))
+                .p_st(Rate(200)).v_icms_substituto(Cents(200))
+                .p_red_bc_efet(Rate(200)).v_bc_efet(Cents(200))
+                .p_icms_efet(Rate(200)).v_icms_efet(Cents(200))
+        )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMS");
@@ -1733,16 +1718,10 @@ mod build_access_key_ported {
 
     #[test]
     fn builds_a_44_digit_access_key_with_valid_check_digit() {
-        let key = build_access_key(&AccessKeyParams {
-            state_code: IbgeCode("35".to_string()),
-            year_month: "1703".into(),
-            tax_id: "58716523000119".into(),
-            model: InvoiceModel::Nfe,
-            series: 1,
-            number: 30,
-            emission_type: EmissionType::Normal,
-            numeric_code: "00000030".into(),
-        }).unwrap();
+        let key = build_access_key(&AccessKeyParams::new(
+            IbgeCode("35".to_string()), "1703", "58716523000119",
+            InvoiceModel::Nfe, 1, 30, EmissionType::Normal, "00000030",
+        )).unwrap();
 
         assert_eq!(key.len(), 44);
         // Starts with state code
@@ -1825,10 +1804,7 @@ mod pis_builders_ported {
     #[test]
     fn pis_nt_cst_05_06_07_08_09() {
         for cst in &["05", "06", "07", "08", "09"] {
-            let xml = build_pis_xml(&PisData {
-                cst: cst.to_string(),
-                ..Default::default()
-            });
+            let xml = build_pis_xml(&PisData::new(*cst));
 
             expect_wrapped_in(&xml, "PISNT");
             expect_xml_contains(&xml, &[("CST", cst)]);
@@ -1919,10 +1895,7 @@ mod cofins_builders_ported {
     #[test]
     fn cofins_nt_cst_05_06_07_08_09() {
         for cst in &["05", "06", "07", "08", "09"] {
-            let xml = build_cofins_xml(&CofinsData {
-                cst: cst.to_string(),
-                ..Default::default()
-            });
+            let xml = build_cofins_xml(&CofinsData::new(*cst));
 
             expect_wrapped_in(&xml, "COFINSNT");
         }
@@ -2043,11 +2016,7 @@ mod ipi_builders_ported {
     #[test]
     fn ipi_nt_cst_02_03_04_05_non_taxed() {
         for cst in &["02", "03", "04", "05"] {
-            let xml = build_ipi_xml(&IpiData {
-                cst: cst.to_string(),
-                c_enq: "999".into(),
-                ..Default::default()
-            });
+            let xml = build_ipi_xml(&IpiData::new(*cst, "999"));
 
             expect_wrapped_in(&xml, "IPINT");
             expect_xml_contains(&xml, &[("CST", cst)]);

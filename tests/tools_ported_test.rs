@@ -541,14 +541,10 @@ mod qrcode_test {
             "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfce_sem_qrcode.xml"
         ).expect("Failed to read nfce_sem_qrcode.xml");
 
-        let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams {
-            xml,
-            csc_token: "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string(),
-            csc_id: "000001".to_string(),
-            version: "200".to_string(),
-            qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-            url_chave: "".to_string(),
-        }).expect("put_qr_tag failed");
+        let result = fiscal::qrcode::put_qr_tag(
+            &PutQRTagParams::new(xml, "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G", "000001", "200",
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx", "")
+        ).expect("put_qr_tag failed");
 
         assert!(result.contains("<infNFeSupl>"));
         assert!(result.contains("<qrCode>"));
@@ -565,21 +561,11 @@ mod qrcode_test {
 
     #[test]
     fn throws_when_csc_token_is_empty() {
-        let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-            access_key: "35200505730928000145650010000000121000000129".to_string(),
-            version: QrCodeVersion::V200,
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-            csc_token: Some("".to_string()),
-            csc_id: Some("000001".to_string()),
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        });
+        let result = fiscal::qrcode::build_nfce_qr_code_url(
+            &NfceQrCodeParams::new("35200505730928000145650010000000121000000129", QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx")
+                .csc_token("").csc_id("000001")
+        );
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("CSC token"), "Error should mention CSC token: {err}");
@@ -587,21 +573,11 @@ mod qrcode_test {
 
     #[test]
     fn throws_when_csc_id_is_empty() {
-        let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-            access_key: "35200505730928000145650010000000121000000129".to_string(),
-            version: QrCodeVersion::V200,
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-            csc_token: Some("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string()),
-            csc_id: Some("".to_string()),
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        });
+        let result = fiscal::qrcode::build_nfce_qr_code_url(
+            &NfceQrCodeParams::new("35200505730928000145650010000000121000000129", QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx")
+                .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("")
+        );
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("CSC ID"), "Error should mention CSC ID: {err}");
@@ -609,21 +585,10 @@ mod qrcode_test {
 
     #[test]
     fn produces_malformed_url_when_base_url_is_empty() {
-        let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-            access_key: "35200505730928000145650010000000121000000129".to_string(),
-            version: QrCodeVersion::V200,
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            qr_code_base_url: "".to_string(),
-            csc_token: Some("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string()),
-            csc_id: Some("000001".to_string()),
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        });
+        let result = fiscal::qrcode::build_nfce_qr_code_url(
+            &NfceQrCodeParams::new("35200505730928000145650010000000121000000129", QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal, "")
+                .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001")
+        );
         // Either returns Err or a malformed URL starting with "?p="
         match result {
             Ok(url) => assert!(url.starts_with("?p=")),

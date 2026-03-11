@@ -40,6 +40,23 @@ pub struct IssqnData {
     pub ind_incentivo: Option<String>,
 }
 
+impl IssqnData {
+    pub fn new(v_bc: i64, v_aliq: i64, v_issqn: i64, c_mun_fg: impl Into<String>, c_list_serv: impl Into<String>) -> Self {
+        Self { v_bc, v_aliq, v_issqn, c_mun_fg: c_mun_fg.into(), c_list_serv: c_list_serv.into(), ..Default::default() }
+    }
+    pub fn v_deducao(mut self, v: i64) -> Self { self.v_deducao = Some(v); self }
+    pub fn v_outro(mut self, v: i64) -> Self { self.v_outro = Some(v); self }
+    pub fn v_desc_incond(mut self, v: i64) -> Self { self.v_desc_incond = Some(v); self }
+    pub fn v_desc_cond(mut self, v: i64) -> Self { self.v_desc_cond = Some(v); self }
+    pub fn v_iss_ret(mut self, v: i64) -> Self { self.v_iss_ret = Some(v); self }
+    pub fn ind_iss(mut self, v: impl Into<String>) -> Self { self.ind_iss = Some(v.into()); self }
+    pub fn c_servico(mut self, v: impl Into<String>) -> Self { self.c_servico = Some(v.into()); self }
+    pub fn c_mun(mut self, v: impl Into<String>) -> Self { self.c_mun = Some(v.into()); self }
+    pub fn c_pais(mut self, v: impl Into<String>) -> Self { self.c_pais = Some(v.into()); self }
+    pub fn n_processo(mut self, v: impl Into<String>) -> Self { self.n_processo = Some(v.into()); self }
+    pub fn ind_incentivo(mut self, v: impl Into<String>) -> Self { self.ind_incentivo = Some(v.into()); self }
+}
+
 /// ISSQN totals accumulator (mirrors PHP stdISSQNTot).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]

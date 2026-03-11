@@ -347,26 +347,14 @@ mod pis {
     #[test]
     fn test_pis_aliq_with_empty_vpis() {
         // PIS Aliq with null vPIS
-        let xml = build_pis_xml(&PisData {
-            cst: "01".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: None,
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("01").v_bc(Cents(10000)).p_pis(Rate4(16500)));
         assert!(xml.contains("<PISAliq>"));
     }
 
     #[test]
     fn test_pis_outr_with_null_vpis() {
         // PIS Outr with null vPIS
-        let xml = build_pis_xml(&PisData {
-            cst: "99".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: None,
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("99").v_bc(Cents(10000)).p_pis(Rate4(16500)));
         assert!(xml.contains("<PISOutr>"));
     }
 }
@@ -389,13 +377,7 @@ mod pisst {
 
     #[test]
     fn test_pisst_with_qbc_prod() {
-        let xml = build_pis_st_xml(&PisStData {
-            q_bc_prod: Some(1000000),
-            v_aliq_prod: Some(165),
-            v_pis: Cents(165),
-            ind_soma_pis_st: Some(0),
-            ..Default::default()
-        });
+        let xml = build_pis_st_xml(&PisStData::new(Cents(165)).q_bc_prod(1000000).v_aliq_prod(165).ind_soma_pis_st(0));
         assert!(xml.contains("<PISST>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -749,13 +731,7 @@ mod cofinsst {
 
     #[test]
     fn test_cofinsst_with_qbc_prod() {
-        let xml = build_cofins_st_xml(&CofinsStData {
-            q_bc_prod: Some(1000000),
-            v_aliq_prod: Some(760),
-            v_cofins: Cents(760),
-            ind_soma_cofins_st: Some(0),
-            ..Default::default()
-        });
+        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760)).q_bc_prod(1000000).v_aliq_prod(760).ind_soma_cofins_st(0));
         assert!(xml.contains("<COFINSST>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -862,24 +838,10 @@ mod issqn {
     fn test_tag_issqn_all_fields() {
         let mut totals = create_issqn_totals();
         let xml = build_issqn_xml_with_totals(
-            &IssqnData {
-                v_bc: 10000,       // 100.00
-                v_aliq: 500,       // 5.0000
-                v_issqn: 500,      // 5.00
-                c_mun_fg: "3550308".into(),
-                c_list_serv: "1401".into(),
-                v_deducao: Some(1000),     // 10.00
-                v_outro: Some(200),        // 2.00
-                v_desc_incond: Some(300),  // 3.00
-                v_desc_cond: Some(100),    // 1.00
-                v_iss_ret: Some(50),       // 0.50
-                ind_iss: Some("1".into()),
-                c_servico: Some("1234".into()),
-                c_mun: Some("3550308".into()),
-                c_pais: Some("1058".into()),
-                n_processo: Some("9999".into()),
-                ind_incentivo: Some("1".into()),
-            },
+            &IssqnData::new(10000, 500, 500, "3550308", "1401")
+                .v_deducao(1000).v_outro(200).v_desc_incond(300).v_desc_cond(100).v_iss_ret(50)
+                .ind_iss("1").c_servico("1234").c_mun("3550308").c_pais("1058")
+                .n_processo("9999").ind_incentivo("1"),
             &mut totals,
         );
 
@@ -910,16 +872,7 @@ mod issqn {
     fn test_tag_issqn_zero_vbc_does_not_accumulate_totals() {
         let mut totals = create_issqn_totals();
         let xml = build_issqn_xml_with_totals(
-            &IssqnData {
-                v_bc: 0,
-                v_aliq: 500,
-                v_issqn: 0,
-                c_mun_fg: "3550308".into(),
-                c_list_serv: "1401".into(),
-                ind_iss: Some("1".into()),
-                ind_incentivo: Some("2".into()),
-                ..Default::default()
-            },
+            &IssqnData::new(0, 500, 0, "3550308", "1401").ind_iss("1").ind_incentivo("2"),
             &mut totals,
         );
 
@@ -932,17 +885,7 @@ mod issqn {
 
     #[test]
     fn test_tag_issqn_optional_fields_null() {
-        let xml = build_issqn_xml(&IssqnData {
-            v_bc: 5000,       // 50.00
-            v_aliq: 300,      // 3.0000
-            v_issqn: 150,     // 1.50
-            c_mun_fg: "3550308".into(),
-            c_list_serv: "1401".into(),
-            ind_iss: Some("2".into()),
-            ind_incentivo: Some("2".into()),
-            // all optional fields left unset
-            ..Default::default()
-        });
+        let xml = build_issqn_xml(&IssqnData::new(5000, 300, 150, "3550308", "1401").ind_iss("2").ind_incentivo("2"));
 
         assert!(xml.contains("<ISSQN>"));
         assert!(xml.contains("<vBC>50.00</vBC>"));
@@ -962,15 +905,7 @@ mod is_ibscbs {
 
     #[test]
     fn test_tag_is_with_vbcis() {
-        let xml = build_is_xml(&IsData {
-            cst_is: "00".into(),
-            c_class_trib_is: "001".into(),
-            v_bc_is: Some("100.00".into()),
-            p_is: Some("5.0000".into()),
-            p_is_espec: Some("1.5000".into()),
-            v_is: "5.00".into(),
-            ..Default::default()
-        });
+        let xml = build_is_xml(&IsData::new("00", "001", "5.00").v_bc_is("100.00").p_is("5.0000").p_is_espec("1.5000"));
 
         assert!(xml.contains("<IS>"));
         assert!(xml.contains("<CSTIS>00</CSTIS>"));
@@ -983,14 +918,7 @@ mod is_ibscbs {
 
     #[test]
     fn test_tag_is_with_utrib_and_qtrib() {
-        let xml = build_is_xml(&IsData {
-            cst_is: "01".into(),
-            c_class_trib_is: "002".into(),
-            u_trib: Some("LT".into()),
-            q_trib: Some("10.0000".into()),
-            v_is: "8.00".into(),
-            ..Default::default()
-        });
+        let xml = build_is_xml(&IsData::new("01", "002", "8.00").u_trib("LT").q_trib("10.0000"));
 
         assert!(xml.contains("<IS>"));
         assert!(xml.contains("<uTrib>LT</uTrib>"));
@@ -999,12 +927,7 @@ mod is_ibscbs {
 
     #[test]
     fn test_tag_is_without_vbcis_or_utrib() {
-        let xml = build_is_xml(&IsData {
-            cst_is: "02".into(),
-            c_class_trib_is: "003".into(),
-            v_is: "3.00".into(),
-            ..Default::default()
-        });
+        let xml = build_is_xml(&IsData::new("02", "003", "3.00"));
 
         assert!(xml.contains("<IS>"));
         // vBCIS should not be present

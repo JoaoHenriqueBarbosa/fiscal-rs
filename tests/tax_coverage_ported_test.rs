@@ -356,19 +356,12 @@ mod icms_part {
 
     #[test]
     fn test_icms_part_partition_between_states() {
-        let (xml, _totals) = build_icms_part_xml(&IcmsPartData {
-            orig: "0".into(), cst: "10".into(), mod_bc: "3".into(),
-            v_bc: Cents(10000), p_red_bc: Some(Rate(0)),
-            p_icms: Rate(1800), v_icms: Cents(1800),
-            mod_bc_st: "4".into(), p_mva_st: Some(Rate(4000)),
-            p_red_bc_st: Some(Rate(0)),
-            v_bc_st: Cents(14000), p_icms_st: Rate(1800), v_icms_st: Cents(720),
-            v_bc_fcp_st: Some(Cents(14000)), p_fcp_st: Some(Rate(200)),
-            v_fcp_st: Some(Cents(280)),
-            p_bc_op: Rate(10000), uf_st: "SP".into(),
-            v_icms_deson: Some(Cents(100)), mot_des_icms: Some("9".into()),
-            ind_deduz_deson: Some("1".into()),
-        }).unwrap();
+        let (xml, _totals) = build_icms_part_xml(
+            &IcmsPartData::new("0", "10", "3", Cents(10000), Rate(1800), Cents(1800), "4", Cents(14000), Rate(1800), Cents(720), Rate(10000), "SP")
+                .p_red_bc(Rate(0)).p_mva_st(Rate(4000)).p_red_bc_st(Rate(0))
+                .v_bc_fcp_st(Cents(14000)).p_fcp_st(Rate(200)).v_fcp_st(Cents(280))
+                .v_icms_deson(Cents(100)).mot_des_icms("9").ind_deduz_deson("1")
+        ).unwrap();
         expect_xml_contains(&xml, &["<ICMSPart>", "<UFST>", "<vICMSDeson>"]);
     }
 }
@@ -382,17 +375,13 @@ mod icms_st {
 
     #[test]
     fn test_icms_st_repasse_with_effective_values() {
-        let (xml, _totals) = build_icms_st_xml(&IcmsStData {
-            orig: "0".into(), cst: "41".into(),
-            v_bc_st_ret: Cents(10000), p_st: Some(Rate(1800)),
-            v_icms_substituto: Some(Cents(1000)),
-            v_icms_st_ret: Cents(800),
-            v_bc_fcp_st_ret: Some(Cents(10000)), p_fcp_st_ret: Some(Rate(200)),
-            v_fcp_st_ret: Some(Cents(200)),
-            v_bc_st_dest: Cents(8000), v_icms_st_dest: Cents(1440),
-            p_red_bc_efet: Some(Rate(1000)), v_bc_efet: Some(Cents(9000)),
-            p_icms_efet: Some(Rate(1800)), v_icms_efet: Some(Cents(1620)),
-        }).unwrap();
+        let (xml, _totals) = build_icms_st_xml(
+            &IcmsStData::new("0", "41", Cents(10000), Cents(800), Cents(8000), Cents(1440))
+                .p_st(Rate(1800)).v_icms_substituto(Cents(1000))
+                .v_bc_fcp_st_ret(Cents(10000)).p_fcp_st_ret(Rate(200)).v_fcp_st_ret(Cents(200))
+                .p_red_bc_efet(Rate(1000)).v_bc_efet(Cents(9000))
+                .p_icms_efet(Rate(1800)).v_icms_efet(Cents(1620))
+        ).unwrap();
         expect_xml_contains(&xml, &["<ICMSST>", "<vICMSSubstituto>", "<vICMSEfet>"]);
     }
 }
@@ -590,16 +579,11 @@ mod icms_uf_dest {
 
     #[test]
     fn test_icms_uf_dest_interstate_destination() {
-        let (xml, _totals) = build_icms_uf_dest_xml(&IcmsUfDestData {
-            v_bc_uf_dest: Cents(10000),
-            v_bc_fcp_uf_dest: Some(Cents(10000)),
-            p_fcp_uf_dest: Some(Rate(200)),
-            p_icms_uf_dest: Rate(1800),
-            p_icms_inter: Rate(1200),
-            v_fcp_uf_dest: Some(Cents(200)),
-            v_icms_uf_dest: Cents(600),
-            v_icms_uf_remet: Some(Cents(0)),
-        }).unwrap();
+        let (xml, _totals) = build_icms_uf_dest_xml(
+            &IcmsUfDestData::new(Cents(10000), Rate(1800), Rate(1200), Cents(600))
+                .v_bc_fcp_uf_dest(Cents(10000)).p_fcp_uf_dest(Rate(200))
+                .v_fcp_uf_dest(Cents(200)).v_icms_uf_remet(Cents(0))
+        ).unwrap();
         expect_xml_contains(&xml, &["<ICMSUFDest>", "<vBCUFDest>"]);
     }
 }
