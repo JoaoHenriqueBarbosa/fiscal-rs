@@ -1,5 +1,5 @@
-use crate::xml_utils::extract_xml_tag_value;
-use crate::FiscalError;
+use fiscal_core::xml_utils::extract_xml_tag_value;
+use fiscal_core::FiscalError;
 
 /// Parsed result of a SEFAZ NF-e authorization (`retEnviNFe`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]

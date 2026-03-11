@@ -1,5 +1,5 @@
 use crate::constants::NFE_NAMESPACE;
-use crate::sefaz::status_codes::{sefaz_status, VALID_EVENT_STATUSES, VALID_PROTOCOL_STATUSES};
+use crate::status_codes::{sefaz_status, VALID_EVENT_STATUSES, VALID_PROTOCOL_STATUSES};
 use crate::xml_utils::extract_xml_tag_value;
 use crate::FiscalError;
 

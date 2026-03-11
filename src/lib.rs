@@ -1,23 +1,13 @@
-pub mod error;
-pub use error::FiscalError;
+// Facade crate: re-exports all sub-crates so existing `use fiscal::...` imports work.
 
-pub mod newtypes;
-pub mod types;
-pub mod constants;
-pub mod state_codes;
-pub mod format_utils;
-pub mod xml_utils;
-pub mod tax_element;
-pub mod tax_icms;
-pub mod tax_pis_cofins_ipi;
-pub mod tax_issqn;
-pub mod tax_is;
-pub mod xml_builder;
-pub mod complement;
-pub mod qrcode;
-pub mod gtin;
-pub mod certificate;
-pub mod contingency;
-pub mod convert;
-pub mod standardize;
-pub mod sefaz;
+pub use fiscal_core::*;
+
+/// Certificate handling and XML signing.
+pub mod certificate {
+    pub use fiscal_crypto::certificate::*;
+}
+
+/// SEFAZ URLs, request builders, response parsers, and status codes.
+pub mod sefaz {
+    pub use fiscal_sefaz::*;
+}

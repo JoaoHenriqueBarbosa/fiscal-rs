@@ -9,7 +9,7 @@ use crate::FiscalError;
 /// # Examples
 ///
 /// ```
-/// use fiscal::gtin::is_valid_gtin;
+/// use fiscal_core::gtin::is_valid_gtin;
 ///
 /// assert_eq!(is_valid_gtin(""), Ok(true));
 /// assert_eq!(is_valid_gtin("SEM GTIN"), Ok(true));

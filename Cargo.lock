@@ -258,19 +258,47 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 name = "fiscal"
 version = "0.1.0"
 dependencies = [
- "base64",
  "chrono",
  "divan",
+ "fiscal-core",
+ "fiscal-crypto",
+ "fiscal-sefaz",
  "insta",
- "openssl",
  "pretty_assertions",
  "proptest",
- "quick-xml",
  "rstest",
+ "serde_json",
+]
+
+[[package]]
+name = "fiscal-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "quick-xml",
  "serde",
  "serde_json",
  "sha1",
  "thiserror",
+]
+
+[[package]]
+name = "fiscal-crypto"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "fiscal-core",
+ "openssl",
+ "sha1",
+]
+
+[[package]]
+name = "fiscal-sefaz"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fiscal-core",
 ]
 
 [[package]]

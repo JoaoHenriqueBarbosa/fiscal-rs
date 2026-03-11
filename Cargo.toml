@@ -1,3 +1,11 @@
+[workspace]
+members = [
+    "crates/fiscal-core",
+    "crates/fiscal-crypto",
+    "crates/fiscal-sefaz",
+]
+resolver = "2"
+
 [package]
 name = "fiscal"
 version = "0.1.0"
@@ -6,15 +14,9 @@ rust-version = "1.85"
 description = "Brazilian fiscal document library (NF-e/NFC-e) — Rust port of sped-nfe"
 
 [dependencies]
-quick-xml = { version = "0.37", features = ["serialize"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha1 = "0.10"
-chrono = { version = "0.4", features = ["serde"] }
-thiserror = "2"
-divan = "0.1"
-openssl = "0.10"
-base64 = "0.22"
+fiscal-core = { path = "crates/fiscal-core" }
+fiscal-crypto = { path = "crates/fiscal-crypto" }
+fiscal-sefaz = { path = "crates/fiscal-sefaz" }
 
 [dev-dependencies]
 pretty_assertions = "1"
@@ -22,6 +24,8 @@ rstest = "0.25"
 proptest = "1"
 insta = { version = "1", features = ["yaml"] }
 chrono = { version = "0.4", features = ["serde"] }
+serde_json = "1"
+divan = "0.1"
 
 [[bench]]
 name = "fiscal_bench"

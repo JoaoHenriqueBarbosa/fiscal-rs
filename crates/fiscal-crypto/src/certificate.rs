@@ -5,8 +5,8 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 use sha1::{Digest, Sha1};
 
-use crate::FiscalError;
-use crate::types::{CertificateData, CertificateInfo};
+use fiscal_core::FiscalError;
+use fiscal_core::types::{CertificateData, CertificateInfo};
 
 /// Extract private key and certificate PEM strings from a PKCS#12/PFX buffer.
 ///
@@ -48,12 +48,12 @@ pub fn load_certificate(pfx_buffer: &[u8], passphrase: &str) -> Result<Certifica
     )
     .map_err(|e| FiscalError::Certificate(format!("Certificate PEM is not valid UTF-8: {e}")))?;
 
-    Ok(CertificateData {
-        private_key: private_key_pem,
-        certificate: certificate_pem,
-        pfx_buffer: pfx_buffer.to_vec(),
-        passphrase: passphrase.to_string(),
-    })
+    Ok(CertificateData::new(
+        private_key_pem,
+        certificate_pem,
+        pfx_buffer.to_vec(),
+        passphrase,
+    ))
 }
 
 /// Extract display metadata from a PKCS#12/PFX certificate.
@@ -93,13 +93,13 @@ pub fn get_certificate_info(pfx_buffer: &[u8], passphrase: &str) -> Result<Certi
         .map_err(|e| FiscalError::Certificate(format!("Failed to format serial number: {e}")))?
         .to_string();
 
-    Ok(CertificateInfo {
+    Ok(CertificateInfo::new(
         common_name,
         valid_from,
         valid_until,
         serial_number,
         issuer,
-    })
+    ))
 }
 
 /// Sign an NF-e XML with RSA-SHA1 enveloped XMLDSig signature.

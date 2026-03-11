@@ -1,0 +1,10 @@
+[package]
+name = "fiscal-sefaz"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "SEFAZ URLs, request builders, and response parsers for Brazilian fiscal documents"
+
+[dependencies]
+fiscal-core = { path = "../fiscal-core" }
+chrono = { version = "0.4", features = ["serde"] }

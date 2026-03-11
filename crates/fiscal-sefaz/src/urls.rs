@@ -1,5 +1,5 @@
-use crate::FiscalError;
-use crate::types::SefazEnvironment;
+use fiscal_core::FiscalError;
+use fiscal_core::types::SefazEnvironment;
 
 /// Production and homologation URLs for a SEFAZ web service.
 struct ServiceUrls {
@@ -32,6 +32,7 @@ impl AuthorizerServices {
         Some(match env {
             SefazEnvironment::Production => urls.production,
             SefazEnvironment::Homologation => urls.homologation,
+            _ => unreachable!(),
         })
     }
 }
@@ -492,6 +493,7 @@ pub fn get_nfce_consult_url(
             "TO" => "http://homologacao.sefaz.to.gov.br/nfce/consulta.jsf",
             _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
         },
+        _ => unreachable!(),
     };
     Ok(url.to_string())
 }

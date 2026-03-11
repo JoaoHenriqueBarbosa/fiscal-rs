@@ -1,6 +1,6 @@
-use crate::constants::{NFE_NAMESPACE, NFE_VERSION};
-use crate::state_codes::get_state_code;
-use crate::types::SefazEnvironment;
+use fiscal_core::constants::{NFE_NAMESPACE, NFE_VERSION};
+use fiscal_core::state_codes::get_state_code;
+use fiscal_core::types::SefazEnvironment;
 
 /// Event type constants matching the SEFAZ specification.
 pub mod event_types {
