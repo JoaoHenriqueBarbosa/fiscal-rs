@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "tag(\"xNome\", &[], \"A & B <Corp> \\\"LLC\\\"\".into())"
+---
+<xNome>A &amp; B &lt;Corp&gt; &quot;LLC&quot;</xNome>

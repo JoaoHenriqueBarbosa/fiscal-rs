@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "escape_xml(\"<tag attr=\\\"val\\\" & 'single'>\")"
+---
+&lt;tag attr=&quot;val&quot; &amp; &apos;single&apos;&gt;

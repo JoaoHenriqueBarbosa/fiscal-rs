@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "extract_xml_tag_value(xml, \"missing\")"
+---
+None

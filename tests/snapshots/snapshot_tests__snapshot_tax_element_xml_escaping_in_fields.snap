@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: serialize_tax_element(&element)
+---
+<obs><xTexto>Value &gt; 100 &amp; special &lt;chars&gt;</xTexto></obs>

@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "tag(\"det\", &[(\"nItem\", \"1\")],\nvec![tag(\"prod\", &[],\nvec![tag(\"cProd\", &[], \"001\".into()),\ntag(\"xProd\", &[], \"Widget\".into()),].into(),),].into(),)"
+---
+<det nItem="1"><prod><cProd>001</cProd><xProd>Widget</xProd></prod></det>

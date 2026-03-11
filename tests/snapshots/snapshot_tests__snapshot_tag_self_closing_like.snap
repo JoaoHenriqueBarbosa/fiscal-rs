@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "tag(\"xMotivo\", &[], vec![].into())"
+---
+<xMotivo></xMotivo>

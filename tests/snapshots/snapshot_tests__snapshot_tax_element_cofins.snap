@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: serialize_tax_element(&element)
+---
+<COFINS><COFINSAliq><CST>01</CST><vBC>100.00</vBC><pCOFINS>7.6000</pCOFINS><vCOFINS>7.60</vCOFINS></COFINSAliq></COFINS>

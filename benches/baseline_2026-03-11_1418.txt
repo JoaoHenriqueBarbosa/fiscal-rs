@@ -1,0 +1,202 @@
+warning: function `st_fields` is never used
+   --> src/tax_icms.rs:152:4
+    |
+152 | fn st_fields(d: &IcmsData) -> Vec<Result<TaxField, FiscalError>> {
+    |    ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `fiscal` (lib) generated 1 warning
+warning: `fiscal` (lib test) generated 1 warning (1 duplicate)
+    Finished `bench` profile [optimized] target(s) in 0.05s
+     Running unittests src/lib.rs (target/release/deps/fiscal-3f2ab0b9aac6bd57)
+
+running 62 tests
+test complement::tests::extract_all_tags_finds_multiple ... ignored
+test complement::tests::extract_attribute_works ... ignored
+test complement::tests::extract_inf_nfe_id_strips_prefix ... ignored
+test complement::tests::extract_tag_does_not_match_prefix ... ignored
+test complement::tests::extract_tag_finds_outermost_match ... ignored
+test complement::tests::extract_tag_returns_none_for_missing_tag ... ignored
+test complement::tests::join_xml_produces_correct_wrapper ... ignored
+test contingency::tests::activate_offline ... ignored
+test contingency::tests::activate_rejects_short_reason ... ignored
+test contingency::tests::activate_sets_fields ... ignored
+test contingency::tests::activate_svc_rs ... ignored
+test contingency::tests::contingency_for_state_am ... ignored
+test contingency::tests::contingency_for_state_sp ... ignored
+test contingency::tests::deactivate_clears_state ... ignored
+test contingency::tests::default_is_inactive ... ignored
+test contingency::tests::extract_json_number_works ... ignored
+test contingency::tests::extract_json_string_works ... ignored
+test contingency::tests::format_timestamp_with_offset_formats_correctly ... ignored
+test contingency::tests::load_from_json ... ignored
+test contingency::tests::new_contingency_is_inactive ... ignored
+test newtypes::tests::access_key_non_digit ... ignored
+test newtypes::tests::access_key_too_short ... ignored
+test newtypes::tests::access_key_valid ... ignored
+test newtypes::tests::cents_add ... ignored
+test newtypes::tests::cents_conversion ... ignored
+test newtypes::tests::cents_display ... ignored
+test newtypes::tests::ibge_code_display ... ignored
+test newtypes::tests::rate4_add ... ignored
+test newtypes::tests::rate4_display ... ignored
+test newtypes::tests::rate_add ... ignored
+test newtypes::tests::rate_display ... ignored
+test newtypes::tests::state_code_all_states ... ignored
+test newtypes::tests::state_code_invalid ... ignored
+test newtypes::tests::state_code_valid ... ignored
+test qrcode::tests::ensure_query_param_appends_when_missing ... ignored
+test qrcode::tests::ensure_query_param_keeps_existing ... ignored
+test qrcode::tests::extract_day_from_iso ... ignored
+test qrcode::tests::extract_dest_document_cnpj ... ignored
+test qrcode::tests::extract_dest_document_empty_when_no_dest ... ignored
+test qrcode::tests::extract_xml_tag_attr_finds_id ... ignored
+test qrcode::tests::format_value_two_decimals ... ignored
+test qrcode::tests::sha1_hex_produces_uppercase_40_chars ... ignored
+test qrcode::tests::str2hex_converts_ascii ... ignored
+test sefaz::response_parsers::tests::authorization_rejects_malformed_xml ... ignored
+test sefaz::response_parsers::tests::cancellation_rejects_malformed_xml ... ignored
+test sefaz::response_parsers::tests::parses_authorization_batch_level_only ... ignored
+test sefaz::response_parsers::tests::parses_authorization_with_protocol ... ignored
+test sefaz::response_parsers::tests::parses_cancellation_response ... ignored
+test sefaz::response_parsers::tests::parses_plain_status_response ... ignored
+test sefaz::response_parsers::tests::parses_soap_wrapped_authorization ... ignored
+test sefaz::response_parsers::tests::parses_soap_wrapped_cancellation ... ignored
+test sefaz::response_parsers::tests::parses_soap_wrapped_status_response ... ignored
+test sefaz::response_parsers::tests::parses_status_response_without_tmed ... ignored
+test sefaz::response_parsers::tests::status_response_rejects_malformed_xml ... ignored
+test standardize::tests::empty_returns_err ... ignored
+test standardize::tests::identify_nfe ... ignored
+test standardize::tests::identify_nfe_proc ... ignored
+test standardize::tests::non_xml_returns_err ... ignored
+test standardize::tests::unknown_root_returns_err ... ignored
+test standardize::tests::xml_to_json_basic ... ignored
+test xml_builder::access_key::tests::mod11_all_zeros ... ignored
+test xml_builder::access_key::tests::mod11_known_values ... ignored
+
+test result: ok. 0 passed; 0 failed; 62 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/fiscal_bench.rs (target/release/deps/fiscal_bench-996d75aab4f0af0a)
+Timer precision: 20 ns
+fiscal_bench                                       fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ bench_adjust_nfe_contingency                    4.918 µs      │ 30.29 µs      │ 6.216 µs      │ 6.663 µs      │ 100     │ 100
+├─ bench_attach_b2b                                470.7 ns      │ 3.035 µs      │ 490.7 ns      │ 526.4 ns      │ 100     │ 100
+├─ bench_attach_event_protocol                     840.7 ns      │ 3.185 µs      │ 860.7 ns      │ 888.6 ns      │ 100     │ 100
+├─ bench_attach_inutilizacao                       811.2 ns      │ 1.555 µs      │ 816.2 ns      │ 858.8 ns      │ 100     │ 400
+├─ bench_attach_protocol                           1.993 µs      │ 12.12 µs      │ 2.033 µs      │ 2.874 µs      │ 100     │ 100
+├─ bench_build_access_key                          244 ns        │ 1.268 µs      │ 249 ns        │ 325.5 ns      │ 100     │ 800
+├─ bench_build_address_fields                      1.732 µs      │ 4.608 µs      │ 1.882 µs      │ 1.904 µs      │ 100     │ 100
+├─ bench_build_aut_xml                             443.1 ns      │ 520.7 ns      │ 483.1 ns      │ 481.4 ns      │ 100     │ 800
+├─ bench_build_autorizacao_request                 290.2 ns      │ 1.978 µs      │ 340.2 ns      │ 365.3 ns      │ 100     │ 200
+├─ bench_build_cadastro_request                    162.5 ns      │ 515 ns        │ 175.7 ns      │ 182.2 ns      │ 100     │ 1600
+├─ bench_build_cancela_request                     1.412 µs      │ 6.992 µs      │ 1.552 µs      │ 1.621 µs      │ 100     │ 100
+├─ bench_build_cce_request                         1.441 µs      │ 2.724 µs      │ 1.482 µs      │ 1.502 µs      │ 100     │ 100
+├─ bench_build_cobr                                2.524 µs      │ 10.24 µs      │ 3.907 µs      │ 3.922 µs      │ 100     │ 100
+├─ bench_build_cofins_st_xml                       940.7 ns      │ 3.045 µs      │ 1 µs          │ 1.019 µs      │ 100     │ 100
+├─ bench_build_cofins_xml_aliq                     1.261 µs      │ 3.626 µs      │ 1.302 µs      │ 1.337 µs      │ 100     │ 100
+├─ bench_build_consulta_request                    86.18 ns      │ 89.61 ns      │ 86.8 ns       │ 86.8 ns       │ 100     │ 3200
+├─ bench_build_delivery                            1.431 µs      │ 2.694 µs      │ 1.462 µs      │ 1.49 µs       │ 100     │ 100
+├─ bench_build_dest_nfce                           720.7 ns      │ 2.473 µs      │ 740.7 ns      │ 765 ns        │ 100     │ 100
+├─ bench_build_dest_nfe                            2.073 µs      │ 7.163 µs      │ 2.153 µs      │ 2.296 µs      │ 100     │ 100
+├─ bench_build_det_simple                          7.733 µs      │ 26.9 µs       │ 8.345 µs      │ 8.817 µs      │ 100     │ 100
+├─ bench_build_dist_dfe_request                    229.7 ns      │ 3.155 µs      │ 239.7 ns      │ 272.9 ns      │ 100     │ 100
+├─ bench_build_emit                                2.283 µs      │ 5.128 µs      │ 2.334 µs      │ 2.41 µs       │ 100     │ 100
+├─ bench_build_export                              613.2 ns      │ 716.2 ns      │ 621 ns        │ 624.7 ns      │ 100     │ 400
+├─ bench_build_icms_part_xml                       3.345 µs      │ 7.733 µs      │ 3.476 µs      │ 3.604 µs      │ 100     │ 100
+├─ bench_build_icms_st_xml                         2.904 µs      │ 5.038 µs      │ 3.004 µs      │ 3.031 µs      │ 100     │ 100
+├─ bench_build_icms_uf_dest_xml                    2.924 µs      │ 4.578 µs      │ 2.985 µs      │ 3.011 µs      │ 100     │ 100
+├─ bench_build_icms_xml_csosn102                   528.2 ns      │ 583.2 ns      │ 533.2 ns      │ 535.1 ns      │ 100     │ 400
+├─ bench_build_icms_xml_cst00                      1.612 µs      │ 5.74 µs       │ 1.652 µs      │ 1.718 µs      │ 100     │ 100
+├─ bench_build_icms_xml_cst10_full                 5.179 µs      │ 8.875 µs      │ 5.289 µs      │ 5.47 µs       │ 100     │ 100
+├─ bench_build_ide                                 2.914 µs      │ 7.433 µs      │ 3.195 µs      │ 3.311 µs      │ 100     │ 100
+├─ bench_build_ii_xml                              1.141 µs      │ 2.354 µs      │ 1.191 µs      │ 1.207 µs      │ 100     │ 100
+├─ bench_build_imposto_devol                       821.2 ns      │ 1.026 µs      │ 841.2 ns      │ 847.9 ns      │ 100     │ 200
+├─ bench_build_inf_adic_homologation               361.7 ns      │ 380.5 ns      │ 365.5 ns      │ 366.2 ns      │ 100     │ 800
+├─ bench_build_intermediary                        418 ns        │ 962.7 ns      │ 424.4 ns      │ 430.4 ns      │ 100     │ 800
+├─ bench_build_inutilizacao_request                455.7 ns      │ 520.7 ns      │ 460.6 ns      │ 462.3 ns      │ 100     │ 400
+├─ bench_build_invoice_xml_10_items                102.2 µs      │ 210.7 µs      │ 107 µs        │ 121.8 µs      │ 100     │ 100
+├─ bench_build_invoice_xml_simple                  25.3 µs       │ 37.04 µs      │ 25.84 µs      │ 26.23 µs      │ 100     │ 100
+├─ bench_build_ipi_xml_trib                        1.321 µs      │ 3.216 µs      │ 1.362 µs      │ 1.401 µs      │ 100     │ 100
+├─ bench_build_is_xml                              951.7 ns      │ 2.674 µs      │ 971.7 ns      │ 1.006 µs      │ 100     │ 100
+├─ bench_build_issqn_xml                           1.351 µs      │ 2.494 µs      │ 1.381 µs      │ 1.406 µs      │ 100     │ 100
+├─ bench_build_issqn_xml_with_totals               1.972 µs      │ 3.065 µs      │ 2.013 µs      │ 2.04 µs       │ 100     │ 100
+├─ bench_build_nfce_consult_url                    119.3 ns      │ 391.1 ns      │ 120.6 ns      │ 123.7 ns      │ 100     │ 1600
+├─ bench_build_nfce_qr_code_url_v200_online        650.7 ns      │ 2.825 µs      │ 671.2 ns      │ 698.3 ns      │ 100     │ 100
+├─ bench_build_nfce_qr_code_url_v300_online        147.5 ns      │ 152.5 ns      │ 148.7 ns      │ 148.9 ns      │ 100     │ 1600
+├─ bench_build_pag_cash                            603.2 ns      │ 673.5 ns      │ 610.9 ns      │ 618.8 ns      │ 100     │ 400
+├─ bench_build_pag_empty                           456.7 ns      │ 1.309 µs      │ 460.5 ns      │ 470 ns        │ 100     │ 800
+├─ bench_build_pag_with_change                     901.2 ns      │ 1.091 µs      │ 931.2 ns      │ 935 ns        │ 100     │ 200
+├─ bench_build_pis_st_xml                          886.2 ns      │ 1.116 µs      │ 896.2 ns      │ 902.4 ns      │ 100     │ 200
+├─ bench_build_pis_xml_aliq                        1.187 µs      │ 1.347 µs      │ 1.207 µs      │ 1.213 µs      │ 100     │ 200
+├─ bench_build_purchase                            513.2 ns      │ 1.748 µs      │ 518.2 ns      │ 531.8 ns      │ 100     │ 400
+├─ bench_build_status_request                      100.2 ns      │ 107.7 ns      │ 102.4 ns      │ 102.3 ns      │ 100     │ 3200
+├─ bench_build_tech_responsible                    753.5 ns      │ 793.7 ns      │ 764.9 ns      │ 765.1 ns      │ 100     │ 400
+├─ bench_build_total                               4.497 µs      │ 8.204 µs      │ 4.568 µs      │ 4.665 µs      │ 100     │ 100
+├─ bench_build_transp_no_transport                 230.1 ns      │ 266.5 ns      │ 231.5 ns      │ 232.8 ns      │ 100     │ 800
+├─ bench_build_transp_with_carrier                 3.035 µs      │ 5.63 µs       │ 3.255 µs      │ 3.29 µs       │ 100     │ 100
+├─ bench_build_withdrawal                          1.481 µs      │ 2.594 µs      │ 1.502 µs      │ 1.542 µs      │ 100     │ 100
+├─ bench_calculate_mod11                           24.9 ns       │ 54.87 ns      │ 24.97 ns      │ 25.34 ns      │ 100     │ 12800
+├─ bench_contingency_activate                      90.58 ns      │ 94.65 ns      │ 92.44 ns      │ 92.31 ns      │ 100     │ 3200
+├─ bench_contingency_for_state_pr                  1.751 ns      │ 1.762 ns      │ 1.752 ns      │ 1.754 ns      │ 100     │ 102400
+├─ bench_contingency_for_state_sp                  3.727 ns      │ 10.49 ns      │ 3.729 ns      │ 3.8 ns        │ 100     │ 51200
+├─ bench_contingency_load_json                     540.7 ns      │ 3.906 µs      │ 560.7 ns      │ 598.1 ns      │ 100     │ 100
+├─ bench_create_icms_totals                        1.522 ns      │ 1.556 ns      │ 1.527 ns      │ 1.529 ns      │ 100     │ 204800
+├─ bench_create_issqn_totals                       0.431 ns      │ 0.446 ns      │ 0.433 ns      │ 0.434 ns      │ 100     │ 409600
+├─ bench_escape_xml_clean                          47.83 ns      │ 102.1 ns      │ 48.77 ns      │ 49.28 ns      │ 100     │ 6400
+├─ bench_escape_xml_dirty                          89.96 ns      │ 100.5 ns      │ 92.43 ns      │ 92.16 ns      │ 100     │ 3200
+├─ bench_extract_xml_tag_value                     160 ns        │ 167.5 ns      │ 162.5 ns      │ 162.5 ns      │ 100     │ 1600
+├─ bench_extract_xml_tag_value_not_found           112.7 ns      │ 274 ns        │ 114.6 ns      │ 116.7 ns      │ 100     │ 3200
+├─ bench_filter_fields_mixed                       117.5 ns      │ 220.1 ns      │ 119.9 ns      │ 122.2 ns      │ 100     │ 1600
+├─ bench_format_cents_2                            68.02 ns      │ 75.21 ns      │ 68.96 ns      │ 69.08 ns      │ 100     │ 3200
+├─ bench_format_cents_10                           137.5 ns      │ 148.2 ns      │ 141.2 ns      │ 141.3 ns      │ 100     │ 1600
+├─ bench_format_cents_10dp                         85.55 ns      │ 275.9 ns      │ 86.49 ns      │ 88.66 ns      │ 100     │ 3200
+├─ bench_format_cents_or_none_none                 4.981 ns      │ 5.02 ns       │ 5 ns          │ 4.997 ns      │ 100     │ 51200
+├─ bench_format_cents_or_none_some                 64.58 ns      │ 71.46 ns      │ 65.21 ns      │ 65.56 ns      │ 100     │ 3200
+├─ bench_format_cents_or_zero_none                 39.21 ns      │ 100.9 ns      │ 39.54 ns      │ 40.32 ns      │ 100     │ 6400
+├─ bench_format_cents_or_zero_some                 64.58 ns      │ 73.02 ns      │ 65.83 ns      │ 65.87 ns      │ 100     │ 3200
+├─ bench_format_datetime_nfe                       339.7 ns      │ 2.033 µs      │ 350.7 ns      │ 368 ns        │ 100     │ 100
+├─ bench_format_decimal                            165 ns        │ 175 ns        │ 167.9 ns      │ 168.2 ns      │ 100     │ 1600
+├─ bench_format_rate                               130.6 ns      │ 354.8 ns      │ 133.7 ns      │ 136.3 ns      │ 100     │ 1600
+├─ bench_format_rate4_or_zero_none                 13.7 ns       │ 28.53 ns      │ 13.82 ns      │ 16.02 ns      │ 100     │ 25600
+├─ bench_format_rate4_or_zero_some                 169.4 ns      │ 499.4 ns      │ 172.5 ns      │ 175.7 ns      │ 100     │ 1600
+├─ bench_format_rate4_pis                          168.8 ns      │ 178.8 ns      │ 171.3 ns      │ 172 ns        │ 100     │ 1600
+├─ bench_format_rate_4                             136.2 ns      │ 148.1 ns      │ 139.4 ns      │ 139.7 ns      │ 100     │ 1600
+├─ bench_format_year_month                         257.6 ns      │ 269 ns        │ 259 ns        │ 259.3 ns      │ 100     │ 800
+├─ bench_generate_numeric_code                     55.83 ns      │ 221.4 ns      │ 56.46 ns      │ 61.07 ns      │ 100     │ 3200
+├─ bench_get_nfce_consult_url_pr                   17.15 ns      │ 22.63 ns      │ 17.3 ns       │ 17.43 ns      │ 100     │ 12800
+├─ bench_get_sefaz_url_pr_autorizacao              17.77 ns      │ 59.41 ns      │ 17.94 ns      │ 18.49 ns      │ 100     │ 12800
+├─ bench_get_sefaz_url_sp_status                   17.78 ns      │ 20.75 ns      │ 18.01 ns      │ 18.06 ns      │ 100     │ 12800
+├─ bench_get_sefaz_url_svrs_state                  19.97 ns      │ 22.7 ns       │ 20.2 ns       │ 20.24 ns      │ 100     │ 12800
+├─ bench_get_state_by_code                         29.77 ns      │ 4.017 µs      │ 39.77 ns      │ 79.55 ns      │ 100     │ 100
+├─ bench_get_state_code                            15.74 ns      │ 16.29 ns      │ 15.82 ns      │ 15.84 ns      │ 100     │ 12800
+├─ bench_gtin_calculate_check_digit                48.77 ns      │ 50.96 ns      │ 49.71 ns      │ 49.74 ns      │ 100     │ 6400
+├─ bench_gtin_sem_gtin                             6.037 ns      │ 12.78 ns      │ 6.057 ns      │ 6.152 ns      │ 100     │ 51200
+├─ bench_gtin_valid                                55.82 ns      │ 58.65 ns      │ 57.07 ns      │ 57.16 ns      │ 100     │ 6400
+├─ bench_identify_xml_type_nfe                     4.828 µs      │ 6.722 µs      │ 4.859 µs      │ 4.884 µs      │ 100     │ 100
+├─ bench_identify_xml_type_nfe_proc                4.758 µs      │ 9.737 µs      │ 4.798 µs      │ 6.198 µs      │ 100     │ 100
+├─ bench_identify_xml_type_ret_cons                3.876 µs      │ 12.56 µs      │ 3.917 µs      │ 5.01 µs       │ 100     │ 100
+├─ bench_merge_icms_totals                         1.634 ns      │ 2.725 ns      │ 1.654 ns      │ 1.729 ns      │ 100     │ 204800
+├─ bench_merge_icms_totals_10_items                14.56 ns      │ 49.86 ns      │ 14.61 ns      │ 15.43 ns      │ 100     │ 25600
+├─ bench_parse_autorizacao_response_batch_only     1.071 µs      │ 5.66 µs       │ 1.081 µs      │ 1.143 µs      │ 100     │ 100
+├─ bench_parse_autorizacao_response_soap_wrapped   3.205 µs      │ 8.956 µs      │ 3.245 µs      │ 3.334 µs      │ 100     │ 100
+├─ bench_parse_autorizacao_response_with_protocol  2.083 µs      │ 4.047 µs      │ 2.113 µs      │ 2.134 µs      │ 100     │ 100
+├─ bench_parse_cancellation_response               1.402 µs      │ 6.912 µs      │ 1.432 µs      │ 1.516 µs      │ 100     │ 100
+├─ bench_parse_status_response                     1.111 µs      │ 2.253 µs      │ 1.141 µs      │ 1.158 µs      │ 100     │ 100
+├─ bench_parse_status_response_soap                1.652 µs      │ 3.906 µs      │ 1.682 µs      │ 1.715 µs      │ 100     │ 100
+├─ bench_put_qr_tag                                3.175 µs      │ 11.71 µs      │ 3.211 µs      │ 3.348 µs      │ 100     │ 100
+├─ bench_serialize_icms00                          840.7 ns      │ 2.604 µs      │ 860.7 ns      │ 883.5 ns      │ 100     │ 100
+├─ bench_serialize_ipi_with_outer_fields           698.5 ns      │ 1.928 µs      │ 701 ns        │ 716.2 ns      │ 100     │ 400
+├─ bench_serialize_no_outer                        518.2 ns      │ 565.7 ns      │ 520.7 ns      │ 523.4 ns      │ 100     │ 400
+├─ bench_sign_xml                                  993.7 µs      │ 1.188 ms      │ 1.012 ms      │ 1.017 ms      │ 100     │ 100
+├─ bench_state_code_all_27                         420.7 ns      │ 2.263 µs      │ 440.7 ns      │ 529.4 ns      │ 100     │ 100
+├─ bench_tag_empty                                 76.77 ns      │ 176.3 ns      │ 80.52 ns      │ 110.3 ns      │ 100     │ 1600
+├─ bench_tag_nested_invoice_item                   3.265 µs      │ 9.026 µs      │ 3.311 µs      │ 3.717 µs      │ 100     │ 100
+├─ bench_tag_simple_text                           121.2 ns      │ 232.7 ns      │ 124.4 ns      │ 142.8 ns      │ 100     │ 1600
+├─ bench_tag_with_attrs                            425.5 ns      │ 1.506 µs      │ 428 ns        │ 475 ns        │ 100     │ 800
+├─ bench_tax_id_cnpj                               27.87 ns      │ 59.88 ns      │ 27.95 ns      │ 30.49 ns      │ 100     │ 12800
+├─ bench_tax_id_cpf                                27.71 ns      │ 80.94 ns      │ 27.79 ns      │ 31.36 ns      │ 100     │ 12800
+├─ bench_tax_id_to_xml_tag                         156.2 ns      │ 307.9 ns      │ 157.5 ns      │ 177.9 ns      │ 100     │ 1600
+├─ bench_xml_to_json_medium                        43.6 µs       │ 97.76 µs      │ 44.62 µs      │ 45.95 µs      │ 100     │ 100
+╰─ bench_xml_to_json_small                         6.952 µs      │ 13.86 µs      │ 7.012 µs      │ 7.442 µs      │ 100     │ 100
+

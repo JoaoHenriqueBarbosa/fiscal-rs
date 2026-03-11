@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: serialize_tax_element(&element)
+---
+<IPI><cEnq>999</cEnq><IPITrib><CST>50</CST><vBC>100.00</vBC><pIPI>5.0000</pIPI><vIPI>5.00</vIPI></IPITrib></IPI>

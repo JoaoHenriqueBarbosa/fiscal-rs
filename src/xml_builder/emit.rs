@@ -1,0 +1,67 @@
+//! Build the `<emit>` (issuer/emitter) group of the NF-e XML.
+
+use crate::types::InvoiceBuildData;
+use crate::xml_utils::{tag, TagContent};
+
+/// Build the `<emit>` element with issuer data and address.
+pub fn build_emit(data: &InvoiceBuildData) -> String {
+    let iss = &data.issuer;
+
+    let mut children = vec![
+        tag("CNPJ", &[], TagContent::Text(&iss.tax_id)),
+        tag("xNome", &[], TagContent::Text(&iss.company_name)),
+    ];
+
+    if let Some(ref trade_name) = iss.trade_name {
+        children.push(tag("xFant", &[], TagContent::Text(trade_name)));
+    }
+
+    children.push(tag("enderEmit", &[], TagContent::Children(
+        build_address_fields(
+            &iss.street, &iss.street_number, iss.address_complement.as_deref(),
+            &iss.district, &iss.city_code.0, &iss.city_name,
+            &iss.state_code, Some(&iss.zip_code), true,
+        ),
+    )));
+    children.push(tag("IE", &[], TagContent::Text(&iss.state_tax_id)));
+    children.push(tag("CRT", &[], TagContent::Text(
+        &(iss.tax_regime as u8).to_string(),
+    )));
+
+    tag("emit", &[], TagContent::Children(children))
+}
+
+/// Build address child tags (xLgr … xPais), reused for emit/dest/retirada/entrega.
+pub fn build_address_fields(
+    street: &str,
+    number: &str,
+    complement: Option<&str>,
+    district: &str,
+    city_code: &str,
+    city_name: &str,
+    state_code: &str,
+    zip_code: Option<&str>,
+    include_country: bool,
+) -> Vec<String> {
+    let mut fields = vec![
+        tag("xLgr", &[], TagContent::Text(street)),
+        tag("nro", &[], TagContent::Text(number)),
+    ];
+    if let Some(cpl) = complement {
+        fields.push(tag("xCpl", &[], TagContent::Text(cpl)));
+    }
+    fields.extend([
+        tag("xBairro", &[], TagContent::Text(district)),
+        tag("cMun", &[], TagContent::Text(city_code)),
+        tag("xMun", &[], TagContent::Text(city_name)),
+        tag("UF", &[], TagContent::Text(state_code)),
+    ]);
+    if let Some(cep) = zip_code {
+        fields.push(tag("CEP", &[], TagContent::Text(cep)));
+    }
+    if include_country {
+        fields.push(tag("cPais", &[], TagContent::Text("1058")));
+        fields.push(tag("xPais", &[], TagContent::Text("Brasil")));
+    }
+    fields
+}

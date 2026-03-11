@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "tag(\"xNome\", &[], \"Test Company\".into())"
+---
+<xNome>Test Company</xNome>

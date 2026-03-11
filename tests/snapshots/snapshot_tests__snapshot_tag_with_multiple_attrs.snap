@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "tag(\"infNFe\", &[(\"versao\", \"4.00\"), (\"Id\", \"NFe35...\")],\nvec![tag(\"ide\", &[], vec![].into())].into(),)"
+---
+<infNFe versao="4.00" Id="NFe35..."><ide></ide></infNFe>

@@ -1,0 +1,51 @@
+---
+source: tests/snapshot_tests.rs
+expression: target
+---
+IcmsTotals {
+    v_bc: Cents(
+        30000,
+    ),
+    v_icms: Cents(
+        5400,
+    ),
+    v_icms_deson: Cents(
+        300,
+    ),
+    v_bc_st: Cents(
+        5000,
+    ),
+    v_st: Cents(
+        900,
+    ),
+    v_fcp: Cents(
+        600,
+    ),
+    v_fcp_st: Cents(
+        100,
+    ),
+    v_fcp_st_ret: Cents(
+        50,
+    ),
+    v_fcp_uf_dest: Cents(
+        0,
+    ),
+    v_icms_uf_dest: Cents(
+        0,
+    ),
+    v_icms_uf_remet: Cents(
+        0,
+    ),
+    q_bc_mono: 1000,
+    v_icms_mono: Cents(
+        500,
+    ),
+    q_bc_mono_reten: 0,
+    v_icms_mono_reten: Cents(
+        0,
+    ),
+    q_bc_mono_ret: 0,
+    v_icms_mono_ret: Cents(
+        0,
+    ),
+}

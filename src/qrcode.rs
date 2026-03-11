@@ -1,0 +1,408 @@
+use sha1::{Digest, Sha1};
+
+use crate::types::{
+    EmissionType, NfceQrCodeParams, PutQRTagParams, QrCodeVersion, SefazEnvironment,
+};
+use crate::xml_utils::extract_xml_tag_value;
+use crate::FiscalError;
+
+// ── QR Code URL builder ─────────────────────────────────────────────────────
+
+/// Build the NFC-e QR Code URL.
+///
+/// Supports version 2 (v200) and version 3 (v300, NT 2025.001).
+/// Online mode uses a simplified format; offline (`tpEmis=9`) includes
+/// additional fields for validation without network.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::MissingRequiredField`] if:
+/// - v200 is requested without a CSC token or CSC ID
+/// - Offline mode is requested without `issued_at`, `total_value`, or `digest_value` (v200)
+pub fn build_nfce_qr_code_url(params: &NfceQrCodeParams) -> Result<String, FiscalError> {
+    let url = ensure_query_param(&params.qr_code_base_url);
+
+    match params.version {
+        QrCodeVersion::V300 => build_v300(&url, params),
+        QrCodeVersion::V200 => build_v200(&url, params),
+    }
+}
+
+/// Build the NFC-e urlChave tag content for consulting the NFe by access key.
+///
+/// Format: `url?p=key|env` or `url&p=key|env` if URL already contains `?`.
+pub fn build_nfce_consult_url(
+    url_chave: &str,
+    access_key: &str,
+    environment: SefazEnvironment,
+) -> String {
+    let sep = if url_chave.contains('?') { "&" } else { "?" };
+    format!(
+        "{url_chave}{sep}p={access_key}|{env}",
+        env = environment.as_str()
+    )
+}
+
+/// Insert QR Code and urlChave tags into a signed NFC-e XML.
+///
+/// Extracts fields from the XML (access key, environment, emission date/type,
+/// totals, digest value, destination document), builds the QR Code URL, and
+/// inserts an `<infNFeSupl>` element with `<qrCode>` and `<urlChave>` children
+/// before the `<Signature` element.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if required XML tags are missing.
+/// Returns [`FiscalError::MissingRequiredField`] if CSC token/ID is missing for v200.
+/// Returns [`FiscalError::XmlGeneration`] if `<Signature` is not found in the XML.
+pub fn put_qr_tag(params: &PutQRTagParams) -> Result<String, FiscalError> {
+    let xml = &params.xml;
+    let ver = params.version.trim();
+    let ver = if ver.is_empty() { "200" } else { ver };
+    let token = params.csc_token.trim();
+    let token_id = params.csc_id.trim();
+    let urlqr = params.qr_code_base_url.trim();
+    let urichave = params.url_chave.trim();
+
+    let ver_num: u32 = ver.parse().unwrap_or(200);
+
+    if ver_num < 300 {
+        if token.is_empty() {
+            return Err(FiscalError::MissingRequiredField {
+                field: "CSC token".into(),
+            });
+        }
+        if token_id.is_empty() {
+            return Err(FiscalError::MissingRequiredField {
+                field: "CSC ID".into(),
+            });
+        }
+    }
+    if urlqr.is_empty() {
+        return Err(FiscalError::MissingRequiredField {
+            field: "qr_code_base_url".into(),
+        });
+    }
+
+    // Extract fields from XML
+    let ch_nfe = extract_xml_tag_attr(xml, "infNFe", "Id")
+        .map(|id| id.strip_prefix("NFe").unwrap_or(&id).to_string())
+        .unwrap_or_default();
+    let tp_amb = extract_xml_tag_value(xml, "tpAmb").unwrap_or_default();
+    let dh_emi = extract_xml_tag_value(xml, "dhEmi").unwrap_or_default();
+    let tp_emis_str = extract_xml_tag_value(xml, "tpEmis").unwrap_or_else(|| "1".into());
+    let tp_emis: u32 = tp_emis_str.parse().unwrap_or(1);
+    let v_nf = extract_xml_tag_value(xml, "vNF").unwrap_or_else(|| "0.00".into());
+    let v_icms = extract_xml_tag_value(xml, "vICMS").unwrap_or_else(|| "0.00".into());
+    let digest_value = extract_xml_tag_value(xml, "DigestValue").unwrap_or_default();
+
+    // Determine destination document from <dest> block
+    let c_dest = extract_dest_document(xml);
+
+    // Build QR Code URL
+    let environment = match tp_amb.as_str() {
+        "1" => SefazEnvironment::Production,
+        _ => SefazEnvironment::Homologation,
+    };
+    let emission_type = match tp_emis {
+        6 => EmissionType::SvcAn,
+        7 => EmissionType::SvcRs,
+        9 => EmissionType::Offline,
+        _ => EmissionType::Normal,
+    };
+    let version = if ver_num >= 300 {
+        QrCodeVersion::V300
+    } else {
+        QrCodeVersion::V200
+    };
+
+    let qr_params = NfceQrCodeParams {
+        access_key: ch_nfe.clone(),
+        version,
+        environment,
+        emission_type,
+        qr_code_base_url: urlqr.to_string(),
+        csc_token: Some(token.to_string()),
+        csc_id: Some(token_id.to_string()),
+        issued_at: Some(dh_emi),
+        total_value: Some(v_nf),
+        total_icms: Some(v_icms),
+        digest_value: Some(digest_value),
+        dest_document: if c_dest.is_empty() {
+            None
+        } else {
+            Some(c_dest)
+        },
+        dest_id_type: None,
+    };
+
+    let qrcode = build_nfce_qr_code_url(&qr_params)?;
+
+    // Build infNFeSupl element
+    let inf_nfe_supl = format!(
+        "<infNFeSupl><qrCode>{qrcode}</qrCode><urlChave>{urichave}</urlChave></infNFeSupl>"
+    );
+
+    // Insert before <Signature
+    if let Some(pos) = xml.find("<Signature") {
+        let mut result = String::with_capacity(xml.len() + inf_nfe_supl.len());
+        result.push_str(&xml[..pos]);
+        result.push_str(&inf_nfe_supl);
+        result.push_str(&xml[pos..]);
+        Ok(result)
+    } else {
+        Err(FiscalError::XmlGeneration(
+            "<Signature element not found in XML".into(),
+        ))
+    }
+}
+
+// ── Version 200 ─────────────────────────────────────────────────────────────
+
+/// Build a v200 QR Code URL (online or offline).
+fn build_v200(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalError> {
+    let csc_token = params
+        .csc_token
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "CSC token".into(),
+        })?;
+
+    let csc_id_str = params
+        .csc_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "CSC ID".into(),
+        })?;
+
+    let csc_id: i64 = csc_id_str.parse().unwrap_or(0);
+
+    if params.emission_type != EmissionType::Offline {
+        // Online mode -- simplified
+        let seq = format!(
+            "{key}|2|{env}|{csc_id}",
+            key = params.access_key,
+            env = params.environment.as_str(),
+        );
+        let hash = sha1_hex(&format!("{seq}{csc_token}"));
+        return Ok(format!("{url}{seq}|{hash}"));
+    }
+
+    // Offline mode -- full format
+    let issued_at = params
+        .issued_at
+        .as_deref()
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "issued_at".into(),
+        })?;
+    let total_value = params
+        .total_value
+        .as_deref()
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "total_value".into(),
+        })?;
+    let digest_value = params
+        .digest_value
+        .as_deref()
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "digest_value".into(),
+        })?;
+
+    let day = extract_day(issued_at);
+    let valor = format_value(total_value);
+    let dig_hex = str2hex(digest_value);
+
+    let seq = format!(
+        "{key}|2|{env}|{day}|{valor}|{dig_hex}|{csc_id}",
+        key = params.access_key,
+        env = params.environment.as_str(),
+    );
+    let hash = sha1_hex(&format!("{seq}{csc_token}"));
+    Ok(format!("{url}{seq}|{hash}"))
+}
+
+// ── Version 300 (NT 2025.001) ───────────────────────────────────────────────
+
+/// Build a v300 QR Code URL (online only; offline requires certificate signing).
+fn build_v300(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalError> {
+    if params.emission_type != EmissionType::Offline {
+        // Online mode -- very simple, no CSC needed
+        return Ok(format!(
+            "{url}{key}|3|{env}",
+            key = params.access_key,
+            env = params.environment.as_str(),
+        ));
+    }
+
+    // Offline v300 requires certificate signing which is not supported in
+    // this synchronous API. Return an error for now.
+    Err(FiscalError::XmlGeneration(
+        "v300 offline QR Code requires certificate signing (not supported)".into(),
+    ))
+}
+
+// ── Utility functions ───────────────────────────────────────────────────────
+
+/// Ensure the URL contains `?p=`, appending it if missing.
+fn ensure_query_param(url: &str) -> String {
+    if url.contains("?p=") {
+        url.to_string()
+    } else {
+        format!("{url}?p=")
+    }
+}
+
+/// Compute the SHA-1 hex digest (uppercase) of the input.
+fn sha1_hex(input: &str) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(input.as_bytes());
+    let result = hasher.finalize();
+    // Format as uppercase hex
+    result
+        .iter()
+        .fold(String::with_capacity(40), |mut acc, byte| {
+            use std::fmt::Write;
+            let _ = write!(acc, "{byte:02X}");
+            acc
+        })
+}
+
+/// Convert a string to its hexadecimal ASCII representation.
+fn str2hex(s: &str) -> String {
+    s.bytes()
+        .fold(String::with_capacity(s.len() * 2), |mut acc, b| {
+            use std::fmt::Write;
+            let _ = write!(acc, "{b:02x}");
+            acc
+        })
+}
+
+/// Extract the day (`dd`) from an ISO date string (e.g. `2026-01-15T10:30:00-03:00` -> `"15"`).
+fn extract_day(iso_date: &str) -> String {
+    // ISO 8601: YYYY-MM-DDT... — day is at positions 8..10
+    if iso_date.len() >= 10 && iso_date.as_bytes()[4] == b'-' && iso_date.as_bytes()[7] == b'-' {
+        return iso_date[8..10].to_string();
+    }
+    // Fallback: try chrono parsing
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(iso_date) {
+        return format!("{:02}", dt.format("%d"));
+    }
+    "01".to_string()
+}
+
+/// Format a numeric value string to 2 decimal places.
+fn format_value(value: &str) -> String {
+    let v: f64 = value.parse().unwrap_or(0.0);
+    format!("{v:.2}")
+}
+
+/// Extract an attribute value from an XML element.
+fn extract_xml_tag_attr(xml: &str, tag_name: &str, attr_name: &str) -> Option<String> {
+    // Find <tagName ... attrName="value"
+    let open = format!("<{tag_name}");
+    let start = xml.find(&open)?;
+    let rest = &xml[start..];
+    // Find the closing > of this tag
+    let tag_end = rest.find('>')?;
+    let tag_content = &rest[..tag_end];
+    // Find attrName="value"
+    let attr_pat = format!("{attr_name}=\"");
+    let attr_start = tag_content.find(&attr_pat)? + attr_pat.len();
+    let attr_rest = &tag_content[attr_start..];
+    let attr_end = attr_rest.find('"')?;
+    Some(attr_rest[..attr_end].to_string())
+}
+
+/// Extract destination document (CNPJ, CPF, or idEstrangeiro) from the `<dest>` block.
+fn extract_dest_document(xml: &str) -> String {
+    let dest_start = match xml.find("<dest>") {
+        Some(pos) => pos,
+        None => return String::new(),
+    };
+    let dest_end = match xml[dest_start..].find("</dest>") {
+        Some(pos) => dest_start + pos + 7,
+        None => return String::new(),
+    };
+    let dest_block = &xml[dest_start..dest_end];
+
+    for tag in &["CNPJ", "CPF", "idEstrangeiro"] {
+        if let Some(val) = extract_xml_tag_value(dest_block, tag) {
+            if !val.is_empty() {
+                return val;
+            }
+        }
+    }
+    String::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sha1_hex_produces_uppercase_40_chars() {
+        let hash = sha1_hex("hello");
+        assert_eq!(hash.len(), 40);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(hash, "AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
+    }
+
+    #[test]
+    fn str2hex_converts_ascii() {
+        assert_eq!(str2hex("ABC"), "414243");
+        assert_eq!(str2hex("abc"), "616263");
+    }
+
+    #[test]
+    fn extract_day_from_iso() {
+        assert_eq!(extract_day("2026-01-15T10:30:00-03:00"), "15");
+        assert_eq!(extract_day("2026-03-01T00:00:00-03:00"), "01");
+    }
+
+    #[test]
+    fn format_value_two_decimals() {
+        assert_eq!(format_value("100"), "100.00");
+        assert_eq!(format_value("100.5"), "100.50");
+        assert_eq!(format_value("0"), "0.00");
+    }
+
+    #[test]
+    fn ensure_query_param_appends_when_missing() {
+        assert_eq!(
+            ensure_query_param("https://example.com/qr"),
+            "https://example.com/qr?p="
+        );
+    }
+
+    #[test]
+    fn ensure_query_param_keeps_existing() {
+        assert_eq!(
+            ensure_query_param("https://example.com/qr?p="),
+            "https://example.com/qr?p="
+        );
+    }
+
+    #[test]
+    fn extract_xml_tag_attr_finds_id() {
+        let xml = r#"<infNFe versao="4.00" Id="NFe12345678901234567890123456789012345678901234">"#;
+        let val = extract_xml_tag_attr(xml, "infNFe", "Id");
+        assert_eq!(
+            val,
+            Some("NFe12345678901234567890123456789012345678901234".into())
+        );
+    }
+
+    #[test]
+    fn extract_dest_document_cnpj() {
+        let xml = "<NFe><dest><CNPJ>12345678000199</CNPJ></dest></NFe>";
+        assert_eq!(extract_dest_document(xml), "12345678000199");
+    }
+
+    #[test]
+    fn extract_dest_document_empty_when_no_dest() {
+        let xml = "<NFe><ide></ide></NFe>";
+        assert_eq!(extract_dest_document(xml), "");
+    }
+}

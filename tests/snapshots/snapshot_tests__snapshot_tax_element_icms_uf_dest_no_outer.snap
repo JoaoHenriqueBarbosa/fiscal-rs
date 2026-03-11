@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: serialize_tax_element(&element)
+---
+<ICMSUFDest><vBCUFDest>1000.00</vBCUFDest><vBCFCPUFDest>1000.00</vBCFCPUFDest><pFCPUFDest>2.0000</pFCPUFDest><pICMSUFDest>18.0000</pICMSUFDest><pICMSInter>12.0000</pICMSInter><pICMSInterPart>100.0000</pICMSInterPart><vFCPUFDest>20.00</vFCPUFDest><vICMSUFDest>60.00</vICMSUFDest><vICMSUFRemet>0.00</vICMSUFRemet></ICMSUFDest>

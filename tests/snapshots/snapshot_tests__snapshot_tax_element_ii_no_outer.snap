@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: serialize_tax_element(&element)
+---
+<II><vBC>5000.00</vBC><vDespAdu>200.00</vDespAdu><vII>800.00</vII><vIOF>50.00</vIOF></II>

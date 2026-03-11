@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_tests.rs
+expression: "escape_xml(\"Normal text 123\")"
+---
+Normal text 123

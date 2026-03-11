@@ -1,0 +1,23 @@
+pub mod error;
+pub use error::FiscalError;
+
+pub mod newtypes;
+pub mod types;
+pub mod constants;
+pub mod state_codes;
+pub mod format_utils;
+pub mod xml_utils;
+pub mod tax_element;
+pub mod tax_icms;
+pub mod tax_pis_cofins_ipi;
+pub mod tax_issqn;
+pub mod tax_is;
+pub mod xml_builder;
+pub mod complement;
+pub mod qrcode;
+pub mod gtin;
+pub mod certificate;
+pub mod contingency;
+pub mod convert;
+pub mod standardize;
+pub mod sefaz;
