@@ -553,9 +553,11 @@ pub struct InvoiceItemData {
     pub dfe_referenciado: Option<DFeReferenciadoData>,
 }
 
-/// Data needed to build an invoice XML
+/// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
+///
+/// Not part of the public API — callers should use the builder.
 #[derive(Debug, Clone)]
-pub struct InvoiceBuildData {
+pub(crate) struct InvoiceBuildData {
     pub model: InvoiceModel,
     pub series: u32,
     pub number: u32,
@@ -599,9 +601,9 @@ pub struct AuthorizedXml {
     pub tax_id: String,
 }
 
-/// Result of building an invoice XML
+/// Internal result of XML generation, consumed by the builder.
 #[derive(Debug, Clone)]
-pub struct InvoiceXmlResult {
+pub(crate) struct InvoiceXmlResult {
     pub xml: String,
     pub access_key: String,
 }

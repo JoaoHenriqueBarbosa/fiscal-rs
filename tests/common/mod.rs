@@ -7,6 +7,7 @@
 
 use fiscal::types::*;
 use fiscal::newtypes::{Cents, Rate, IbgeCode};
+use fiscal::xml_builder::InvoiceBuilder;
 
 // ── XML assertion helpers ───────────────────────────────────────────────────
 
@@ -195,8 +196,10 @@ pub fn sample_payment() -> PaymentData {
     }
 }
 
-/// Complete sample InvoiceBuildData for NFC-e in homologation.
-pub fn sample_invoice_data() -> InvoiceBuildData {
+/// Build a sample NFC-e InvoiceBuilder in homologation (Draft state).
+///
+/// Call `.build().unwrap()` to get the Built state with XML.
+pub fn sample_invoice_builder() -> InvoiceBuilder {
     let offset = br_offset();
     let issued_at = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
         .unwrap()
@@ -205,41 +208,12 @@ pub fn sample_invoice_data() -> InvoiceBuildData {
         .and_local_timezone(offset)
         .unwrap();
 
-    InvoiceBuildData {
-        model: InvoiceModel::Nfce,
-        series: 1,
-        number: 1,
-        emission_type: EmissionType::Normal,
-        environment: SefazEnvironment::Homologation,
-        issued_at,
-        operation_nature: "VENDA".to_string(),
-        issuer: sample_issuer(),
-        recipient: None,
-        items: vec![sample_item()],
-        payments: vec![sample_payment()],
-        change_amount: None,
-        payment_card_details: None,
-        contingency: None,
-        operation_type: None,
-        purpose_code: None,
-        intermediary_indicator: None,
-        emission_process: None,
-        consumer_type: None,
-        buyer_presence: None,
-        print_format: None,
-        references: None,
-        transport: None,
-        billing: None,
-        withdrawal: None,
-        delivery: None,
-        authorized_xml: None,
-        additional_info: None,
-        intermediary: None,
-        ret_trib: None,
-        tech_responsible: None,
-        purchase: None,
-        export: None,
-    }
+    InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
+        .series(1)
+        .invoice_number(1)
+        .issued_at(issued_at)
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
 }
 
 /// Fixtures directory path for sped-nfe PHP reference files.

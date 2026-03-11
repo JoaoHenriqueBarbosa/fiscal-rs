@@ -4,7 +4,7 @@ use crate::types::InvoiceBuildData;
 use crate::xml_utils::{tag, TagContent};
 
 /// Build the `<emit>` element with issuer data and address.
-pub fn build_emit(data: &InvoiceBuildData) -> String {
+pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
     let iss = &data.issuer;
 
     let mut children = vec![

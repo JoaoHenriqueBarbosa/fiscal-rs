@@ -38,7 +38,7 @@ pub fn build_cobr(billing: &BillingData) -> String {
 }
 
 /// Build `<infAdic>` (additional info) element.
-pub fn build_inf_adic(data: &InvoiceBuildData) -> String {
+pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     let mut notes: Vec<String> = Vec::new();
 
     if let Some(ref cont) = data.contingency {

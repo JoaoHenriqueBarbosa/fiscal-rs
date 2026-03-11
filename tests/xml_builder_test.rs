@@ -1,5 +1,5 @@
 use fiscal::xml_utils::{tag, TagContent};
-use fiscal::xml_builder::{build_access_key, build_invoice_xml};
+use fiscal::xml_builder::{build_access_key, InvoiceBuilder};
 use fiscal::types::*;
 use chrono::FixedOffset;
 use fiscal::newtypes::{Cents, Rate, IbgeCode};
@@ -133,160 +133,145 @@ mod build_access_key_tests {
     }
 }
 
-// ── buildInvoiceXml() ────────────────────────────────────────────────────────
+// ── InvoiceBuilder ──────────────────────────────────────────────────────────
 
 mod build_invoice_xml_tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    fn sample_data() -> InvoiceBuildData {
+    fn sample_issuer() -> IssuerData {
+        IssuerData {
+            tax_id: "12345678000199".to_string(),
+            state_tax_id: "123456789".to_string(),
+            company_name: "Test Company".to_string(),
+            trade_name: Some("Test".to_string()),
+            tax_regime: TaxRegime::SimplesNacional,
+            state_code: "SP".to_string(),
+            city_code: IbgeCode("3550308".to_string()),
+            city_name: "Sao Paulo".to_string(),
+            street: "Av Paulista".to_string(),
+            street_number: "1000".to_string(),
+            district: "Bela Vista".to_string(),
+            zip_code: "01310100".to_string(),
+            address_complement: None,
+        }
+    }
+
+    fn sample_item() -> InvoiceItemData {
+        InvoiceItemData {
+            item_number: 1,
+            product_code: "1".to_string(),
+            description: "Product A".to_string(),
+            ncm: "84715010".to_string(),
+            cfop: "5102".to_string(),
+            unit_of_measure: "UN".to_string(),
+            quantity: 2.0,
+            unit_price: Cents(1000),
+            total_price: Cents(2000),
+            c_ean: None,
+            c_ean_trib: None,
+            cest: None,
+            v_frete: None,
+            v_seg: None,
+            v_desc: None,
+            v_outro: None,
+            orig: None,
+            icms_cst: "102".to_string(),
+            icms_rate: Rate(0),
+            icms_amount: Cents(0),
+            icms_mod_bc: None,
+            icms_red_bc: None,
+            icms_mod_bc_st: None,
+            icms_p_mva_st: None,
+            icms_red_bc_st: None,
+            icms_v_bc_st: None,
+            icms_p_icms_st: None,
+            icms_v_icms_st: None,
+            icms_v_icms_deson: None,
+            icms_mot_des_icms: None,
+            icms_p_fcp: None,
+            icms_v_fcp: None,
+            icms_v_bc_fcp: None,
+            icms_p_fcp_st: None,
+            icms_v_fcp_st: None,
+            icms_v_bc_fcp_st: None,
+            icms_p_cred_sn: None,
+            icms_v_cred_icms_sn: None,
+            icms_v_icms_substituto: None,
+            pis_cst: "99".to_string(),
+            pis_v_bc: None,
+            pis_p_pis: None,
+            pis_v_pis: None,
+            pis_q_bc_prod: None,
+            pis_v_aliq_prod: None,
+            cofins_cst: "99".to_string(),
+            cofins_v_bc: None,
+            cofins_p_cofins: None,
+            cofins_v_cofins: None,
+            cofins_q_bc_prod: None,
+            cofins_v_aliq_prod: None,
+            ipi_cst: None,
+            ipi_c_enq: None,
+            ipi_v_bc: None,
+            ipi_p_ipi: None,
+            ipi_v_ipi: None,
+            ipi_q_unid: None,
+            ipi_v_unid: None,
+            ii_v_bc: None,
+            ii_v_desp_adu: None,
+            ii_v_ii: None,
+            ii_v_iof: None,
+            rastro: None,
+            veic_prod: None,
+            med: None,
+            arma: None,
+            n_recopi: None,
+            inf_ad_prod: None,
+            obs_item: None,
+            dfe_referenciado: None,
+        }
+    }
+
+    fn sample_payment() -> PaymentData {
+        PaymentData {
+            method: "01".to_string(),
+            amount: Cents(2000),
+        }
+    }
+
+    fn issued_at() -> chrono::DateTime<FixedOffset> {
         let offset = FixedOffset::west_opt(3 * 3600).unwrap();
-        let issued_at = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+        chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
             .unwrap()
             .and_hms_opt(10, 30, 0)
             .unwrap()
             .and_local_timezone(offset)
-            .unwrap();
+            .unwrap()
+    }
 
-        InvoiceBuildData {
-            model: InvoiceModel::Nfce,
-            series: 1,
-            number: 1,
-            emission_type: EmissionType::Normal,
-            environment: SefazEnvironment::Homologation,
-            issued_at,
-            operation_nature: "VENDA".to_string(),
-            issuer: IssuerData {
-                tax_id: "12345678000199".to_string(),
-                state_tax_id: "123456789".to_string(),
-                company_name: "Test Company".to_string(),
-                trade_name: Some("Test".to_string()),
-                tax_regime: TaxRegime::SimplesNacional,
-                state_code: "SP".to_string(),
-                city_code: IbgeCode("3550308".to_string()),
-                city_name: "Sao Paulo".to_string(),
-                street: "Av Paulista".to_string(),
-                street_number: "1000".to_string(),
-                district: "Bela Vista".to_string(),
-                zip_code: "01310100".to_string(),
-                address_complement: None,
-            },
-            recipient: None,
-            items: vec![InvoiceItemData {
-                item_number: 1,
-                product_code: "1".to_string(),
-                description: "Product A".to_string(),
-                ncm: "84715010".to_string(),
-                cfop: "5102".to_string(),
-                unit_of_measure: "UN".to_string(),
-                quantity: 2.0,
-                unit_price: Cents(1000),
-                total_price: Cents(2000),
-                c_ean: None,
-                c_ean_trib: None,
-                cest: None,
-                v_frete: None,
-                v_seg: None,
-                v_desc: None,
-                v_outro: None,
-                orig: None,
-                icms_cst: "102".to_string(),
-                icms_rate: Rate(0),
-                icms_amount: Cents(0),
-                icms_mod_bc: None,
-                icms_red_bc: None,
-                icms_mod_bc_st: None,
-                icms_p_mva_st: None,
-                icms_red_bc_st: None,
-                icms_v_bc_st: None,
-                icms_p_icms_st: None,
-                icms_v_icms_st: None,
-                icms_v_icms_deson: None,
-                icms_mot_des_icms: None,
-                icms_p_fcp: None,
-                icms_v_fcp: None,
-                icms_v_bc_fcp: None,
-                icms_p_fcp_st: None,
-                icms_v_fcp_st: None,
-                icms_v_bc_fcp_st: None,
-                icms_p_cred_sn: None,
-                icms_v_cred_icms_sn: None,
-                icms_v_icms_substituto: None,
-                pis_cst: "99".to_string(),
-                pis_v_bc: None,
-                pis_p_pis: None,
-                pis_v_pis: None,
-                pis_q_bc_prod: None,
-                pis_v_aliq_prod: None,
-                cofins_cst: "99".to_string(),
-                cofins_v_bc: None,
-                cofins_p_cofins: None,
-                cofins_v_cofins: None,
-                cofins_q_bc_prod: None,
-                cofins_v_aliq_prod: None,
-                ipi_cst: None,
-                ipi_c_enq: None,
-                ipi_v_bc: None,
-                ipi_p_ipi: None,
-                ipi_v_ipi: None,
-                ipi_q_unid: None,
-                ipi_v_unid: None,
-                ii_v_bc: None,
-                ii_v_desp_adu: None,
-                ii_v_ii: None,
-                ii_v_iof: None,
-                rastro: None,
-                veic_prod: None,
-                med: None,
-                arma: None,
-                n_recopi: None,
-                inf_ad_prod: None,
-                obs_item: None,
-                dfe_referenciado: None,
-            }],
-            payments: vec![PaymentData {
-                method: "01".to_string(),
-                amount: Cents(2000),
-            }],
-            change_amount: None,
-            payment_card_details: None,
-            contingency: None,
-            operation_type: None,
-            purpose_code: None,
-            intermediary_indicator: None,
-            emission_process: None,
-            consumer_type: None,
-            buyer_presence: None,
-            print_format: None,
-            references: None,
-            transport: None,
-            billing: None,
-            withdrawal: None,
-            delivery: None,
-            authorized_xml: None,
-            additional_info: None,
-            intermediary: None,
-            ret_trib: None,
-            tech_responsible: None,
-            purchase: None,
-            export: None,
-        }
+    fn sample_builder() -> InvoiceBuilder {
+        InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(issued_at())
+            .add_item(sample_item())
+            .payments(vec![sample_payment()])
     }
 
     #[test]
     fn generates_valid_xml_with_correct_structure() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        assert!(result.xml.contains(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
-        assert!(result.xml.contains("<NFe"));
-        assert!(result.xml.contains("<infNFe"));
-        assert!(result.xml.contains("</NFe>"));
-        assert_eq!(result.access_key.len(), 44);
+        let built = sample_builder().build().unwrap();
+        assert!(built.xml().contains(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
+        assert!(built.xml().contains("<NFe"));
+        assert!(built.xml().contains("<infNFe"));
+        assert!(built.xml().contains("</NFe>"));
+        assert_eq!(built.access_key().len(), 44);
     }
 
     #[test]
     fn contains_required_groups() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder().build().unwrap();
+        let xml = built.xml();
         assert!(xml.contains("<ide>"));
         assert!(xml.contains("<emit>"));
         assert!(xml.contains("<det "));
@@ -297,22 +282,27 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn sets_model_65_for_nfce() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        assert!(result.xml.contains("<mod>65</mod>"));
+        let built = sample_builder().build().unwrap();
+        assert!(built.xml().contains("<mod>65</mod>"));
     }
 
     #[test]
     fn sets_model_55_for_nfe() {
-        let mut data = sample_data();
-        data.model = InvoiceModel::Nfe;
-        let result = build_invoice_xml(&data).unwrap();
-        assert!(result.xml.contains("<mod>55</mod>"));
+        let built = InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(issued_at())
+            .add_item(sample_item())
+            .payments(vec![sample_payment()])
+            .build()
+            .unwrap();
+        assert!(built.xml().contains("<mod>55</mod>"));
     }
 
     #[test]
     fn includes_issuer_data() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder().build().unwrap();
+        let xml = built.xml();
         assert!(xml.contains("<CNPJ>12345678000199</CNPJ>"));
         assert!(xml.contains("<xNome>Test Company</xNome>"));
         assert!(xml.contains("<IE>123456789</IE>"));
@@ -321,8 +311,8 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn includes_item_data() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder().build().unwrap();
+        let xml = built.xml();
         assert!(xml.contains(r#"<det nItem="1">"#));
         assert!(xml.contains("<xProd>Product A</xProd>"));
         assert!(xml.contains("<NCM>84715010</NCM>"));
@@ -331,44 +321,45 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn formats_amounts_correctly() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder().build().unwrap();
+        let xml = built.xml();
         assert!(xml.contains("<vProd>20.00</vProd>"));
         assert!(xml.contains("<vNF>20.00</vNF>"));
     }
 
     #[test]
     fn includes_payment_data() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder().build().unwrap();
+        let xml = built.xml();
         assert!(xml.contains("<tPag>01</tPag>"));
         assert!(xml.contains("<vPag>20.00</vPag>"));
     }
 
     #[test]
     fn includes_homologation_note_when_environment_2() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        assert!(result.xml.contains("HOMOLOGACAO"));
+        let built = sample_builder().build().unwrap();
+        assert!(built.xml().contains("HOMOLOGACAO"));
     }
 
     #[test]
     fn includes_recipient_when_provided() {
-        let mut data = sample_data();
-        data.recipient = Some(RecipientData {
-            tax_id: "12345678901".to_string(),
-            name: "John Doe".to_string(),
-            state_code: None,
-            state_tax_id: None,
-            street: None,
-            street_number: None,
-            district: None,
-            city_code: None,
-            city_name: None,
-            zip_code: None,
-            complement: None,
-        });
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder()
+            .recipient(RecipientData {
+                tax_id: "12345678901".to_string(),
+                name: "John Doe".to_string(),
+                state_code: None,
+                state_tax_id: None,
+                street: None,
+                street_number: None,
+                district: None,
+                city_code: None,
+                city_name: None,
+                zip_code: None,
+                complement: None,
+            })
+            .build()
+            .unwrap();
+        let xml = built.xml();
         assert!(xml.contains("<dest>"));
         assert!(xml.contains("<CPF>12345678901</CPF>"));
         assert!(xml.contains("<xNome>John Doe</xNome>"));
@@ -376,8 +367,8 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn omits_recipient_for_nfce_without_recipient() {
-        let result = build_invoice_xml(&sample_data()).unwrap();
-        assert!(!result.xml.contains("<dest>"));
+        let built = sample_builder().build().unwrap();
+        assert!(!built.xml().contains("<dest>"));
     }
 
     #[test]
@@ -385,14 +376,15 @@ mod build_invoice_xml_tests {
         let offset = FixedOffset::west_opt(3 * 3600).unwrap();
         let now = chrono::Utc::now().with_timezone(&offset);
 
-        let mut data = sample_data();
-        data.contingency = Some(ContingencyData {
-            contingency_type: ContingencyType::Offline,
-            reason: "SEFAZ unavailable".to_string(),
-            at: now,
-        });
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = sample_builder()
+            .contingency(ContingencyData {
+                contingency_type: ContingencyType::Offline,
+                reason: "SEFAZ unavailable".to_string(),
+                at: now,
+            })
+            .build()
+            .unwrap();
+        let xml = built.xml();
         assert!(xml.contains("contingencia"));
         assert!(xml.contains("SEFAZ unavailable"));
     }

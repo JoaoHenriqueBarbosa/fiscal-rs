@@ -20,7 +20,7 @@ pub fn format_datetime_nfe(
 }
 
 /// Build the `<ide>` element with all identification fields.
-pub fn build_ide(
+pub(crate) fn build_ide(
     data: &InvoiceBuildData,
     state_ibge: &str,
     numeric_code: &str,

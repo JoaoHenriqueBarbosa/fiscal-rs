@@ -6,7 +6,7 @@ use crate::xml_utils::{tag, TagContent};
 use super::tax_id::TaxId;
 
 /// Build the `<transp>` element with carrier, vehicle, volumes, etc.
-pub fn build_transp(data: &InvoiceBuildData) -> String {
+pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
     let Some(ref t) = data.transport else {
         return tag("transp", &[], TagContent::Children(vec![
             tag("modFrete", &[], TagContent::Text("9")),

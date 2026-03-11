@@ -5,12 +5,52 @@ mod common;
 
 use fiscal::newtypes::{Cents, Rate, IbgeCode};
 use fiscal::types::*;
+use fiscal::xml_builder::InvoiceBuilder;
 use fiscal::xml_utils::{tag, TagContent};
 
 use common::expect_xml_tag_values as expect_xml_contains;
 
-/// Helper to build a minimal NF-e 55 InvoiceBuildData for tests that just need valid XML output.
-fn minimal_nfe55(number: u32) -> InvoiceBuildData {
+/// Standard minimal item for NF-e 55 tests.
+fn minimal_nfe55_item() -> InvoiceItemData {
+    InvoiceItemData {
+        item_number: 1,
+        product_code: "001".to_string(),
+        description: "Produto Teste".to_string(),
+        ncm: "61091000".to_string(),
+        cfop: "5102".to_string(),
+        unit_of_measure: "UN".to_string(),
+        quantity: 10.0,
+        unit_price: Cents(1000),
+        total_price: Cents(10000),
+        icms_cst: "00".to_string(),
+        icms_rate: Rate(1800),
+        icms_amount: Cents(1800),
+        icms_mod_bc: Some(0),
+        pis_cst: "07".to_string(),
+        cofins_cst: "07".to_string(),
+        c_ean: None, c_ean_trib: None, cest: None, v_frete: None, v_seg: None,
+        v_desc: None, v_outro: None, orig: None, icms_red_bc: None,
+        icms_mod_bc_st: None, icms_p_mva_st: None, icms_red_bc_st: None,
+        icms_v_bc_st: None, icms_p_icms_st: None, icms_v_icms_st: None,
+        icms_v_icms_deson: None, icms_mot_des_icms: None, icms_p_fcp: None,
+        icms_v_fcp: None, icms_v_bc_fcp: None, icms_p_fcp_st: None,
+        icms_v_fcp_st: None, icms_v_bc_fcp_st: None, icms_p_cred_sn: None,
+        icms_v_cred_icms_sn: None, icms_v_icms_substituto: None,
+        pis_v_bc: None, pis_p_pis: None, pis_v_pis: None,
+        pis_q_bc_prod: None, pis_v_aliq_prod: None,
+        cofins_v_bc: None, cofins_p_cofins: None, cofins_v_cofins: None,
+        cofins_q_bc_prod: None, cofins_v_aliq_prod: None,
+        ipi_cst: None, ipi_c_enq: None, ipi_v_bc: None, ipi_p_ipi: None,
+        ipi_v_ipi: None, ipi_q_unid: None, ipi_v_unid: None,
+        ii_v_bc: None, ii_v_desp_adu: None, ii_v_ii: None, ii_v_iof: None,
+        rastro: None, veic_prod: None, med: None, arma: None,
+        n_recopi: None, inf_ad_prod: None, obs_item: None,
+        dfe_referenciado: None,
+    }
+}
+
+/// Helper to build a minimal NF-e 55 InvoiceBuilder for tests that just need valid XML output.
+fn minimal_nfe55(number: u32) -> InvoiceBuilder {
     use chrono::FixedOffset;
     let offset = FixedOffset::west_opt(3 * 3600).unwrap();
     let dt = chrono::NaiveDate::from_ymd_opt(2017, 3, 3)
@@ -20,15 +60,8 @@ fn minimal_nfe55(number: u32) -> InvoiceBuildData {
         .and_local_timezone(offset)
         .unwrap();
 
-    InvoiceBuildData {
-        model: InvoiceModel::Nfe,
-        series: 1,
-        number,
-        emission_type: EmissionType::Normal,
-        environment: SefazEnvironment::Homologation,
-        issued_at: dt,
-        operation_nature: "VENDA".to_string(),
-        issuer: IssuerData {
+    InvoiceBuilder::new(
+        IssuerData {
             tax_id: "58716523000119".to_string(),
             state_tax_id: "123456789012".to_string(),
             company_name: "EMPRESA TESTE LTDA".to_string(),
@@ -43,71 +76,20 @@ fn minimal_nfe55(number: u32) -> InvoiceBuildData {
             zip_code: "01001000".to_string(),
             address_complement: None,
         },
-        recipient: Some(RecipientData {
-            tax_id: "11222333000181".to_string(),
-            name: "CLIENTE TESTE".to_string(),
-            state_code: Some("SP".to_string()),
-            ..Default::default()
-        }),
-        items: vec![InvoiceItemData {
-            item_number: 1,
-            product_code: "001".to_string(),
-            description: "Produto Teste".to_string(),
-            ncm: "61091000".to_string(),
-            cfop: "5102".to_string(),
-            unit_of_measure: "UN".to_string(),
-            quantity: 10.0,
-            unit_price: Cents(1000),
-            total_price: Cents(10000),
-            icms_cst: "00".to_string(),
-            icms_rate: Rate(1800),
-            icms_amount: Cents(1800),
-            icms_mod_bc: Some(0),
-            pis_cst: "07".to_string(),
-            cofins_cst: "07".to_string(),
-            c_ean: None, c_ean_trib: None, cest: None, v_frete: None, v_seg: None,
-            v_desc: None, v_outro: None, orig: None, icms_red_bc: None,
-            icms_mod_bc_st: None, icms_p_mva_st: None, icms_red_bc_st: None,
-            icms_v_bc_st: None, icms_p_icms_st: None, icms_v_icms_st: None,
-            icms_v_icms_deson: None, icms_mot_des_icms: None, icms_p_fcp: None,
-            icms_v_fcp: None, icms_v_bc_fcp: None, icms_p_fcp_st: None,
-            icms_v_fcp_st: None, icms_v_bc_fcp_st: None, icms_p_cred_sn: None,
-            icms_v_cred_icms_sn: None, icms_v_icms_substituto: None,
-            pis_v_bc: None, pis_p_pis: None, pis_v_pis: None,
-            pis_q_bc_prod: None, pis_v_aliq_prod: None,
-            cofins_v_bc: None, cofins_p_cofins: None, cofins_v_cofins: None,
-            cofins_q_bc_prod: None, cofins_v_aliq_prod: None,
-            ipi_cst: None, ipi_c_enq: None, ipi_v_bc: None, ipi_p_ipi: None,
-            ipi_v_ipi: None, ipi_q_unid: None, ipi_v_unid: None,
-            ii_v_bc: None, ii_v_desp_adu: None, ii_v_ii: None, ii_v_iof: None,
-            rastro: None, veic_prod: None, med: None, arma: None,
-            n_recopi: None, inf_ad_prod: None, obs_item: None,
-            dfe_referenciado: None,
-        }],
-        payments: vec![PaymentData { method: "01".to_string(), amount: Cents(10000) }],
-        change_amount: None,
-        payment_card_details: None,
-        contingency: None,
-        operation_type: None,
-        purpose_code: None,
-        intermediary_indicator: None,
-        emission_process: None,
-        consumer_type: None,
-        buyer_presence: None,
-        print_format: None,
-        references: None,
-        transport: None,
-        billing: None,
-        withdrawal: None,
-        delivery: None,
-        authorized_xml: None,
-        additional_info: None,
-        intermediary: None,
-        ret_trib: None,
-        tech_responsible: None,
-        purchase: None,
-        export: None,
-    }
+        SefazEnvironment::Homologation,
+        InvoiceModel::Nfe,
+    )
+    .series(1)
+    .invoice_number(number)
+    .issued_at(dt)
+    .recipient(RecipientData {
+        tax_id: "11222333000181".to_string(),
+        name: "CLIENTE TESTE".to_string(),
+        state_code: Some("SP".to_string()),
+        ..Default::default()
+    })
+    .items(vec![minimal_nfe55_item()])
+    .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(10000) }])
 }
 
 // =============================================================================
@@ -125,22 +107,22 @@ mod deep_coverage_test {
 
         #[test]
         fn monta_nfe_is_alias_for_render() {
-            let data = minimal_nfe55(30);
-            let result = fiscal::xml_builder::build_invoice_xml(&data);
-            let r = result.expect("build_invoice_xml failed");
-            assert!(!r.xml.is_empty());
-            assert!(r.xml.contains("<NFe"));
+            let built = minimal_nfe55(30).build().expect("build failed");
+            assert!(!built.xml().is_empty());
+            assert!(built.xml().contains("<NFe"));
         }
 
         #[test]
         fn set_only_ascii_converts_accented_characters() {
-            let mut data = minimal_nfe55(30);
-            data.operation_nature = "OPERACAO COM ACENTUACAO".to_string();
-            data.items[0].quantity = 1.0;
-            data.items[0].total_price = Cents(1000);
-            data.items[0].icms_amount = Cents(180);
-            data.payments[0].amount = Cents(1000);
-            let result = fiscal::xml_builder::build_invoice_xml(&data);
+            let mut item = minimal_nfe55_item();
+            item.quantity = 1.0;
+            item.total_price = Cents(1000);
+            item.icms_amount = Cents(180);
+            let result = minimal_nfe55(30)
+                .operation_nature("OPERACAO COM ACENTUACAO")
+                .items(vec![item])
+                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(1000) }])
+                .build();
             assert!(result.is_ok());
         }
 
@@ -309,124 +291,168 @@ mod deep_coverage_test {
 
         #[test]
         fn render_error_handling_stores_errors() {
-            let mut data = minimal_nfe55(30);
-            data.issuer.state_code = "XX".to_string(); // Invalid state
-            data.items.clear();
-            data.payments.clear();
-            let result = fiscal::xml_builder::build_invoice_xml(&data);
+            let issuer = IssuerData {
+                tax_id: "58716523000119".to_string(),
+                state_tax_id: "123456789012".to_string(),
+                company_name: "EMPRESA TESTE LTDA".to_string(),
+                trade_name: Some("EMPRESA TESTE".to_string()),
+                tax_regime: TaxRegime::Normal,
+                state_code: "XX".to_string(), // Invalid state
+                city_code: IbgeCode("3550308".to_string()),
+                city_name: "Sao Paulo".to_string(),
+                street: "Rua Teste".to_string(),
+                street_number: "100".to_string(),
+                district: "Centro".to_string(),
+                zip_code: "01001000".to_string(),
+                address_complement: None,
+            };
+            let result = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
+                .series(1)
+                .invoice_number(30)
+                .build();
             assert!(result.is_err());
         }
 
         #[test]
         fn get_xml_calls_render_if_empty() {
-            let data = minimal_nfe55(30);
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            assert!(!r.xml.is_empty());
-            assert!(r.xml.contains("<NFe"));
+            let built = minimal_nfe55(30).build().expect("build failed");
+            assert!(!built.xml().is_empty());
+            assert!(built.xml().contains("<NFe"));
         }
 
         #[test]
         fn get_chave_returns_44_digit_key() {
-            let data = minimal_nfe55(30);
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            assert!(!r.access_key.is_empty());
-            assert_eq!(r.access_key.len(), 44);
+            let built = minimal_nfe55(30).build().expect("build failed");
+            assert!(!built.access_key().is_empty());
+            assert_eq!(built.access_key().len(), 44);
         }
 
         #[test]
         fn get_modelo_returns_55() {
-            let data = minimal_nfe55(30);
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            let modelo = &r.access_key[20..22];
+            let built = minimal_nfe55(30).build().expect("build failed");
+            let modelo = &built.access_key()[20..22];
             assert_eq!(modelo, "55");
-            assert!(r.xml.contains("<mod>55</mod>"));
+            assert!(built.xml().contains("<mod>55</mod>"));
         }
 
         #[test]
         fn get_modelo_returns_65() {
-            let mut data = minimal_nfe55(1);
-            data.model = InvoiceModel::Nfce;
-            data.issuer.tax_regime = TaxRegime::SimplesNacional;
-            data.items[0].quantity = 1.0;
-            data.items[0].unit_price = Cents(5000);
-            data.items[0].total_price = Cents(5000);
-            data.items[0].description = "Produto NFC-e".to_string();
-            data.items[0].icms_cst = "102".to_string();
-            data.payments[0].amount = Cents(5000);
-            data.recipient = None;
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            let modelo = &r.access_key[20..22];
+            use chrono::FixedOffset;
+            let offset = FixedOffset::west_opt(3 * 3600).unwrap();
+            let dt = chrono::NaiveDate::from_ymd_opt(2017, 3, 3)
+                .unwrap()
+                .and_hms_opt(11, 30, 0)
+                .unwrap()
+                .and_local_timezone(offset)
+                .unwrap();
+
+            let mut item = minimal_nfe55_item();
+            item.quantity = 1.0;
+            item.unit_price = Cents(5000);
+            item.total_price = Cents(5000);
+            item.description = "Produto NFC-e".to_string();
+            item.icms_cst = "102".to_string();
+
+            let issuer = IssuerData {
+                tax_id: "58716523000119".to_string(),
+                state_tax_id: "123456789012".to_string(),
+                company_name: "EMPRESA TESTE LTDA".to_string(),
+                trade_name: Some("EMPRESA TESTE".to_string()),
+                tax_regime: TaxRegime::SimplesNacional,
+                state_code: "SP".to_string(),
+                city_code: IbgeCode("3550308".to_string()),
+                city_name: "Sao Paulo".to_string(),
+                street: "Rua Teste".to_string(),
+                street_number: "100".to_string(),
+                district: "Centro".to_string(),
+                zip_code: "01001000".to_string(),
+                address_complement: None,
+            };
+
+            let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
+                .series(1)
+                .invoice_number(1)
+                .issued_at(dt)
+                .items(vec![item])
+                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(5000) }])
+                .build()
+                .expect("build failed");
+            let modelo = &built.access_key()[20..22];
             assert_eq!(modelo, "65");
-            assert!(r.xml.contains("<mod>65</mod>"));
+            assert!(built.xml().contains("<mod>65</mod>"));
         }
 
         #[test]
         fn render_with_all_optional_sections() {
-            let mut data = minimal_nfe55(42);
-            data.items[0].quantity = 1.0;
-            data.items[0].icms_amount = Cents(1800);
-            data.items[0].pis_cst = "01".to_string();
-            data.items[0].cofins_cst = "01".to_string();
-            data.withdrawal = Some(LocationData {
-                tax_id: "99887766000100".to_string(),
-                name: None,
-                street: "Rua R".to_string(),
-                number: "1".to_string(),
-                complement: None,
-                district: "D".to_string(),
-                city_code: IbgeCode("4106902".to_string()),
-                city_name: "Curitiba".to_string(),
-                state_code: "PR".to_string(),
-                zip_code: None,
-            });
-            data.delivery = Some(LocationData {
-                tax_id: "11222333000181".to_string(),
-                name: None,
-                street: "Rua E".to_string(),
-                number: "2".to_string(),
-                complement: None,
-                district: "D".to_string(),
-                city_code: IbgeCode("3550308".to_string()),
-                city_name: "Sao Paulo".to_string(),
-                state_code: "SP".to_string(),
-                zip_code: None,
-            });
-            data.authorized_xml = Some(vec![AuthorizedXml { tax_id: "12345678000195".to_string() }]);
-            data.billing = Some(BillingData {
-                invoice: Some(BillingInvoice {
-                    number: "001".to_string(),
-                    original_value: Cents(10000),
-                    discount_value: None,
-                    net_value: Cents(10000),
-                }),
-                installments: Some(vec![Installment {
-                    number: "001".to_string(),
-                    due_date: "2025-04-01".to_string(),
-                    value: Cents(10000),
-                }]),
-            });
-            data.intermediary = Some(IntermediaryData {
-                tax_id: "55667788000199".to_string(),
-                id_cad_int_tran: Some("CAD001".to_string()),
-            });
-            data.export = Some(ExportData {
-                exit_state: "SP".to_string(),
-                export_location: "Porto de Santos".to_string(),
-                dispatch_location: None,
-            });
-            data.purchase = Some(PurchaseData {
-                order_number: Some("PED-001".to_string()),
-                contract_number: Some("CONT-001".to_string()),
-                purchase_note: None,
-            });
-            data.tech_responsible = Some(TechResponsibleData {
-                tax_id: "11223344000155".to_string(),
-                contact: "Suporte".to_string(),
-                email: "suporte@teste.com".to_string(),
-                phone: Some("1133334444".to_string()),
-            });
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            let xml = &r.xml;
+            let mut item = minimal_nfe55_item();
+            item.quantity = 1.0;
+            item.icms_amount = Cents(1800);
+            item.pis_cst = "01".to_string();
+            item.cofins_cst = "01".to_string();
+
+            let built = minimal_nfe55(42)
+                .items(vec![item])
+                .withdrawal(LocationData {
+                    tax_id: "99887766000100".to_string(),
+                    name: None,
+                    street: "Rua R".to_string(),
+                    number: "1".to_string(),
+                    complement: None,
+                    district: "D".to_string(),
+                    city_code: IbgeCode("4106902".to_string()),
+                    city_name: "Curitiba".to_string(),
+                    state_code: "PR".to_string(),
+                    zip_code: None,
+                })
+                .delivery(LocationData {
+                    tax_id: "11222333000181".to_string(),
+                    name: None,
+                    street: "Rua E".to_string(),
+                    number: "2".to_string(),
+                    complement: None,
+                    district: "D".to_string(),
+                    city_code: IbgeCode("3550308".to_string()),
+                    city_name: "Sao Paulo".to_string(),
+                    state_code: "SP".to_string(),
+                    zip_code: None,
+                })
+                .authorized_xml(vec![AuthorizedXml { tax_id: "12345678000195".to_string() }])
+                .billing(BillingData {
+                    invoice: Some(BillingInvoice {
+                        number: "001".to_string(),
+                        original_value: Cents(10000),
+                        discount_value: None,
+                        net_value: Cents(10000),
+                    }),
+                    installments: Some(vec![Installment {
+                        number: "001".to_string(),
+                        due_date: "2025-04-01".to_string(),
+                        value: Cents(10000),
+                    }]),
+                })
+                .intermediary(IntermediaryData {
+                    tax_id: "55667788000199".to_string(),
+                    id_cad_int_tran: Some("CAD001".to_string()),
+                })
+                .export(ExportData {
+                    exit_state: "SP".to_string(),
+                    export_location: "Porto de Santos".to_string(),
+                    dispatch_location: None,
+                })
+                .purchase(PurchaseData {
+                    order_number: Some("PED-001".to_string()),
+                    contract_number: Some("CONT-001".to_string()),
+                    purchase_note: None,
+                })
+                .tech_responsible(TechResponsibleData {
+                    tax_id: "11223344000155".to_string(),
+                    contact: "Suporte".to_string(),
+                    email: "suporte@teste.com".to_string(),
+                    phone: Some("1133334444".to_string()),
+                })
+                .build()
+                .expect("build failed");
+            let xml = built.xml();
             assert!(xml.contains("<retirada>"));
             assert!(xml.contains("<entrega>"));
             assert!(xml.contains("<autXML>"));
@@ -699,10 +725,9 @@ mod deep_coverage_test {
 
         #[test]
         fn build_tag_icms_tot_with_auto_calculation() {
-            let data = minimal_nfe55(30);
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            assert!(r.xml.contains("<ICMSTot>"));
-            assert!(r.xml.contains("<vProd>100.00</vProd>"));
+            let built = minimal_nfe55(30).build().expect("build failed");
+            assert!(built.xml().contains("<ICMSTot>"));
+            assert!(built.xml().contains("<vProd>100.00</vProd>"));
         }
 
         #[test]
@@ -907,12 +932,13 @@ mod deep_coverage_test {
 
         #[test]
         fn render_with_multiple_items() {
-            let mut data = minimal_nfe55(30);
-            data.items[0].quantity = 5.0;
-            data.items[0].total_price = Cents(5000);
-            data.items[0].icms_amount = Cents(900);
-            data.items[0].description = "Produto A".to_string();
-            let mut item2 = data.items[0].clone();
+            let mut item1 = minimal_nfe55_item();
+            item1.quantity = 5.0;
+            item1.total_price = Cents(5000);
+            item1.icms_amount = Cents(900);
+            item1.description = "Produto A".to_string();
+
+            let mut item2 = item1.clone();
             item2.item_number = 2;
             item2.product_code = "002".to_string();
             item2.description = "Produto B".to_string();
@@ -920,14 +946,16 @@ mod deep_coverage_test {
             item2.unit_price = Cents(2000);
             item2.total_price = Cents(6000);
             item2.icms_amount = Cents(1080);
-            data.items.push(item2);
-            data.payments[0].amount = Cents(11000);
 
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            assert!(r.xml.contains(r#"nItem="1""#));
-            assert!(r.xml.contains(r#"nItem="2""#));
-            assert!(r.xml.contains("<xProd>Produto A</xProd>"));
-            assert!(r.xml.contains("<xProd>Produto B</xProd>"));
+            let built = minimal_nfe55(30)
+                .items(vec![item1, item2])
+                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(11000) }])
+                .build()
+                .expect("build failed");
+            assert!(built.xml().contains(r#"nItem="1""#));
+            assert!(built.xml().contains(r#"nItem="2""#));
+            assert!(built.xml().contains("<xProd>Produto A</xProd>"));
+            assert!(built.xml().contains("<xProd>Produto B</xProd>"));
         }
 
         #[test]
@@ -962,9 +990,8 @@ mod deep_coverage_test {
 
         #[test]
         fn set_calculation_method_does_not_throw() {
-            let data = minimal_nfe55(1);
-            let r = fiscal::xml_builder::build_invoice_xml(&data);
-            assert!(r.is_ok());
+            let result = minimal_nfe55(1).build();
+            assert!(result.is_ok());
         }
     }
 
@@ -1178,13 +1205,14 @@ mod deep_coverage_test {
 
         #[test]
         fn render_with_multiple_items() {
-            let mut data = minimal_nfe55(10);
-            data.items[0].quantity = 1.0;
-            data.items[0].icms_amount = Cents(1800);
-            data.items[0].description = "Produto Alpha".to_string();
-            data.items[0].pis_cst = "01".to_string();
-            data.items[0].cofins_cst = "01".to_string();
-            let mut item2 = data.items[0].clone();
+            let mut item1 = minimal_nfe55_item();
+            item1.quantity = 1.0;
+            item1.icms_amount = Cents(1800);
+            item1.description = "Produto Alpha".to_string();
+            item1.pis_cst = "01".to_string();
+            item1.cofins_cst = "01".to_string();
+
+            let mut item2 = item1.clone();
             item2.item_number = 2;
             item2.product_code = "002".to_string();
             item2.description = "Produto Beta".to_string();
@@ -1192,16 +1220,18 @@ mod deep_coverage_test {
             item2.unit_price = Cents(5000);
             item2.total_price = Cents(10000);
             item2.icms_amount = Cents(1800);
-            data.items.push(item2);
-            data.payments[0].amount = Cents(20000);
 
-            let r = fiscal::xml_builder::build_invoice_xml(&data).expect("build failed");
-            assert!(r.xml.contains(r#"nItem="1""#));
-            assert!(r.xml.contains(r#"nItem="2""#));
-            assert!(r.xml.contains("<xProd>Produto Alpha</xProd>"));
-            assert!(r.xml.contains("<xProd>Produto Beta</xProd>"));
-            let det1_pos = r.xml.find(r#"nItem="1""#).unwrap();
-            let det2_pos = r.xml.find(r#"nItem="2""#).unwrap();
+            let built = minimal_nfe55(10)
+                .items(vec![item1, item2])
+                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(20000) }])
+                .build()
+                .expect("build failed");
+            assert!(built.xml().contains(r#"nItem="1""#));
+            assert!(built.xml().contains(r#"nItem="2""#));
+            assert!(built.xml().contains("<xProd>Produto Alpha</xProd>"));
+            assert!(built.xml().contains("<xProd>Produto Beta</xProd>"));
+            let det1_pos = built.xml().find(r#"nItem="1""#).unwrap();
+            let det2_pos = built.xml().find(r#"nItem="2""#).unwrap();
             assert!(det1_pos < det2_pos);
         }
     }

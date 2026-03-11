@@ -1,8 +1,18 @@
 //! NF-e/NFC-e XML builder module.
 //!
-//! Orchestrates the construction of a complete unsigned NF-e or NFC-e XML
-//! document following layout 4.00 (MOC). Delegates each XML group to a
-//! specialized sub-module.
+//! Provides [`InvoiceBuilder`] — a typestate builder that enforces the
+//! invoice lifecycle at compile time:
+//!
+//! ```text
+//! InvoiceBuilder::new(issuer, env, model)   // Draft
+//!     .series(1)
+//!     .invoice_number(42)
+//!     .add_item(item)
+//!     .recipient(recipient)
+//!     .payments(vec![payment])
+//!     .build()?                              // Built
+//!     .xml()                                 // &str
+//! ```
 
 pub mod access_key;
 pub mod tax_id;
@@ -14,6 +24,10 @@ pub mod total;
 pub mod transp;
 pub mod pag;
 pub mod optional;
+mod builder;
+
+pub use builder::{Draft, Built, InvoiceBuilder};
+pub use access_key::build_access_key;
 
 use crate::constants::{NFE_NAMESPACE, NFE_VERSION};
 use crate::newtypes::IbgeCode;
@@ -23,20 +37,10 @@ use crate::types::{AccessKeyParams, InvoiceBuildData, InvoiceXmlResult};
 use crate::xml_utils::{tag, TagContent};
 use crate::FiscalError;
 
-pub use access_key::build_access_key;
-
-/// Build a complete NF-e or NFC-e XML (unsigned).
+/// Internal XML generation from a fully populated [`InvoiceBuildData`].
 ///
-/// The XML follows layout 4.00 as defined by MOC (Manual de Orientação
-/// do Contribuinte). Returns the unsigned XML string and the 44-digit
-/// access key.
-///
-/// # Errors
-///
-/// Returns [`FiscalError::InvalidStateCode`] if the issuer's state code
-/// is unknown, or [`FiscalError::XmlGeneration`] / [`FiscalError::MissingRequiredField`]
-/// if tax data is invalid.
-pub fn build_invoice_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError> {
+/// Called by [`InvoiceBuilder::build`]; not part of the public API.
+fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError> {
     let state_ibge = STATE_IBGE_CODES
         .get(data.issuer.state_code.as_str())
         .copied()

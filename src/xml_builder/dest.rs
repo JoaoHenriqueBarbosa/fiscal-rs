@@ -6,7 +6,7 @@ use super::tax_id::TaxId;
 
 /// Build the `<dest>` element. Falls back to issuer address when
 /// recipient address fields are empty (SEFAZ requires address for model 55).
-pub fn build_dest(data: &InvoiceBuildData) -> Option<String> {
+pub(crate) fn build_dest(data: &InvoiceBuildData) -> Option<String> {
     let r = data.recipient.as_ref()?;
 
     let tid = TaxId::new(&r.tax_id);

@@ -8,7 +8,7 @@ mod common;
 use fiscal::newtypes::{Cents, Rate, Rate4, IbgeCode};
 use chrono::FixedOffset;
 use fiscal::types::*;
-use fiscal::xml_builder::build_invoice_xml;
+use fiscal::xml_builder::InvoiceBuilder;
 use fiscal::xml_utils::{tag, TagContent};
 
 use common::expect_xml_tag_values as expect_xml_contains;
@@ -138,46 +138,17 @@ fn make_base_item() -> InvoiceItemData {
     }
 }
 
-/// Base invoice data factory for model 55
-fn make_base_invoice_data() -> InvoiceBuildData {
-    InvoiceBuildData {
-        model: InvoiceModel::Nfe,
-        series: 1,
-        number: 1,
-        emission_type: EmissionType::Normal,
-        environment: SefazEnvironment::Homologation,
-        issued_at: make_issued_at(),
-        operation_nature: "VENDA".into(),
-        issuer: make_issuer_normal(),
-        recipient: None,
-        items: vec![make_base_item()],
-        payments: vec![PaymentData {
+/// Base invoice builder factory for model 55
+fn make_base_builder() -> InvoiceBuilder {
+    InvoiceBuilder::new(make_issuer_normal(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
+        .series(1)
+        .invoice_number(1)
+        .issued_at(make_issued_at())
+        .items(vec![make_base_item()])
+        .payments(vec![PaymentData {
             method: "01".into(),
             amount: Cents(10000),
-        }],
-        change_amount: None,
-        payment_card_details: None,
-        contingency: None,
-        operation_type: None,
-        purpose_code: None,
-        intermediary_indicator: None,
-        emission_process: None,
-        consumer_type: None,
-        buyer_presence: None,
-        print_format: None,
-        references: None,
-        transport: None,
-        billing: None,
-        withdrawal: None,
-        delivery: None,
-        authorized_xml: None,
-        additional_info: None,
-        intermediary: None,
-        ret_trib: None,
-        tech_responsible: None,
-        purchase: None,
-        export: None,
-    }
+        }])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -189,124 +160,111 @@ mod render_complete_nfe_55 {
 
     #[test]
     fn test_render_complete_nfe55_has_all_sections() {
-        let mut data = make_base_invoice_data();
+        let mut item = make_base_item();
+        item.pis_v_bc = Some(Cents(10000));
+        item.pis_p_pis = Some(Rate4(16500));
+        item.pis_v_pis = Some(Cents(165));
+        item.cofins_v_bc = Some(Cents(10000));
+        item.cofins_p_cofins = Some(Rate4(76000));
+        item.cofins_v_cofins = Some(Cents(760));
 
-        // Add issuer with trade name
-        data.issuer.trade_name = Some("Teste".into());
+        let mut issuer = make_issuer_normal();
+        issuer.trade_name = Some("Teste".into());
 
-        // Add recipient
-        data.recipient = Some(RecipientData {
-            tax_id: "12345678901".into(),
-            name: "Cliente Teste".into(),
-            state_code: Some("SP".into()),
-            ..Default::default()
-        });
-
-        // Item with full PIS/COFINS
-        data.items = vec![{
-            let mut item = make_base_item();
-            item.pis_v_bc = Some(Cents(10000));
-            item.pis_p_pis = Some(Rate4(16500));
-            item.pis_v_pis = Some(Cents(165));
-            item.cofins_v_bc = Some(Cents(10000));
-            item.cofins_p_cofins = Some(Rate4(76000));
-            item.cofins_v_cofins = Some(Cents(760));
-            item
-        }];
-
-        data.payments = vec![PaymentData {
-            method: "01".into(),
-            amount: Cents(10000),
-        }];
-
-        data.withdrawal = Some(LocationData {
-            tax_id: "99887766000100".into(),
-            name: Some("Empresa Origem".into()),
-            street: "Rua Retirada".into(),
-            number: "50".into(),
-            complement: None,
-            district: "Industrial".into(),
-            city_code: IbgeCode("4106902".into()),
-            city_name: "Curitiba".into(),
-            state_code: "PR".into(),
-            zip_code: None,
-        });
-
-        data.delivery = Some(LocationData {
-            tax_id: "11222333000181".into(),
-            name: Some("Empresa Destino".into()),
-            street: "Rua Entrega".into(),
-            number: "200".into(),
-            complement: None,
-            district: "Centro".into(),
-            city_code: IbgeCode("3550308".into()),
-            city_name: "Sao Paulo".into(),
-            state_code: "SP".into(),
-            zip_code: None,
-        });
-
-        data.authorized_xml = Some(vec![AuthorizedXml {
-            tax_id: "12345678000195".into(),
-        }]);
-
-        data.billing = Some(BillingData {
-            invoice: Some(BillingInvoice {
-                number: "001".into(),
-                original_value: Cents(10000),
-                discount_value: None,
-                net_value: Cents(10000),
-            }),
-            installments: Some(vec![Installment {
-                number: "001".into(),
-                due_date: "2025-02-15".into(),
-                value: Cents(10000),
-            }]),
-        });
-
-        data.transport = Some(TransportData {
-            freight_mode: "0".into(),
-            carrier: Some(CarrierData {
-                tax_id: Some("12345678000195".into()),
-                name: Some("Transportadora".into()),
+        let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(make_issued_at())
+            .items(vec![item])
+            .payments(vec![PaymentData {
+                method: "01".into(),
+                amount: Cents(10000),
+            }])
+            .recipient(RecipientData {
+                tax_id: "12345678901".into(),
+                name: "Cliente Teste".into(),
+                state_code: Some("SP".into()),
                 ..Default::default()
-            }),
-            ..Default::default()
-        });
+            })
+            .withdrawal(LocationData {
+                tax_id: "99887766000100".into(),
+                name: Some("Empresa Origem".into()),
+                street: "Rua Retirada".into(),
+                number: "50".into(),
+                complement: None,
+                district: "Industrial".into(),
+                city_code: IbgeCode("4106902".into()),
+                city_name: "Curitiba".into(),
+                state_code: "PR".into(),
+                zip_code: None,
+            })
+            .delivery(LocationData {
+                tax_id: "11222333000181".into(),
+                name: Some("Empresa Destino".into()),
+                street: "Rua Entrega".into(),
+                number: "200".into(),
+                complement: None,
+                district: "Centro".into(),
+                city_code: IbgeCode("3550308".into()),
+                city_name: "Sao Paulo".into(),
+                state_code: "SP".into(),
+                zip_code: None,
+            })
+            .authorized_xml(vec![AuthorizedXml {
+                tax_id: "12345678000195".into(),
+            }])
+            .billing(BillingData {
+                invoice: Some(BillingInvoice {
+                    number: "001".into(),
+                    original_value: Cents(10000),
+                    discount_value: None,
+                    net_value: Cents(10000),
+                }),
+                installments: Some(vec![Installment {
+                    number: "001".into(),
+                    due_date: "2025-02-15".into(),
+                    value: Cents(10000),
+                }]),
+            })
+            .transport(TransportData {
+                freight_mode: "0".into(),
+                carrier: Some(CarrierData {
+                    tax_id: Some("12345678000195".into()),
+                    name: Some("Transportadora".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .intermediary(IntermediaryData {
+                tax_id: "55667788000199".into(),
+                id_cad_int_tran: None,
+            })
+            .additional_info(AdditionalInfo {
+                taxpayer_note: Some("Nota teste".into()),
+                ..Default::default()
+            })
+            .export(ExportData {
+                exit_state: "SP".into(),
+                export_location: "Porto de Santos".into(),
+                dispatch_location: None,
+            })
+            .purchase(PurchaseData {
+                order_number: Some("PED-001".into()),
+                ..Default::default()
+            })
+            .tech_responsible(TechResponsibleData {
+                tax_id: "11223344000155".into(),
+                contact: "Suporte".into(),
+                email: "suporte@teste.com".into(),
+                phone: None,
+            })
+            .references(vec![ReferenceDoc::Nfe {
+                access_key: "35170358716523000119550010000000291000000291".into(),
+            }])
+            .build()
+            .unwrap();
 
-        data.intermediary = Some(IntermediaryData {
-            tax_id: "55667788000199".into(),
-            id_cad_int_tran: None,
-        });
-
-        data.additional_info = Some(AdditionalInfo {
-            taxpayer_note: Some("Nota teste".into()),
-            ..Default::default()
-        });
-
-        data.export = Some(ExportData {
-            exit_state: "SP".into(),
-            export_location: "Porto de Santos".into(),
-            dispatch_location: None,
-        });
-
-        data.purchase = Some(PurchaseData {
-            order_number: Some("PED-001".into()),
-            ..Default::default()
-        });
-
-        data.tech_responsible = Some(TechResponsibleData {
-            tax_id: "11223344000155".into(),
-            contact: "Suporte".into(),
-            email: "suporte@teste.com".into(),
-            phone: None,
-        });
-
-        data.references = Some(vec![ReferenceDoc::Nfe {
-            access_key: "35170358716523000119550010000000291000000291".into(),
-        }]);
-
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let xml = built.xml();
 
         // Check all sections present in correct order
         assert!(xml.contains("<ide>"));
@@ -354,14 +312,6 @@ mod render_nfce_model_65 {
 
     #[test]
     fn test_render_nfce_model_65_produces_xml_with_mod_65_ind_final_1_tp_imp_4() {
-        let mut data = make_base_invoice_data();
-        data.model = InvoiceModel::Nfce;
-        data.issuer = make_issuer_simples();
-        data.consumer_type = Some("1".into());
-        data.buyer_presence = Some("1".into());
-        data.print_format = Some("4".into());
-
-        // NFC-e item with Simples Nacional
         let mut item = make_base_item();
         item.description = "Produto NFC-e".into();
         item.unit_price = Cents(5000);
@@ -372,14 +322,23 @@ mod render_nfce_model_65 {
         item.icms_mod_bc = None;
         item.pis_cst = "07".into();
         item.cofins_cst = "07".into();
-        data.items = vec![item];
-        data.payments = vec![PaymentData {
-            method: "01".into(),
-            amount: Cents(5000),
-        }];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = InvoiceBuilder::new(make_issuer_simples(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(make_issued_at())
+            .consumer_type("1")
+            .buyer_presence("1")
+            .print_format("4")
+            .items(vec![item])
+            .payments(vec![PaymentData {
+                method: "01".into(),
+                amount: Cents(5000),
+            }])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         assert!(xml.contains("<mod>65</mod>"));
         assert!(xml.contains("<indFinal>1</indFinal>"));
@@ -519,20 +478,20 @@ mod trait_tag_total_ret_trib {
 
     #[test]
     fn test_tag_ret_trib_should_be_inside_total_section_in_rendered_xml() {
-        let mut data = make_base_invoice_data();
+        let built = make_base_builder()
+            .ret_trib(RetTribData {
+                v_ret_pis: Some(Cents(1000)),
+                v_ret_cofins: Some(Cents(4600)),
+                v_ret_csll: Some(Cents(500)),
+                v_bc_irrf: Some(Cents(10000)),
+                v_irrf: Some(Cents(1500)),
+                v_bc_ret_prev: Some(Cents(20000)),
+                v_ret_prev: Some(Cents(2200)),
+            })
+            .build()
+            .unwrap();
 
-        data.ret_trib = Some(RetTribData {
-            v_ret_pis: Some(Cents(1000)),
-            v_ret_cofins: Some(Cents(4600)),
-            v_ret_csll: Some(Cents(500)),
-            v_bc_irrf: Some(Cents(10000)),
-            v_irrf: Some(Cents(1500)),
-            v_bc_ret_prev: Some(Cents(20000)),
-            v_ret_prev: Some(Cents(2200)),
-        });
-
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let xml = built.xml();
 
         // retTrib must be inside <total>
         assert!(xml.contains("<retTrib>"));
@@ -699,8 +658,6 @@ mod trait_tag_det_prod {
 
     #[test]
     fn test_tag_prod_full_render_with_inf_ad_prod_and_obs_item() {
-        let mut data = make_base_invoice_data();
-
         let mut item = make_base_item();
         item.description = "Produto Completo".into();
         item.inf_ad_prod = Some("Informacao adicional do produto item 1".into());
@@ -711,10 +668,13 @@ mod trait_tag_det_prod {
             }),
             obs_fisco: None,
         });
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // infAdProd should be inside det, after imposto
         assert!(xml.contains("<infAdProd>Informacao adicional do produto item 1</infAdProd>"));
@@ -740,7 +700,6 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_rastro_batch_tracking() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.rastro = Some(vec![
             RastroData {
@@ -758,10 +717,13 @@ mod trait_tag_det_options {
                 c_agreg: None,
             },
         ]);
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // rastro should be inside <prod>
         assert!(xml.contains("<rastro>"));
@@ -787,7 +749,6 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_veic_prod_vehicle() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.veic_prod = Some(VeicProdData {
             tp_op: "1".into(),
@@ -815,10 +776,13 @@ mod trait_tag_det_options {
             lota: "5".into(),
             tp_rest: "0".into(),
         });
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // veicProd should be inside <prod>
         assert!(xml.contains("<veicProd>"));
@@ -841,17 +805,19 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_med_medicine() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.med = Some(MedData {
             c_prod_anvisa: Some("1234567890123".into()),
             x_motivo_isencao: None,
             v_pmc: Cents(4990),
         });
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // med should be inside <prod>
         assert!(xml.contains("<med>"));
@@ -869,7 +835,6 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_arma_weapon() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.arma = Some(vec![ArmaData {
             tp_arma: "0".into(),
@@ -877,10 +842,13 @@ mod trait_tag_det_options {
             n_cano: "CN67890".into(),
             descr: "REVOLVER CALIBRE 38".into(),
         }]);
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // arma should be inside <prod>
         assert!(xml.contains("<arma>"));
@@ -900,13 +868,15 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_recopi_render_includes_nrecopi() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.n_recopi = Some("20250101120000123456".into());
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // nRECOPI should be inside <prod>
         assert!(xml.contains("<nRECOPI>20250101120000123456</nRECOPI>"));
@@ -919,13 +889,15 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_recopi_empty_should_not_render_tag() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.n_recopi = Some(String::new());
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // Empty nRECOPI should not produce the tag (falsy check)
         assert!(!xml.contains("<nRECOPI>"));
@@ -933,16 +905,18 @@ mod trait_tag_det_options {
 
     #[test]
     fn test_tag_dfe_referenciado() {
-        let mut data = make_base_invoice_data();
         let mut item = make_base_item();
         item.dfe_referenciado = Some(DFeReferenciadoData {
             chave_acesso: "35170358716523000119550010000000291000000291".into(),
             n_item: Some("1".into()),
         });
-        data.items = vec![item];
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let built = make_base_builder()
+            .items(vec![item])
+            .build()
+            .unwrap();
+
+        let xml = built.xml();
 
         // DFeReferenciado should be inside <det>, after imposto
         assert!(xml.contains("<DFeReferenciado>"));
@@ -1244,8 +1218,6 @@ mod trait_calculations {
 
     #[test]
     fn test_calculations_totals_from_multiple_items() {
-        let mut data = make_base_invoice_data();
-
         let mut item1 = make_base_item();
         item1.item_number = 1;
         item1.product_code = "001".into();
@@ -1276,14 +1248,16 @@ mod trait_calculations {
         item2.cofins_p_cofins = Some(Rate4(76000));
         item2.cofins_v_cofins = Some(Cents(2280));
 
-        data.items = vec![item1, item2];
-        data.payments = vec![PaymentData {
-            method: "01".into(),
-            amount: Cents(50000),
-        }];
+        let built = make_base_builder()
+            .items(vec![item1, item2])
+            .payments(vec![PaymentData {
+                method: "01".into(),
+                amount: Cents(50000),
+            }])
+            .build()
+            .unwrap();
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let xml = built.xml();
 
         // vProd should be sum of item totals: 20000 + 30000 = 50000 cents = 500.00
         assert!(xml.contains("<vProd>500.00</vProd>"));
@@ -1295,9 +1269,6 @@ mod trait_calculations {
 
     #[test]
     fn test_calculations_with_different_tax_values() {
-        let mut data = make_base_invoice_data();
-        data.number = 2;
-
         let mut item = make_base_item();
         item.description = "Produto Unico".into();
         item.quantity = 1.0;
@@ -1311,14 +1282,17 @@ mod trait_calculations {
         item.cofins_p_cofins = Some(Rate4(76000));
         item.cofins_v_cofins = Some(Cents(2006));
 
-        data.items = vec![item];
-        data.payments = vec![PaymentData {
-            method: "01".into(),
-            amount: Cents(26400),
-        }];
+        let built = make_base_builder()
+            .invoice_number(2)
+            .items(vec![item])
+            .payments(vec![PaymentData {
+                method: "01".into(),
+                amount: Cents(26400),
+            }])
+            .build()
+            .unwrap();
 
-        let result = build_invoice_xml(&data).unwrap();
-        let xml = &result.xml;
+        let xml = built.xml();
 
         // vNF = vProd = 26400 cents = 264.00
         assert!(xml.contains("<vNF>264.00</vNF>"));

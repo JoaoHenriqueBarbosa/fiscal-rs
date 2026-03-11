@@ -391,7 +391,7 @@ fn build_icms_variant(
 }
 
 /// Build a `<det nItem="N">` element for one invoice item.
-pub fn build_det(
+pub(crate) fn build_det(
     item: &InvoiceItemData,
     data: &InvoiceBuildData,
 ) -> Result<DetResult, FiscalError> {
