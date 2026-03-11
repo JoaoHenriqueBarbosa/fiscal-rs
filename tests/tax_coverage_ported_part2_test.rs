@@ -6,16 +6,16 @@
 // Each TypeScript describe()/it() block becomes a Rust mod/test.
 // All tests compile but will fail at runtime (implementations use todo!()).
 
-use fiscal::tax_pis_cofins_ipi::{
-    build_cofins_st_xml, build_cofins_xml, build_ii_xml, build_pis_st_xml, build_pis_xml,
-    CofinsData, CofinsStData, IiData, PisData, PisStData,
-};
-use fiscal::tax_issqn::{
-    build_issqn_xml, build_issqn_xml_with_totals, create_issqn_totals, IssqnData,
-};
-use fiscal::tax_is::{build_is_xml, IsData};
-use fiscal::xml_utils::{tag, TagContent};
 use fiscal::newtypes::{Cents, Rate4};
+use fiscal::tax_is::{IsData, build_is_xml};
+use fiscal::tax_issqn::{
+    IssqnData, build_issqn_xml, build_issqn_xml_with_totals, create_issqn_totals,
+};
+use fiscal::tax_pis_cofins_ipi::{
+    CofinsData, CofinsStData, IiData, PisData, PisStData, build_cofins_st_xml, build_cofins_xml,
+    build_ii_xml, build_pis_st_xml, build_pis_xml,
+};
+use fiscal::xml_utils::{TagContent, tag};
 
 // =============================================================================
 // TaxCoverageTest.php -- PIS Tests
@@ -26,10 +26,12 @@ mod pis {
 
     #[test]
     fn test_pis_aliq_cst_01() {
-        let xml = build_pis_xml(&PisData::new("01")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("01")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISAliq>"));
         assert!(xml.contains("<CST>01</CST>"));
         assert!(xml.contains("<vBC>"));
@@ -39,20 +41,24 @@ mod pis {
 
     #[test]
     fn test_pis_aliq_cst_02() {
-        let xml = build_pis_xml(&PisData::new("02")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("02")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISAliq>"));
         assert!(xml.contains("<CST>02</CST>"));
     }
 
     #[test]
     fn test_pis_qtde_cst_03() {
-        let xml = build_pis_xml(&PisData::new("03")
-            .q_bc_prod(1000000)
-            .v_aliq_prod(165)
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("03")
+                .q_bc_prod(1000000)
+                .v_aliq_prod(165)
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISQtde>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -102,10 +108,12 @@ mod pis {
 
     #[test]
     fn test_pis_outr_with_vbc_cst_49() {
-        let xml = build_pis_xml(&PisData::new("49")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("49")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<vBC>"));
         assert!(xml.contains("<pPIS>"));
@@ -114,10 +122,12 @@ mod pis {
 
     #[test]
     fn test_pis_outr_with_qbc_prod_cst_99() {
-        let xml = build_pis_xml(&PisData::new("99")
-            .q_bc_prod(1000000)
-            .v_aliq_prod(165)
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("99")
+                .q_bc_prod(1000000)
+                .v_aliq_prod(165)
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -126,220 +136,264 @@ mod pis {
 
     #[test]
     fn test_pis_outr_cst_50() {
-        let xml = build_pis_xml(&PisData::new("50")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("50")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>50</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_51() {
-        let xml = build_pis_xml(&PisData::new("51")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("51")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>51</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_52() {
-        let xml = build_pis_xml(&PisData::new("52")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("52")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>52</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_53() {
-        let xml = build_pis_xml(&PisData::new("53")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("53")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>53</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_54() {
-        let xml = build_pis_xml(&PisData::new("54")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("54")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>54</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_55() {
-        let xml = build_pis_xml(&PisData::new("55")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("55")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>55</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_56() {
-        let xml = build_pis_xml(&PisData::new("56")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("56")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>56</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_60() {
-        let xml = build_pis_xml(&PisData::new("60")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("60")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>60</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_61() {
-        let xml = build_pis_xml(&PisData::new("61")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("61")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>61</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_62() {
-        let xml = build_pis_xml(&PisData::new("62")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("62")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>62</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_63() {
-        let xml = build_pis_xml(&PisData::new("63")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("63")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>63</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_64() {
-        let xml = build_pis_xml(&PisData::new("64")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("64")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>64</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_65() {
-        let xml = build_pis_xml(&PisData::new("65")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("65")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>65</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_66() {
-        let xml = build_pis_xml(&PisData::new("66")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("66")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>66</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_67() {
-        let xml = build_pis_xml(&PisData::new("67")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("67")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>67</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_70() {
-        let xml = build_pis_xml(&PisData::new("70")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("70")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>70</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_71() {
-        let xml = build_pis_xml(&PisData::new("71")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("71")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>71</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_72() {
-        let xml = build_pis_xml(&PisData::new("72")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("72")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>72</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_73() {
-        let xml = build_pis_xml(&PisData::new("73")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("73")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>73</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_74() {
-        let xml = build_pis_xml(&PisData::new("74")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("74")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>74</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_75() {
-        let xml = build_pis_xml(&PisData::new("75")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("75")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>75</CST>"));
     }
 
     #[test]
     fn test_pis_outr_cst_98() {
-        let xml = build_pis_xml(&PisData::new("98")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("98")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<CST>98</CST>"));
     }
@@ -368,7 +422,12 @@ mod pisst {
 
     #[test]
     fn test_pisst_with_vbc() {
-        let xml = build_pis_st_xml(&PisStData::new(Cents(165)).v_bc(Cents(10000)).p_pis(Rate4(16500)).ind_soma_pis_st(1));
+        let xml = build_pis_st_xml(
+            &PisStData::new(Cents(165))
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .ind_soma_pis_st(1),
+        );
         assert!(xml.contains("<PISST>"));
         assert!(xml.contains("<vBC>"));
         assert!(xml.contains("<pPIS>"));
@@ -377,7 +436,12 @@ mod pisst {
 
     #[test]
     fn test_pisst_with_qbc_prod() {
-        let xml = build_pis_st_xml(&PisStData::new(Cents(165)).q_bc_prod(1000000).v_aliq_prod(165).ind_soma_pis_st(0));
+        let xml = build_pis_st_xml(
+            &PisStData::new(Cents(165))
+                .q_bc_prod(1000000)
+                .v_aliq_prod(165)
+                .ind_soma_pis_st(0),
+        );
         assert!(xml.contains("<PISST>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -394,10 +458,12 @@ mod cofins {
 
     #[test]
     fn test_cofins_aliq_cst_01() {
-        let xml = build_cofins_xml(&CofinsData::new("01")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("01")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSAliq>"));
         assert!(xml.contains("<CST>01</CST>"));
         assert!(xml.contains("<vBC>"));
@@ -407,20 +473,24 @@ mod cofins {
 
     #[test]
     fn test_cofins_aliq_cst_02() {
-        let xml = build_cofins_xml(&CofinsData::new("02")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("02")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSAliq>"));
         assert!(xml.contains("<CST>02</CST>"));
     }
 
     #[test]
     fn test_cofins_qtde_cst_03() {
-        let xml = build_cofins_xml(&CofinsData::new("03")
-            .q_bc_prod(1000000)
-            .v_aliq_prod(760)
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("03")
+                .q_bc_prod(1000000)
+                .v_aliq_prod(760)
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSQtde>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -470,10 +540,12 @@ mod cofins {
 
     #[test]
     fn test_cofins_outr_with_vbc_cst_49() {
-        let xml = build_cofins_xml(&CofinsData::new("49")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("49")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<vBC>"));
         assert!(xml.contains("<pCOFINS>"));
@@ -482,10 +554,12 @@ mod cofins {
 
     #[test]
     fn test_cofins_outr_with_qbc_prod_cst_99() {
-        let xml = build_cofins_xml(&CofinsData::new("99")
-            .q_bc_prod(1000000)
-            .v_aliq_prod(760)
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("99")
+                .q_bc_prod(1000000)
+                .v_aliq_prod(760)
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -494,220 +568,264 @@ mod cofins {
 
     #[test]
     fn test_cofins_outr_cst_50() {
-        let xml = build_cofins_xml(&CofinsData::new("50")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("50")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>50</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_51() {
-        let xml = build_cofins_xml(&CofinsData::new("51")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("51")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>51</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_52() {
-        let xml = build_cofins_xml(&CofinsData::new("52")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("52")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>52</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_53() {
-        let xml = build_cofins_xml(&CofinsData::new("53")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("53")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>53</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_54() {
-        let xml = build_cofins_xml(&CofinsData::new("54")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("54")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>54</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_55() {
-        let xml = build_cofins_xml(&CofinsData::new("55")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("55")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>55</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_56() {
-        let xml = build_cofins_xml(&CofinsData::new("56")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("56")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>56</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_60() {
-        let xml = build_cofins_xml(&CofinsData::new("60")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("60")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>60</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_61() {
-        let xml = build_cofins_xml(&CofinsData::new("61")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("61")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>61</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_62() {
-        let xml = build_cofins_xml(&CofinsData::new("62")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("62")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>62</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_63() {
-        let xml = build_cofins_xml(&CofinsData::new("63")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("63")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>63</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_64() {
-        let xml = build_cofins_xml(&CofinsData::new("64")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("64")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>64</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_65() {
-        let xml = build_cofins_xml(&CofinsData::new("65")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("65")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>65</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_66() {
-        let xml = build_cofins_xml(&CofinsData::new("66")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("66")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>66</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_67() {
-        let xml = build_cofins_xml(&CofinsData::new("67")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("67")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>67</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_70() {
-        let xml = build_cofins_xml(&CofinsData::new("70")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("70")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>70</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_71() {
-        let xml = build_cofins_xml(&CofinsData::new("71")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("71")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>71</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_72() {
-        let xml = build_cofins_xml(&CofinsData::new("72")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("72")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>72</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_73() {
-        let xml = build_cofins_xml(&CofinsData::new("73")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("73")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>73</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_74() {
-        let xml = build_cofins_xml(&CofinsData::new("74")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("74")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>74</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_75() {
-        let xml = build_cofins_xml(&CofinsData::new("75")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("75")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>75</CST>"));
     }
 
     #[test]
     fn test_cofins_outr_cst_98() {
-        let xml = build_cofins_xml(&CofinsData::new("98")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("98")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<CST>98</CST>"));
     }
@@ -722,7 +840,12 @@ mod cofinsst {
 
     #[test]
     fn test_cofinsst_with_vbc() {
-        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760)).v_bc(Cents(10000)).p_cofins(Rate4(76000)).ind_soma_cofins_st(1));
+        let xml = build_cofins_st_xml(
+            &CofinsStData::new(Cents(760))
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .ind_soma_cofins_st(1),
+        );
         assert!(xml.contains("<COFINSST>"));
         assert!(xml.contains("<vBC>"));
         assert!(xml.contains("<pCOFINS>"));
@@ -731,7 +854,12 @@ mod cofinsst {
 
     #[test]
     fn test_cofinsst_with_qbc_prod() {
-        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760)).q_bc_prod(1000000).v_aliq_prod(760).ind_soma_cofins_st(0));
+        let xml = build_cofins_st_xml(
+            &CofinsStData::new(Cents(760))
+                .q_bc_prod(1000000)
+                .v_aliq_prod(760)
+                .ind_soma_cofins_st(0),
+        );
         assert!(xml.contains("<COFINSST>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -749,10 +877,12 @@ mod pis_cofins_totalizer {
     #[test]
     fn test_cofins_aliq_totalizer() {
         // COFINS Aliq CST 01 generates correct XML
-        let xml = build_cofins_xml(&CofinsData::new("01")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("01")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSAliq>"));
         assert!(xml.contains("<vCOFINS>"));
     }
@@ -760,10 +890,12 @@ mod pis_cofins_totalizer {
     #[test]
     fn test_cofins_qtde_totalizer() {
         // COFINS Qtde CST 03 generates correct XML
-        let xml = build_cofins_xml(&CofinsData::new("03")
-            .q_bc_prod(1000000)
-            .v_aliq_prod(760)
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("03")
+                .q_bc_prod(1000000)
+                .v_aliq_prod(760)
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSQtde>"));
         assert!(xml.contains("<vCOFINS>"));
     }
@@ -771,10 +903,12 @@ mod pis_cofins_totalizer {
     #[test]
     fn test_cofins_outr_totalizer() {
         // COFINS Outr CST 99 generates correct XML
-        let xml = build_cofins_xml(&CofinsData::new("99")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("99")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
         assert!(xml.contains("<COFINSOutr>"));
         assert!(xml.contains("<vCOFINS>"));
     }
@@ -782,28 +916,48 @@ mod pis_cofins_totalizer {
     #[test]
     fn test_pisst_with_ind_soma_1() {
         // PISST with indSomaPISST=1 includes indicator
-        let xml = build_pis_st_xml(&PisStData::new(Cents(165)).v_bc(Cents(10000)).p_pis(Rate4(16500)).ind_soma_pis_st(1));
+        let xml = build_pis_st_xml(
+            &PisStData::new(Cents(165))
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .ind_soma_pis_st(1),
+        );
         assert!(xml.contains("<indSomaPISST>1</indSomaPISST>"));
     }
 
     #[test]
     fn test_pisst_with_ind_soma_0() {
         // PISST with indSomaPISST=0 includes indicator
-        let xml = build_pis_st_xml(&PisStData::new(Cents(165)).v_bc(Cents(10000)).p_pis(Rate4(16500)).ind_soma_pis_st(0));
+        let xml = build_pis_st_xml(
+            &PisStData::new(Cents(165))
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .ind_soma_pis_st(0),
+        );
         assert!(xml.contains("<indSomaPISST>0</indSomaPISST>"));
     }
 
     #[test]
     fn test_cofinsst_with_ind_soma_1() {
         // COFINSST with indSomaCOFINSST=1
-        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760)).v_bc(Cents(10000)).p_cofins(Rate4(76000)).ind_soma_cofins_st(1));
+        let xml = build_cofins_st_xml(
+            &CofinsStData::new(Cents(760))
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .ind_soma_cofins_st(1),
+        );
         assert!(xml.contains("<indSomaCOFINSST>1</indSomaCOFINSST>"));
     }
 
     #[test]
     fn test_cofinsst_with_ind_soma_0() {
         // COFINSST with indSomaCOFINSST=0
-        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760)).v_bc(Cents(10000)).p_cofins(Rate4(76000)).ind_soma_cofins_st(0));
+        let xml = build_cofins_st_xml(
+            &CofinsStData::new(Cents(760))
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .ind_soma_cofins_st(0),
+        );
         assert!(xml.contains("<indSomaCOFINSST>0</indSomaCOFINSST>"));
     }
 }
@@ -817,7 +971,12 @@ mod ii {
 
     #[test]
     fn test_tag_ii_all_fields() {
-        let xml = build_ii_xml(&IiData::new(Cents(100000), Cents(5000), Cents(12000), Cents(1500)));
+        let xml = build_ii_xml(&IiData::new(
+            Cents(100000),
+            Cents(5000),
+            Cents(12000),
+            Cents(1500),
+        ));
         assert!(xml.contains("<II>"));
         assert!(xml.contains("<vBC>1000.00</vBC>"));
         assert!(xml.contains("<vDespAdu>50.00</vDespAdu>"));
@@ -839,9 +998,17 @@ mod issqn {
         let mut totals = create_issqn_totals();
         let xml = build_issqn_xml_with_totals(
             &IssqnData::new(10000, 500, 500, "3550308", "1401")
-                .v_deducao(1000).v_outro(200).v_desc_incond(300).v_desc_cond(100).v_iss_ret(50)
-                .ind_iss("1").c_servico("1234").c_mun("3550308").c_pais("1058")
-                .n_processo("9999").ind_incentivo("1"),
+                .v_deducao(1000)
+                .v_outro(200)
+                .v_desc_incond(300)
+                .v_desc_cond(100)
+                .v_iss_ret(50)
+                .ind_iss("1")
+                .c_servico("1234")
+                .c_mun("3550308")
+                .c_pais("1058")
+                .n_processo("9999")
+                .ind_incentivo("1"),
             &mut totals,
         );
 
@@ -872,7 +1039,9 @@ mod issqn {
     fn test_tag_issqn_zero_vbc_does_not_accumulate_totals() {
         let mut totals = create_issqn_totals();
         let xml = build_issqn_xml_with_totals(
-            &IssqnData::new(0, 500, 0, "3550308", "1401").ind_iss("1").ind_incentivo("2"),
+            &IssqnData::new(0, 500, 0, "3550308", "1401")
+                .ind_iss("1")
+                .ind_incentivo("2"),
             &mut totals,
         );
 
@@ -885,7 +1054,11 @@ mod issqn {
 
     #[test]
     fn test_tag_issqn_optional_fields_null() {
-        let xml = build_issqn_xml(&IssqnData::new(5000, 300, 150, "3550308", "1401").ind_iss("2").ind_incentivo("2"));
+        let xml = build_issqn_xml(
+            &IssqnData::new(5000, 300, 150, "3550308", "1401")
+                .ind_iss("2")
+                .ind_incentivo("2"),
+        );
 
         assert!(xml.contains("<ISSQN>"));
         assert!(xml.contains("<vBC>50.00</vBC>"));
@@ -905,7 +1078,12 @@ mod is_ibscbs {
 
     #[test]
     fn test_tag_is_with_vbcis() {
-        let xml = build_is_xml(&IsData::new("00", "001", "5.00").v_bc_is("100.00").p_is("5.0000").p_is_espec("1.5000"));
+        let xml = build_is_xml(
+            &IsData::new("00", "001", "5.00")
+                .v_bc_is("100.00")
+                .p_is("5.0000")
+                .p_is_espec("1.5000"),
+        );
 
         assert!(xml.contains("<IS>"));
         assert!(xml.contains("<CSTIS>00</CSTIS>"));
@@ -918,7 +1096,11 @@ mod is_ibscbs {
 
     #[test]
     fn test_tag_is_with_utrib_and_qtrib() {
-        let xml = build_is_xml(&IsData::new("01", "002", "8.00").u_trib("LT").q_trib("10.0000"));
+        let xml = build_is_xml(
+            &IsData::new("01", "002", "8.00")
+                .u_trib("LT")
+                .q_trib("10.0000"),
+        );
 
         assert!(xml.contains("<IS>"));
         assert!(xml.contains("<uTrib>LT</uTrib>"));
@@ -1028,11 +1210,7 @@ mod compra {
         let xml = tag(
             "compra",
             &[],
-            TagContent::Children(vec![tag(
-                "xPed",
-                &[],
-                TagContent::Text("PED-99999"),
-            )]),
+            TagContent::Children(vec![tag("xPed", &[], TagContent::Text("PED-99999"))]),
         );
 
         assert!(xml.contains("<compra>"));
@@ -1068,9 +1246,7 @@ mod exporta {
         assert!(xml.contains("<exporta>"));
         assert!(xml.contains("<UFSaidaPais>SP</UFSaidaPais>"));
         assert!(xml.contains("<xLocExporta>Porto de Santos</xLocExporta>"));
-        assert!(xml.contains(
-            "<xLocDespacho>Aeroporto de Guarulhos</xLocDespacho>"
-        ));
+        assert!(xml.contains("<xLocDespacho>Aeroporto de Guarulhos</xLocDespacho>"));
     }
 
     #[test]

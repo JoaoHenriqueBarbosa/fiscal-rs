@@ -1,6 +1,6 @@
 use crate::format_utils::{format_cents_or_zero, format_rate4_or_zero};
 use crate::newtypes::{Cents, Rate, Rate4};
-use crate::tax_element::{serialize_tax_element, TaxElement, TaxField};
+use crate::tax_element::{TaxElement, TaxField, serialize_tax_element};
 
 // ── CST classification sets ─────────────────────────────────────────────────
 
@@ -15,10 +15,8 @@ const NT_CSTS: &[&str] = &["04", "05", "06", "07", "08", "09"];
 
 /// PIS/COFINS CSTs that use "other operations" (Outr variant).
 const OUTR_CSTS: &[&str] = &[
-    "49", "50", "51", "52", "53", "54", "55", "56",
-    "60", "61", "62", "63", "64", "65", "66", "67",
-    "70", "71", "72", "73", "74", "75",
-    "98", "99",
+    "49", "50", "51", "52", "53", "54", "55", "56", "60", "61", "62", "63", "64", "65", "66", "67",
+    "70", "71", "72", "73", "74", "75", "98", "99",
 ];
 
 /// IPI CSTs that are taxed (Trib variant): 00, 49, 50, 99.
@@ -41,18 +39,36 @@ pub struct PisData {
 impl PisData {
     /// Create a new `PisData` with the required CST.
     pub fn new(cst: impl Into<String>) -> Self {
-        Self { cst: cst.into(), ..Default::default() }
+        Self {
+            cst: cst.into(),
+            ..Default::default()
+        }
     }
     /// Set the base value.
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
     /// Set the PIS rate.
-    pub fn p_pis(mut self, v: Rate4) -> Self { self.p_pis = Some(v); self }
+    pub fn p_pis(mut self, v: Rate4) -> Self {
+        self.p_pis = Some(v);
+        self
+    }
     /// Set the PIS value.
-    pub fn v_pis(mut self, v: Cents) -> Self { self.v_pis = Some(v); self }
+    pub fn v_pis(mut self, v: Cents) -> Self {
+        self.v_pis = Some(v);
+        self
+    }
     /// Set the quantity base.
-    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    pub fn q_bc_prod(mut self, v: i64) -> Self {
+        self.q_bc_prod = Some(v);
+        self
+    }
     /// Set the quantity rate.
-    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    pub fn v_aliq_prod(mut self, v: i64) -> Self {
+        self.v_aliq_prod = Some(v);
+        self
+    }
 }
 
 /// PIS-ST input data
@@ -70,18 +86,36 @@ pub struct PisStData {
 impl PisStData {
     /// Create a new `PisStData` with the required PIS value.
     pub fn new(v_pis: Cents) -> Self {
-        Self { v_pis, ..Default::default() }
+        Self {
+            v_pis,
+            ..Default::default()
+        }
     }
     /// Set the base value.
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
     /// Set the PIS rate.
-    pub fn p_pis(mut self, v: Rate4) -> Self { self.p_pis = Some(v); self }
+    pub fn p_pis(mut self, v: Rate4) -> Self {
+        self.p_pis = Some(v);
+        self
+    }
     /// Set the quantity base.
-    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    pub fn q_bc_prod(mut self, v: i64) -> Self {
+        self.q_bc_prod = Some(v);
+        self
+    }
     /// Set the quantity rate.
-    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    pub fn v_aliq_prod(mut self, v: i64) -> Self {
+        self.v_aliq_prod = Some(v);
+        self
+    }
     /// Set the ST indicator.
-    pub fn ind_soma_pis_st(mut self, v: i64) -> Self { self.ind_soma_pis_st = Some(v); self }
+    pub fn ind_soma_pis_st(mut self, v: i64) -> Self {
+        self.ind_soma_pis_st = Some(v);
+        self
+    }
 }
 
 /// COFINS tax input data. Monetary fields use [`Cents`], rates use [`Rate4`].
@@ -99,18 +133,36 @@ pub struct CofinsData {
 impl CofinsData {
     /// Create a new `CofinsData` with the required CST.
     pub fn new(cst: impl Into<String>) -> Self {
-        Self { cst: cst.into(), ..Default::default() }
+        Self {
+            cst: cst.into(),
+            ..Default::default()
+        }
     }
     /// Set the base value.
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
     /// Set the COFINS rate.
-    pub fn p_cofins(mut self, v: Rate4) -> Self { self.p_cofins = Some(v); self }
+    pub fn p_cofins(mut self, v: Rate4) -> Self {
+        self.p_cofins = Some(v);
+        self
+    }
     /// Set the COFINS value.
-    pub fn v_cofins(mut self, v: Cents) -> Self { self.v_cofins = Some(v); self }
+    pub fn v_cofins(mut self, v: Cents) -> Self {
+        self.v_cofins = Some(v);
+        self
+    }
     /// Set the quantity base.
-    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    pub fn q_bc_prod(mut self, v: i64) -> Self {
+        self.q_bc_prod = Some(v);
+        self
+    }
     /// Set the quantity rate.
-    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    pub fn v_aliq_prod(mut self, v: i64) -> Self {
+        self.v_aliq_prod = Some(v);
+        self
+    }
 }
 
 /// COFINS-ST input data
@@ -128,18 +180,36 @@ pub struct CofinsStData {
 impl CofinsStData {
     /// Create a new `CofinsStData` with the required COFINS value.
     pub fn new(v_cofins: Cents) -> Self {
-        Self { v_cofins, ..Default::default() }
+        Self {
+            v_cofins,
+            ..Default::default()
+        }
     }
     /// Set the base value.
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
     /// Set the COFINS rate.
-    pub fn p_cofins(mut self, v: Rate4) -> Self { self.p_cofins = Some(v); self }
+    pub fn p_cofins(mut self, v: Rate4) -> Self {
+        self.p_cofins = Some(v);
+        self
+    }
     /// Set the quantity base.
-    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    pub fn q_bc_prod(mut self, v: i64) -> Self {
+        self.q_bc_prod = Some(v);
+        self
+    }
     /// Set the quantity rate.
-    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    pub fn v_aliq_prod(mut self, v: i64) -> Self {
+        self.v_aliq_prod = Some(v);
+        self
+    }
     /// Set the ST indicator.
-    pub fn ind_soma_cofins_st(mut self, v: i64) -> Self { self.ind_soma_cofins_st = Some(v); self }
+    pub fn ind_soma_cofins_st(mut self, v: i64) -> Self {
+        self.ind_soma_cofins_st = Some(v);
+        self
+    }
 }
 
 /// IPI input data
@@ -161,24 +231,52 @@ pub struct IpiData {
 impl IpiData {
     /// Create a new `IpiData` with required CST and enquadramento code.
     pub fn new(cst: impl Into<String>, c_enq: impl Into<String>) -> Self {
-        Self { cst: cst.into(), c_enq: c_enq.into(), ..Default::default() }
+        Self {
+            cst: cst.into(),
+            c_enq: c_enq.into(),
+            ..Default::default()
+        }
     }
     /// Set the CNPJ of the producer.
-    pub fn cnpj_prod(mut self, v: impl Into<String>) -> Self { self.cnpj_prod = Some(v.into()); self }
+    pub fn cnpj_prod(mut self, v: impl Into<String>) -> Self {
+        self.cnpj_prod = Some(v.into());
+        self
+    }
     /// Set the seal code.
-    pub fn c_selo(mut self, v: impl Into<String>) -> Self { self.c_selo = Some(v.into()); self }
+    pub fn c_selo(mut self, v: impl Into<String>) -> Self {
+        self.c_selo = Some(v.into());
+        self
+    }
     /// Set the seal quantity.
-    pub fn q_selo(mut self, v: i64) -> Self { self.q_selo = Some(v); self }
+    pub fn q_selo(mut self, v: i64) -> Self {
+        self.q_selo = Some(v);
+        self
+    }
     /// Set the base value.
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
     /// Set the IPI rate.
-    pub fn p_ipi(mut self, v: Rate) -> Self { self.p_ipi = Some(v); self }
+    pub fn p_ipi(mut self, v: Rate) -> Self {
+        self.p_ipi = Some(v);
+        self
+    }
     /// Set the unit quantity.
-    pub fn q_unid(mut self, v: i64) -> Self { self.q_unid = Some(v); self }
+    pub fn q_unid(mut self, v: i64) -> Self {
+        self.q_unid = Some(v);
+        self
+    }
     /// Set the unit value.
-    pub fn v_unid(mut self, v: i64) -> Self { self.v_unid = Some(v); self }
+    pub fn v_unid(mut self, v: i64) -> Self {
+        self.v_unid = Some(v);
+        self
+    }
     /// Set the IPI value.
-    pub fn v_ipi(mut self, v: Cents) -> Self { self.v_ipi = Some(v); self }
+    pub fn v_ipi(mut self, v: Cents) -> Self {
+        self.v_ipi = Some(v);
+        self
+    }
 }
 
 /// II (import tax) input data
@@ -194,7 +292,12 @@ pub struct IiData {
 impl IiData {
     /// Create a new `IiData` with all required fields.
     pub fn new(v_bc: Cents, v_desp_adu: Cents, v_ii: Cents, v_iof: Cents) -> Self {
-        Self { v_bc, v_desp_adu, v_ii, v_iof }
+        Self {
+            v_bc,
+            v_desp_adu,
+            v_ii,
+            v_iof,
+        }
     }
 }
 
@@ -264,21 +367,30 @@ fn build_contribution_outr_fields(
 
     if d.q_bc_prod.is_some() {
         fields.push(TaxField::new("qBCProd", format_rate4_or_zero(d.q_bc_prod)));
-        fields.push(TaxField::new("vAliqProd", format_rate4_or_zero(d.v_aliq_prod)));
+        fields.push(TaxField::new(
+            "vAliqProd",
+            format_rate4_or_zero(d.v_aliq_prod),
+        ));
     } else {
-        fields.push(TaxField::new("vBC", format_cents_or_zero(d.v_bc.map(|c| c.0), 2)));
-        fields.push(TaxField::new(cfg.rate_field, format_rate4_or_zero(d.rate.map(|r| r.0))));
+        fields.push(TaxField::new(
+            "vBC",
+            format_cents_or_zero(d.v_bc.map(|c| c.0), 2),
+        ));
+        fields.push(TaxField::new(
+            cfg.rate_field,
+            format_rate4_or_zero(d.rate.map(|r| r.0)),
+        ));
     }
 
-    fields.push(TaxField::new(cfg.value_field, format_cents_or_zero(d.value.map(|c| c.0), 2)));
+    fields.push(TaxField::new(
+        cfg.value_field,
+        format_cents_or_zero(d.value.map(|c| c.0), 2),
+    ));
     fields
 }
 
 /// Calculate a contribution tax (PIS or COFINS) element.
-fn calculate_contribution_tax(
-    d: &ContributionTaxInput,
-    cfg: &ContributionTaxConfig,
-) -> TaxElement {
+fn calculate_contribution_tax(d: &ContributionTaxInput, cfg: &ContributionTaxConfig) -> TaxElement {
     let cst = d.cst;
 
     let (variant_tag, fields) = if ALIQ_CSTS.contains(&cst) {
@@ -287,7 +399,10 @@ fn calculate_contribution_tax(
             TaxField::new("CST", cst),
             TaxField::new("vBC", format_cents_or_zero(d.v_bc.map(|c| c.0), 2)),
             TaxField::new(cfg.rate_field, format_rate4_or_zero(d.rate.map(|r| r.0))),
-            TaxField::new(cfg.value_field, format_cents_or_zero(d.value.map(|c| c.0), 2)),
+            TaxField::new(
+                cfg.value_field,
+                format_cents_or_zero(d.value.map(|c| c.0), 2),
+            ),
         ];
         (tag, fields)
     } else if QTDE_CSTS.contains(&cst) {
@@ -296,7 +411,10 @@ fn calculate_contribution_tax(
             TaxField::new("CST", cst),
             TaxField::new("qBCProd", format_rate4_or_zero(d.q_bc_prod)),
             TaxField::new("vAliqProd", format_rate4_or_zero(d.v_aliq_prod)),
-            TaxField::new(cfg.value_field, format_cents_or_zero(d.value.map(|c| c.0), 2)),
+            TaxField::new(
+                cfg.value_field,
+                format_cents_or_zero(d.value.map(|c| c.0), 2),
+            ),
         ];
         (tag, fields)
     } else if NT_CSTS.contains(&cst) {
@@ -331,13 +449,25 @@ fn calculate_contribution_tax_st(
 
     if d.q_bc_prod.is_some() {
         fields.push(TaxField::new("qBCProd", format_rate4_or_zero(d.q_bc_prod)));
-        fields.push(TaxField::new("vAliqProd", format_rate4_or_zero(d.v_aliq_prod)));
+        fields.push(TaxField::new(
+            "vAliqProd",
+            format_rate4_or_zero(d.v_aliq_prod),
+        ));
     } else {
-        fields.push(TaxField::new("vBC", format_cents_or_zero(d.v_bc.map(|c| c.0), 2)));
-        fields.push(TaxField::new(cfg.rate_field, format_rate4_or_zero(d.rate.map(|r| r.0))));
+        fields.push(TaxField::new(
+            "vBC",
+            format_cents_or_zero(d.v_bc.map(|c| c.0), 2),
+        ));
+        fields.push(TaxField::new(
+            cfg.rate_field,
+            format_rate4_or_zero(d.rate.map(|r| r.0)),
+        ));
     }
 
-    fields.push(TaxField::new(cfg.value_field, format_cents_or_zero(Some(d.value.0), 2)));
+    fields.push(TaxField::new(
+        cfg.value_field,
+        format_cents_or_zero(Some(d.value.0), 2),
+    ));
 
     if let Some(indicator) = d.st_indicator {
         fields.push(TaxField::new(cfg.st_indicator, indicator.to_string()));
@@ -455,14 +585,23 @@ pub fn build_ipi_xml(data: &IpiData) -> String {
         let mut fields = vec![TaxField::new("CST", &data.cst)];
 
         if data.v_bc.is_some() && data.p_ipi.is_some() {
-            fields.push(TaxField::new("vBC", format_cents_or_zero(data.v_bc.map(|c| c.0), 2)));
-            fields.push(TaxField::new("pIPI", format_rate4_or_zero(data.p_ipi.map(|r| r.0))));
+            fields.push(TaxField::new(
+                "vBC",
+                format_cents_or_zero(data.v_bc.map(|c| c.0), 2),
+            ));
+            fields.push(TaxField::new(
+                "pIPI",
+                format_rate4_or_zero(data.p_ipi.map(|r| r.0)),
+            ));
         } else {
             fields.push(TaxField::new("qUnid", format_rate4_or_zero(data.q_unid)));
             fields.push(TaxField::new("vUnid", format_rate4_or_zero(data.v_unid)));
         }
 
-        fields.push(TaxField::new("vIPI", format_cents_or_zero(data.v_ipi.map(|c| c.0), 2)));
+        fields.push(TaxField::new(
+            "vIPI",
+            format_cents_or_zero(data.v_ipi.map(|c| c.0), 2),
+        ));
         ("IPITrib".to_string(), fields)
     } else {
         let fields = vec![TaxField::new("CST", &data.cst)];

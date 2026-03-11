@@ -149,7 +149,10 @@ mod tests {
         assert_eq!(SefazService::StatusServico.url_key(), "NfeStatusServico");
         assert_eq!(SefazService::Autorizacao.url_key(), "NfeAutorizacao");
         assert_eq!(SefazService::RetAutorizacao.url_key(), "NfeRetAutorizacao");
-        assert_eq!(SefazService::ConsultaProtocolo.url_key(), "NfeConsultaProtocolo");
+        assert_eq!(
+            SefazService::ConsultaProtocolo.url_key(),
+            "NfeConsultaProtocolo"
+        );
         assert_eq!(SefazService::Inutilizacao.url_key(), "NfeInutilizacao");
         assert_eq!(SefazService::RecepcaoEvento.url_key(), "RecepcaoEvento");
     }
@@ -162,7 +165,11 @@ mod tests {
             SefazService::ConsultaProtocolo,
             SefazService::Inutilizacao,
         ] {
-            assert_eq!(svc.meta().version, "4.00", "{svc:?} should use version 4.00");
+            assert_eq!(
+                svc.meta().version,
+                "4.00",
+                "{svc:?} should use version 4.00"
+            );
         }
         assert_eq!(SefazService::RecepcaoEvento.meta().version, "1.00");
         assert_eq!(SefazService::DistribuicaoDFe.meta().version, "1.01");

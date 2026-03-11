@@ -1,11 +1,11 @@
 //! Build optional XML groups: cobr, infAdic, infIntermed, exporta, compra,
 //! infRespTec, retirada, entrega, autXML.
 
-use crate::format_utils::format_cents;
-use crate::types::*;
-use crate::xml_utils::{tag, TagContent};
 use super::emit::build_address_fields;
 use super::tax_id::TaxId;
+use crate::format_utils::format_cents;
+use crate::types::*;
+use crate::xml_utils::{TagContent, tag};
 
 /// Build `<cobr>` (billing) element.
 pub fn build_cobr(billing: &BillingData) -> String {
@@ -26,11 +26,15 @@ pub fn build_cobr(billing: &BillingData) -> String {
 
     if let Some(ref installments) = billing.installments {
         for inst in installments {
-            children.push(tag("dup", &[], TagContent::Children(vec![
-                tag("nDup", &[], TagContent::Text(&inst.number)),
-                tag("dVenc", &[], TagContent::Text(&inst.due_date)),
-                tag("vDup", &[], TagContent::Text(&fc2(inst.value.0))),
-            ])));
+            children.push(tag(
+                "dup",
+                &[],
+                TagContent::Children(vec![
+                    tag("nDup", &[], TagContent::Text(&inst.number)),
+                    tag("dVenc", &[], TagContent::Text(&inst.due_date)),
+                    tag("vDup", &[], TagContent::Text(&fc2(inst.value.0))),
+                ]),
+            ));
         }
     }
 
@@ -44,7 +48,8 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     if let Some(ref cont) = data.contingency {
         notes.push(format!(
             "Emitida em contingencia ({}). Motivo: {}",
-            cont.contingency_type.as_str(), cont.reason
+            cont.contingency_type.as_str(),
+            cont.reason
         ));
     }
 
@@ -84,7 +89,8 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     if let Some(obs_list) = add_info.and_then(|a| a.contributor_obs.as_ref()) {
         for obs in obs_list.iter().take(10) {
             children.push(tag(
-                "obsCont", &[("xCampo", &obs.field)],
+                "obsCont",
+                &[("xCampo", &obs.field)],
                 TagContent::Children(vec![tag("xTexto", &[], TagContent::Text(&obs.text))]),
             ));
         }
@@ -94,7 +100,8 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     if let Some(obs_list) = add_info.and_then(|a| a.fiscal_obs.as_ref()) {
         for obs in obs_list.iter().take(10) {
             children.push(tag(
-                "obsFisco", &[("xCampo", &obs.field)],
+                "obsFisco",
+                &[("xCampo", &obs.field)],
                 TagContent::Children(vec![tag("xTexto", &[], TagContent::Text(&obs.text))]),
             ));
         }
@@ -103,10 +110,14 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     // procRef (max 100)
     if let Some(procs) = add_info.and_then(|a| a.process_refs.as_ref()) {
         for p in procs.iter().take(100) {
-            children.push(tag("procRef", &[], TagContent::Children(vec![
-                tag("nProc", &[], TagContent::Text(&p.number)),
-                tag("indProc", &[], TagContent::Text(&p.origin)),
-            ])));
+            children.push(tag(
+                "procRef",
+                &[],
+                TagContent::Children(vec![
+                    tag("nProc", &[], TagContent::Text(&p.number)),
+                    tag("indProc", &[], TagContent::Text(&p.origin)),
+                ]),
+            ));
         }
     }
 
@@ -115,9 +126,7 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
 
 /// Build `<infIntermed>` element.
 pub fn build_intermediary(intermed: &IntermediaryData) -> String {
-    let mut children = vec![
-        tag("CNPJ", &[], TagContent::Text(&intermed.tax_id)),
-    ];
+    let mut children = vec![tag("CNPJ", &[], TagContent::Text(&intermed.tax_id))];
     if let Some(ref id) = intermed.id_cad_int_tran {
         children.push(tag("idCadIntTran", &[], TagContent::Text(id)));
     }
@@ -168,16 +177,20 @@ pub fn build_export(exp: &ExportData) -> String {
 pub fn build_withdrawal(w: &LocationData) -> String {
     let tid = TaxId::new(&w.tax_id);
     let padded = tid.padded();
-    let mut children = vec![
-        tag(tid.tag_name(), &[], TagContent::Text(&padded)),
-    ];
+    let mut children = vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))];
     if let Some(ref name) = w.name {
         children.push(tag("xNome", &[], TagContent::Text(name)));
     }
     children.extend(build_address_fields(
-        &w.street, &w.number, w.complement.as_deref(),
-        &w.district, &w.city_code.0, &w.city_name,
-        &w.state_code, w.zip_code.as_deref(), false,
+        &w.street,
+        &w.number,
+        w.complement.as_deref(),
+        &w.district,
+        &w.city_code.0,
+        &w.city_name,
+        &w.state_code,
+        w.zip_code.as_deref(),
+        false,
     ));
     tag("retirada", &[], TagContent::Children(children))
 }
@@ -186,16 +199,20 @@ pub fn build_withdrawal(w: &LocationData) -> String {
 pub fn build_delivery(d: &LocationData) -> String {
     let tid = TaxId::new(&d.tax_id);
     let padded = tid.padded();
-    let mut children = vec![
-        tag(tid.tag_name(), &[], TagContent::Text(&padded)),
-    ];
+    let mut children = vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))];
     if let Some(ref name) = d.name {
         children.push(tag("xNome", &[], TagContent::Text(name)));
     }
     children.extend(build_address_fields(
-        &d.street, &d.number, d.complement.as_deref(),
-        &d.district, &d.city_code.0, &d.city_name,
-        &d.state_code, d.zip_code.as_deref(), false,
+        &d.street,
+        &d.number,
+        d.complement.as_deref(),
+        &d.district,
+        &d.city_code.0,
+        &d.city_name,
+        &d.state_code,
+        d.zip_code.as_deref(),
+        false,
     ));
     tag("entrega", &[], TagContent::Children(children))
 }
@@ -204,7 +221,9 @@ pub fn build_delivery(d: &LocationData) -> String {
 pub fn build_aut_xml(entry: &AuthorizedXml) -> String {
     let tid = TaxId::new(&entry.tax_id);
     let padded = tid.padded();
-    tag("autXML", &[], TagContent::Children(vec![
-        tag(tid.tag_name(), &[], TagContent::Text(&padded)),
-    ]))
+    tag(
+        "autXML",
+        &[],
+        TagContent::Children(vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))]),
+    )
 }

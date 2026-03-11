@@ -116,8 +116,8 @@ pub fn xml_to_json(xml: &str) -> Result<String, FiscalError> {
 /// This is a simplified converter that handles elements, text content,
 /// and attributes. Namespace prefixes are stripped from tag names.
 fn xml_str_to_json_value(xml: &str) -> Result<serde_json::Value, FiscalError> {
-    use quick_xml::events::Event;
     use quick_xml::Reader;
+    use quick_xml::events::Event;
     use serde_json::{Map, Value};
 
     let mut reader = Reader::from_str(xml);
@@ -134,10 +134,8 @@ fn xml_str_to_json_value(xml: &str) -> Result<serde_json::Value, FiscalError> {
 
                 let mut attrs_map = Map::new();
                 for attr in e.attributes().flatten() {
-                    let key =
-                        String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let val =
-                        String::from_utf8_lossy(&attr.value).to_string();
+                    let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                    let val = String::from_utf8_lossy(&attr.value).to_string();
                     attrs_map.insert(key, Value::String(val));
                 }
 
@@ -149,10 +147,8 @@ fn xml_str_to_json_value(xml: &str) -> Result<serde_json::Value, FiscalError> {
 
                 let mut attrs_map = Map::new();
                 for attr in e.attributes().flatten() {
-                    let key =
-                        String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let val =
-                        String::from_utf8_lossy(&attr.value).to_string();
+                    let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                    let val = String::from_utf8_lossy(&attr.value).to_string();
                     attrs_map.insert(key, Value::String(val));
                 }
 
@@ -222,7 +218,11 @@ fn strip_ns_prefix(name: &str) -> String {
 }
 
 /// Insert a value into a JSON map, converting to an array if the key already exists.
-fn insert_into_map(map: &mut serde_json::Map<String, serde_json::Value>, key: &str, value: serde_json::Value) {
+fn insert_into_map(
+    map: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: serde_json::Value,
+) {
     use serde_json::Value;
     if let Some(existing) = map.get_mut(key) {
         match existing {

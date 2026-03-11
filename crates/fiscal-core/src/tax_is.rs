@@ -1,4 +1,6 @@
-use crate::tax_element::{filter_fields, optional_field, serialize_tax_element, TaxElement, TaxField};
+use crate::tax_element::{
+    TaxElement, TaxField, filter_fields, optional_field, serialize_tax_element,
+};
 
 /// IS (Imposto Seletivo / IBS+CBS) input data -- PL_010 tax reform.
 /// Goes inside `<imposto>` as an alternative/addition to ICMS.
@@ -28,14 +30,38 @@ pub struct IsData {
 }
 
 impl IsData {
-    pub fn new(cst_is: impl Into<String>, c_class_trib_is: impl Into<String>, v_is: impl Into<String>) -> Self {
-        Self { cst_is: cst_is.into(), c_class_trib_is: c_class_trib_is.into(), v_is: v_is.into(), ..Default::default() }
+    pub fn new(
+        cst_is: impl Into<String>,
+        c_class_trib_is: impl Into<String>,
+        v_is: impl Into<String>,
+    ) -> Self {
+        Self {
+            cst_is: cst_is.into(),
+            c_class_trib_is: c_class_trib_is.into(),
+            v_is: v_is.into(),
+            ..Default::default()
+        }
     }
-    pub fn v_bc_is(mut self, v: impl Into<String>) -> Self { self.v_bc_is = Some(v.into()); self }
-    pub fn p_is(mut self, v: impl Into<String>) -> Self { self.p_is = Some(v.into()); self }
-    pub fn p_is_espec(mut self, v: impl Into<String>) -> Self { self.p_is_espec = Some(v.into()); self }
-    pub fn u_trib(mut self, v: impl Into<String>) -> Self { self.u_trib = Some(v.into()); self }
-    pub fn q_trib(mut self, v: impl Into<String>) -> Self { self.q_trib = Some(v.into()); self }
+    pub fn v_bc_is(mut self, v: impl Into<String>) -> Self {
+        self.v_bc_is = Some(v.into());
+        self
+    }
+    pub fn p_is(mut self, v: impl Into<String>) -> Self {
+        self.p_is = Some(v.into());
+        self
+    }
+    pub fn p_is_espec(mut self, v: impl Into<String>) -> Self {
+        self.p_is_espec = Some(v.into());
+        self
+    }
+    pub fn u_trib(mut self, v: impl Into<String>) -> Self {
+        self.u_trib = Some(v.into());
+        self
+    }
+    pub fn q_trib(mut self, v: impl Into<String>) -> Self {
+        self.q_trib = Some(v.into());
+        self
+    }
 }
 
 /// Calculate IS tax element (domain logic, no XML dependency).

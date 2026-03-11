@@ -92,16 +92,11 @@ mod tools_test {
 
     mod sefaz_envia_lote {
 
-
         #[test]
         #[should_panic]
         fn throws_on_invalid_parameter() {
-            let _ = fiscal::sefaz::request_builders::build_autorizacao_request(
-                "",
-                "1",
-                false,
-                false,
-            );
+            let _ =
+                fiscal::sefaz::request_builders::build_autorizacao_request("", "1", false, false);
         }
 
         #[test]
@@ -181,11 +176,12 @@ mod tools_test {
 
     mod sefaz_cadastro {
 
-
         #[test]
         fn builds_correct_cadastro_request_by_cnpj() {
             let xml = fiscal::sefaz::request_builders::build_cadastro_request(
-                "RS", "CNPJ", "20532295000154",
+                "RS",
+                "CNPJ",
+                "20532295000154",
             );
             assert!(xml.contains("<ConsCad"));
             assert!(xml.contains(r#"versao="2.00""#));
@@ -197,9 +193,8 @@ mod tools_test {
 
         #[test]
         fn builds_correct_cadastro_request_by_ie() {
-            let xml = fiscal::sefaz::request_builders::build_cadastro_request(
-                "RS", "IE", "1234567",
-            );
+            let xml =
+                fiscal::sefaz::request_builders::build_cadastro_request("RS", "IE", "1234567");
             assert!(xml.contains("<ConsCad"));
             assert!(xml.contains("<UF>RS</UF>"));
             assert!(xml.contains("<IE>1234567</IE>"));
@@ -208,9 +203,8 @@ mod tools_test {
 
         #[test]
         fn builds_correct_cadastro_request_by_cpf() {
-            let xml = fiscal::sefaz::request_builders::build_cadastro_request(
-                "RS", "CPF", "60140174028",
-            );
+            let xml =
+                fiscal::sefaz::request_builders::build_cadastro_request("RS", "CPF", "60140174028");
             assert!(xml.contains("<ConsCad"));
             assert!(xml.contains("<UF>RS</UF>"));
             assert!(xml.contains("<CPF>60140174028</CPF>"));
@@ -376,7 +370,9 @@ mod contingency_test {
     #[should_panic]
     fn throws_on_motive_shorter_than_15_chars() {
         let mut contingency = fiscal::contingency::Contingency::new();
-        contingency.activate(ContingencyType::SvcAn, "Testes").unwrap();
+        contingency
+            .activate(ContingencyType::SvcAn, "Testes")
+            .unwrap();
     }
 
     #[test]
@@ -387,7 +383,9 @@ mod contingency_test {
             entrei em contato com o tecnico de informatica que me mandou acionar o modo de contingencia, \
             indicando o motivo. Nosso diretor esta exigindo a emissao da NFe agora, e sei nao sei mais o que fazer. \
             Entao fiz essa tentativa agora.";
-        contingency.activate(ContingencyType::SvcAn, motive).unwrap();
+        contingency
+            .activate(ContingencyType::SvcAn, motive)
+            .unwrap();
     }
 
     #[test]
@@ -398,17 +396,17 @@ mod contingency_test {
 
     #[test]
     fn load_contingency_from_json() {
-        let json = r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
-        let contingency = fiscal::contingency::Contingency::load(json)
-            .expect("load failed");
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let contingency = fiscal::contingency::Contingency::load(json).expect("load failed");
         assert!(contingency.contingency_type.is_some());
     }
 
     #[test]
     fn deactivate_resets_contingency() {
-        let json = r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
-        let mut contingency = fiscal::contingency::Contingency::load(json)
-            .expect("load failed");
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let mut contingency = fiscal::contingency::Contingency::load(json).expect("load failed");
         contingency.deactivate();
         assert!(contingency.contingency_type.is_none());
     }
@@ -462,7 +460,8 @@ mod contingency_test {
             "SP",
             SefazEnvironment::Homologation,
             "NfeAutorizacao",
-        ).expect("get_sefaz_url failed");
+        )
+        .expect("get_sefaz_url failed");
         // We test the non-contingency URL exists (contingency URL resolution is
         // handled at a higher level in the TS version)
         assert!(!url.is_empty());
@@ -479,15 +478,19 @@ mod contingency_nfe_test {
     #[test]
     fn adjusts_nfe_xml_with_contingency_data() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfe_layout4.xml"
-        ).expect("Failed to read nfe_layout4.xml");
+            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfe_layout4.xml",
+        )
+        .expect("Failed to read nfe_layout4.xml");
 
         let mut cont = fiscal::contingency::Contingency::new();
-        cont.activate(ContingencyType::SvcAn, "Teste de uso da classe em contingencia")
-            .expect("activate failed");
+        cont.activate(
+            ContingencyType::SvcAn,
+            "Teste de uso da classe em contingencia",
+        )
+        .expect("activate failed");
 
-        let newxml = fiscal::contingency::adjust_nfe_contingency(&xml, &cont)
-            .expect("adjust failed");
+        let newxml =
+            fiscal::contingency::adjust_nfe_contingency(&xml, &cont).expect("adjust failed");
         assert!(newxml.contains("<tpEmis>6</tpEmis>"));
         assert!(newxml.contains("<dhCont>"));
         assert!(newxml.contains("<xJust>Teste de uso da classe em contingencia</xJust>"));
@@ -504,8 +507,8 @@ mod contingency_nfe_test {
         cont.activate(ContingencyType::SvcAn, "Teste contingencia SVCAN")
             .expect("activate failed");
 
-        let newxml = fiscal::contingency::adjust_nfe_contingency(&xml, &cont)
-            .expect("adjust failed");
+        let newxml =
+            fiscal::contingency::adjust_nfe_contingency(&xml, &cont).expect("adjust failed");
         assert!(newxml.contains("<tpEmis>6</tpEmis>"));
         assert!(newxml.contains("<dhCont>2024-06-11T23:30:41-03:00</dhCont>"));
         assert!(newxml.contains("<xJust>Teste de uso da classe em conting"));
@@ -514,17 +517,24 @@ mod contingency_nfe_test {
     #[test]
     fn throws_when_adjusting_nfce_xml_for_contingency() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfce.xml"
-        ).expect("Failed to read nfce.xml");
+            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfce.xml",
+        )
+        .expect("Failed to read nfce.xml");
 
         let mut cont = fiscal::contingency::Contingency::new();
-        cont.activate(ContingencyType::SvcAn, "Teste de uso da classe em contingencia")
-            .expect("activate failed");
+        cont.activate(
+            ContingencyType::SvcAn,
+            "Teste de uso da classe em contingencia",
+        )
+        .expect("activate failed");
 
         let result = fiscal::contingency::adjust_nfe_contingency(&xml, &cont);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("65") || err.contains("NFC-e"), "Error should mention model 65: {err}");
+        assert!(
+            err.contains("65") || err.contains("NFC-e"),
+            "Error should mention model 65: {err}"
+        );
     }
 }
 
@@ -568,7 +578,10 @@ mod qrcode_test {
         );
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("CSC token"), "Error should mention CSC token: {err}");
+        assert!(
+            err.contains("CSC token"),
+            "Error should mention CSC token: {err}"
+        );
     }
 
     #[test]
@@ -586,10 +599,19 @@ mod qrcode_test {
     #[test]
     fn produces_malformed_url_when_base_url_is_empty() {
         let result = fiscal::qrcode::build_nfce_qr_code_url(
-            &NfceQrCodeParams::new("35200505730928000145650010000000121000000129", QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal, "")
-                .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001")
+            &NfceQrCodeParams::new(
+                "35200505730928000145650010000000121000000129",
+                QrCodeVersion::V200,
+                SefazEnvironment::Homologation,
+                EmissionType::Normal,
+                "",
+            )
+            .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G")
+            .csc_id("000001"),
         );
         // Either returns Err or a malformed URL starting with "?p="
-        if let Ok(url) = result { assert!(url.starts_with("?p=")) }
+        if let Ok(url) = result {
+            assert!(url.starts_with("?p="))
+        }
     }
 }

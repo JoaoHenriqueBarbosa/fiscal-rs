@@ -1,32 +1,52 @@
 //! Build the `<transp>` (transport) group of the NF-e XML.
 
+use super::tax_id::TaxId;
 use crate::format_utils::{format_cents, format_decimal};
 use crate::types::InvoiceBuildData;
-use crate::xml_utils::{tag, TagContent};
-use super::tax_id::TaxId;
+use crate::xml_utils::{TagContent, tag};
 
 /// Build the `<transp>` element with carrier, vehicle, volumes, etc.
 pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
     let Some(ref t) = data.transport else {
-        return tag("transp", &[], TagContent::Children(vec![
-            tag("modFrete", &[], TagContent::Text("9")),
-        ]));
+        return tag(
+            "transp",
+            &[],
+            TagContent::Children(vec![tag("modFrete", &[], TagContent::Text("9"))]),
+        );
     };
 
-    let mut children = vec![
-        tag("modFrete", &[], TagContent::Text(&t.freight_mode)),
-    ];
+    let mut children = vec![tag("modFrete", &[], TagContent::Text(&t.freight_mode))];
 
     // retTransp (before transporta per schema)
     if let Some(ref r) = t.retained_icms {
-        children.push(tag("retTransp", &[], TagContent::Children(vec![
-            tag("vServ", &[], TagContent::Text(&format_cents(r.v_bc_ret.0, 2))),
-            tag("vBCRet", &[], TagContent::Text(&format_cents(r.v_bc_ret.0, 2))),
-            tag("pICMSRet", &[], TagContent::Text(&format_decimal(r.p_icms_ret.0 as f64 / 100.0, 4))),
-            tag("vICMSRet", &[], TagContent::Text(&format_cents(r.v_icms_ret.0, 2))),
-            tag("CFOP", &[], TagContent::Text(&r.cfop)),
-            tag("cMunFG", &[], TagContent::Text(&r.city_code.0)),
-        ])));
+        children.push(tag(
+            "retTransp",
+            &[],
+            TagContent::Children(vec![
+                tag(
+                    "vServ",
+                    &[],
+                    TagContent::Text(&format_cents(r.v_bc_ret.0, 2)),
+                ),
+                tag(
+                    "vBCRet",
+                    &[],
+                    TagContent::Text(&format_cents(r.v_bc_ret.0, 2)),
+                ),
+                tag(
+                    "pICMSRet",
+                    &[],
+                    TagContent::Text(&format_decimal(r.p_icms_ret.0 as f64 / 100.0, 4)),
+                ),
+                tag(
+                    "vICMSRet",
+                    &[],
+                    TagContent::Text(&format_cents(r.v_icms_ret.0, 2)),
+                ),
+                tag("CFOP", &[], TagContent::Text(&r.cfop)),
+                tag("cMunFG", &[], TagContent::Text(&r.city_code.0)),
+            ]),
+        ));
     }
 
     // transporta (carrier)
@@ -49,7 +69,11 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
         if let Some(ref uf) = c.state_code {
             carrier_children.push(tag("UF", &[], TagContent::Text(uf)));
         }
-        children.push(tag("transporta", &[], TagContent::Children(carrier_children)));
+        children.push(tag(
+            "transporta",
+            &[],
+            TagContent::Children(carrier_children),
+        ));
     }
 
     // veicTransp
@@ -102,9 +126,11 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
             }
             if let Some(ref seals) = vol.seals {
                 for seal in seals {
-                    vol_children.push(tag("lacres", &[], TagContent::Children(vec![
-                        tag("nLacre", &[], TagContent::Text(seal)),
-                    ])));
+                    vol_children.push(tag(
+                        "lacres",
+                        &[],
+                        TagContent::Children(vec![tag("nLacre", &[], TagContent::Text(seal))]),
+                    ));
                 }
             }
             children.push(tag("vol", &[], TagContent::Children(vol_children)));

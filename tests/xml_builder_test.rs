@@ -1,8 +1,8 @@
-use fiscal::xml_utils::{tag, TagContent};
-use fiscal::xml_builder::{build_access_key, InvoiceBuilder};
-use fiscal::types::*;
 use chrono::FixedOffset;
-use fiscal::newtypes::{Cents, Rate, IbgeCode};
+use fiscal::newtypes::{Cents, IbgeCode, Rate};
+use fiscal::types::*;
+use fiscal::xml_builder::{InvoiceBuilder, build_access_key};
+use fiscal::xml_utils::{TagContent, tag};
 
 // ── tag() ────────────────────────────────────────────────────────────────────
 
@@ -86,8 +86,13 @@ mod build_access_key_tests {
     fn pads_fields_correctly() {
         let params = AccessKeyParams::new(
             IbgeCode("35".to_string()),
-            "2601", "12345678000199",
-            InvoiceModel::Nfce, 1, 42, EmissionType::Normal, "00000001",
+            "2601",
+            "12345678000199",
+            InvoiceModel::Nfce,
+            1,
+            42,
+            EmissionType::Normal,
+            "00000001",
         );
         let key = build_access_key(&params).unwrap();
 
@@ -139,18 +144,37 @@ mod build_invoice_xml_tests {
 
     fn sample_issuer() -> IssuerData {
         IssuerData::new(
-            "12345678000199", "123456789", "Test Company",
-            TaxRegime::SimplesNacional, "SP",
-            IbgeCode("3550308".to_string()), "Sao Paulo",
-            "Av Paulista", "1000", "Bela Vista", "01310100",
-        ).trade_name("Test")
+            "12345678000199",
+            "123456789",
+            "Test Company",
+            TaxRegime::SimplesNacional,
+            "SP",
+            IbgeCode("3550308".to_string()),
+            "Sao Paulo",
+            "Av Paulista",
+            "1000",
+            "Bela Vista",
+            "01310100",
+        )
+        .trade_name("Test")
     }
 
     fn sample_item() -> InvoiceItemData {
         InvoiceItemData::new(
-            1, "1", "Product A", "84715010", "5102", "UN",
-            2.0, Cents(1000), Cents(2000),
-            "102", Rate(0), Cents(0), "99", "99",
+            1,
+            "1",
+            "Product A",
+            "84715010",
+            "5102",
+            "UN",
+            2.0,
+            Cents(1000),
+            Cents(2000),
+            "102",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
     }
 
@@ -169,18 +193,26 @@ mod build_invoice_xml_tests {
     }
 
     fn sample_builder() -> InvoiceBuilder {
-        InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
-            .series(1)
-            .invoice_number(1)
-            .issued_at(issued_at())
-            .add_item(sample_item())
-            .payments(vec![sample_payment()])
+        InvoiceBuilder::new(
+            sample_issuer(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfce,
+        )
+        .series(1)
+        .invoice_number(1)
+        .issued_at(issued_at())
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
     }
 
     #[test]
     fn generates_valid_xml_with_correct_structure() {
         let built = sample_builder().build().unwrap();
-        assert!(built.xml().contains(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
+        assert!(
+            built
+                .xml()
+                .contains(r#"<?xml version="1.0" encoding="UTF-8"?>"#)
+        );
         assert!(built.xml().contains("<NFe"));
         assert!(built.xml().contains("<infNFe"));
         assert!(built.xml().contains("</NFe>"));
@@ -207,14 +239,18 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn sets_model_55_for_nfe() {
-        let built = InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
-            .series(1)
-            .invoice_number(1)
-            .issued_at(issued_at())
-            .add_item(sample_item())
-            .payments(vec![sample_payment()])
-            .build()
-            .unwrap();
+        let built = InvoiceBuilder::new(
+            sample_issuer(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .series(1)
+        .invoice_number(1)
+        .issued_at(issued_at())
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
+        .build()
+        .unwrap();
         assert!(built.xml().contains("<mod>55</mod>"));
     }
 
@@ -284,7 +320,11 @@ mod build_invoice_xml_tests {
         let now = chrono::Utc::now().with_timezone(&offset);
 
         let built = sample_builder()
-            .contingency(ContingencyData::new(ContingencyType::Offline, "SEFAZ unavailable", now))
+            .contingency(ContingencyData::new(
+                ContingencyType::Offline,
+                "SEFAZ unavailable",
+                now,
+            ))
             .build()
             .unwrap();
         let xml = built.xml();

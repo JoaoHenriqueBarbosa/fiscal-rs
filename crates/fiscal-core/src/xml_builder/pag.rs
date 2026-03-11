@@ -4,7 +4,7 @@ use crate::constants::payment_types;
 use crate::format_utils::format_cents;
 use crate::newtypes::Cents;
 use crate::types::{PaymentCardDetail, PaymentData};
-use crate::xml_utils::{tag, TagContent};
+use crate::xml_utils::{TagContent, tag};
 
 /// Build the `<pag>` element with payment methods and optional change.
 pub fn build_pag(
@@ -13,44 +13,53 @@ pub fn build_pag(
     card_details: Option<&[PaymentCardDetail]>,
 ) -> String {
     if payments.is_empty() {
-        return tag("pag", &[], TagContent::Children(vec![
-            tag("detPag", &[], TagContent::Children(vec![
-                tag("tPag", &[], TagContent::Text(payment_types::NONE)),
-                tag("vPag", &[], TagContent::Text("0.00")),
-            ])),
-        ]));
+        return tag(
+            "pag",
+            &[],
+            TagContent::Children(vec![tag(
+                "detPag",
+                &[],
+                TagContent::Children(vec![
+                    tag("tPag", &[], TagContent::Text(payment_types::NONE)),
+                    tag("vPag", &[], TagContent::Text("0.00")),
+                ]),
+            )]),
+        );
     }
 
     let fc2 = |c: i64| format_cents(c, 2);
-    let mut det_pag_elements: Vec<String> = payments.iter().enumerate().map(|(i, p)| {
-        let mut det_children = vec![
-            tag("tPag", &[], TagContent::Text(&p.method)),
-            tag("vPag", &[], TagContent::Text(&fc2(p.amount.0))),
-        ];
+    let mut det_pag_elements: Vec<String> = payments
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let mut det_children = vec![
+                tag("tPag", &[], TagContent::Text(&p.method)),
+                tag("vPag", &[], TagContent::Text(&fc2(p.amount.0))),
+            ];
 
-        // Add card details if present for this payment index
-        if let Some(cards) = card_details {
-            if let Some(card) = cards.get(i) {
-                if let Some(ref integ) = card.integ_type {
-                    let mut card_children = vec![
-                        tag("tpIntegra", &[], TagContent::Text(integ)),
-                    ];
-                    if let Some(ref tid) = card.card_tax_id {
-                        card_children.push(tag("CNPJ", &[], TagContent::Text(tid)));
+            // Add card details if present for this payment index
+            if let Some(cards) = card_details {
+                if let Some(card) = cards.get(i) {
+                    if let Some(ref integ) = card.integ_type {
+                        let mut card_children =
+                            vec![tag("tpIntegra", &[], TagContent::Text(integ))];
+                        if let Some(ref tid) = card.card_tax_id {
+                            card_children.push(tag("CNPJ", &[], TagContent::Text(tid)));
+                        }
+                        if let Some(ref brand) = card.card_brand {
+                            card_children.push(tag("tBand", &[], TagContent::Text(brand)));
+                        }
+                        if let Some(ref auth) = card.auth_code {
+                            card_children.push(tag("cAut", &[], TagContent::Text(auth)));
+                        }
+                        det_children.push(tag("card", &[], TagContent::Children(card_children)));
                     }
-                    if let Some(ref brand) = card.card_brand {
-                        card_children.push(tag("tBand", &[], TagContent::Text(brand)));
-                    }
-                    if let Some(ref auth) = card.auth_code {
-                        card_children.push(tag("cAut", &[], TagContent::Text(auth)));
-                    }
-                    det_children.push(tag("card", &[], TagContent::Children(card_children)));
                 }
             }
-        }
 
-        tag("detPag", &[], TagContent::Children(det_children))
-    }).collect();
+            tag("detPag", &[], TagContent::Children(det_children))
+        })
+        .collect();
 
     // vTroco after all detPag elements
     if let Some(change) = change_amount {

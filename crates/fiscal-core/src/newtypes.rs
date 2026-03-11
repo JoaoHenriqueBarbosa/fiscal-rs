@@ -8,8 +8,8 @@
 use std::fmt;
 use std::ops::{Add, AddAssign};
 
-use crate::state_codes::STATE_IBGE_CODES;
 use crate::FiscalError;
+use crate::state_codes::STATE_IBGE_CODES;
 
 // ── Monetary amount ─────────────────────────────────────────────────────────
 
@@ -268,12 +268,33 @@ pub struct StateCode(pub &'static str);
 /// [`StateCode::new`] so we can hand out `&'static str` references
 /// without going through the `LazyLock` `HashMap` at runtime.
 static UF_TABLE: &[(&str, &str)] = &[
-    ("AC", "12"), ("AL", "27"), ("AM", "13"), ("AP", "16"), ("BA", "29"),
-    ("CE", "23"), ("DF", "53"), ("ES", "32"), ("GO", "52"), ("MA", "21"),
-    ("MG", "31"), ("MS", "50"), ("MT", "51"), ("PA", "15"), ("PB", "25"),
-    ("PE", "26"), ("PI", "22"), ("PR", "41"), ("RJ", "33"), ("RN", "24"),
-    ("RO", "11"), ("RR", "14"), ("RS", "43"), ("SC", "42"), ("SE", "28"),
-    ("SP", "35"), ("TO", "17"),
+    ("AC", "12"),
+    ("AL", "27"),
+    ("AM", "13"),
+    ("AP", "16"),
+    ("BA", "29"),
+    ("CE", "23"),
+    ("DF", "53"),
+    ("ES", "32"),
+    ("GO", "52"),
+    ("MA", "21"),
+    ("MG", "31"),
+    ("MS", "50"),
+    ("MT", "51"),
+    ("PA", "15"),
+    ("PB", "25"),
+    ("PE", "26"),
+    ("PI", "22"),
+    ("PR", "41"),
+    ("RJ", "33"),
+    ("RN", "24"),
+    ("RO", "11"),
+    ("RR", "14"),
+    ("RS", "43"),
+    ("SC", "42"),
+    ("SE", "28"),
+    ("SP", "35"),
+    ("TO", "17"),
 ];
 
 impl StateCode {
@@ -443,9 +464,8 @@ mod tests {
     #[test]
     fn state_code_all_states() {
         let ufs = [
-            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
-            "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
-            "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
+            "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
         ];
         for uf in ufs {
             let sc = StateCode::new(uf).unwrap_or_else(|_| panic!("Failed for {uf}"));

@@ -35,8 +35,7 @@ mod attach_protocol_tests {
 
     #[test]
     fn creates_nfe_proc_wrapper_with_nfe_and_prot_nfe() {
-        let result =
-            attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
+        let result = attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
         assert!(result.contains("<nfeProc"));
         assert!(result.contains("versao=\"4.00\""));
         assert!(result.contains("<NFe"));
@@ -46,16 +45,14 @@ mod attach_protocol_tests {
 
     #[test]
     fn preserves_original_nfe_content() {
-        let result =
-            attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
+        let result = attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
         assert!(result.contains("<cUF>35</cUF>"));
         assert!(result.contains("abc123digest=="));
     }
 
     #[test]
     fn includes_protocol_number() {
-        let result =
-            attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
+        let result = attach_protocol(SAMPLE_NFE_XML, SAMPLE_PROTOCOL_XML).expect("should succeed");
         assert!(result.contains("141260000000001"));
     }
 
@@ -86,8 +83,7 @@ mod attach_protocol_tests {
             )
             .replace("abc123digest==", "wrongdigest==");
         // Should still wrap in nfeProc (uses first available protNFe)
-        let result =
-            attach_protocol(SAMPLE_NFE_XML, &mismatch_protocol).expect("should succeed");
+        let result = attach_protocol(SAMPLE_NFE_XML, &mismatch_protocol).expect("should succeed");
         assert!(result.contains("<nfeProc"));
     }
 }
@@ -109,8 +105,7 @@ mod attach_inutilizacao_tests {
 <infInut><cStat>102</cStat><xMotivo>Inutilizacao homologada</xMotivo></infInut>\
 </retInutNFe>";
 
-        let result =
-            attach_inutilizacao(inut_request, inut_response).expect("should succeed");
+        let result = attach_inutilizacao(inut_request, inut_response).expect("should succeed");
         assert!(result.contains("<ProcInutNFe"));
         assert!(result.contains("<inutNFe"));
         assert!(result.contains("<retInutNFe"));

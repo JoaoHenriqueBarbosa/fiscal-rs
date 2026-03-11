@@ -79,10 +79,7 @@ fn serialize_field(field: &TaxField) -> String {
 /// Serialize a TaxElement to an XML string.
 pub fn serialize_tax_element(element: &TaxElement) -> String {
     let inner_content: String = element.fields.iter().map(serialize_field).collect();
-    let variant_xml = format!(
-        "<{tag}>{inner_content}</{tag}>",
-        tag = element.variant_tag,
-    );
+    let variant_xml = format!("<{tag}>{inner_content}</{tag}>", tag = element.variant_tag,);
 
     match &element.outer_tag {
         None => variant_xml,

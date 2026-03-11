@@ -5,11 +5,11 @@
 
 mod common;
 
-use fiscal::newtypes::{Cents, Rate, Rate4, IbgeCode};
 use chrono::FixedOffset;
+use fiscal::newtypes::{Cents, IbgeCode, Rate, Rate4};
 use fiscal::types::*;
 use fiscal::xml_builder::InvoiceBuilder;
-use fiscal::xml_utils::{tag, TagContent};
+use fiscal::xml_utils::{TagContent, tag};
 
 use common::expect_xml_tag_values as expect_xml_contains;
 
@@ -27,37 +27,70 @@ fn make_issued_at() -> chrono::DateTime<FixedOffset> {
 /// Shared issuer for model 55 tests (tax_regime = Normal)
 fn make_issuer_normal() -> IssuerData {
     IssuerData::new(
-        "58716523000119", "111222333444", "Empresa Teste",
-        TaxRegime::Normal, "SP",
-        IbgeCode("3550308".into()), "Sao Paulo",
-        "Rua Teste", "100", "Centro", "01001000",
+        "58716523000119",
+        "111222333444",
+        "Empresa Teste",
+        TaxRegime::Normal,
+        "SP",
+        IbgeCode("3550308".into()),
+        "Sao Paulo",
+        "Rua Teste",
+        "100",
+        "Centro",
+        "01001000",
     )
 }
 
 /// Shared issuer for NFC-e with trade_name and Simples Nacional
 fn make_issuer_simples() -> IssuerData {
     IssuerData::new(
-        "58716523000119", "111222333444", "Empresa Teste",
-        TaxRegime::SimplesNacional, "SP",
-        IbgeCode("3550308".into()), "Sao Paulo",
-        "Rua Teste", "100", "Centro", "01001000",
+        "58716523000119",
+        "111222333444",
+        "Empresa Teste",
+        TaxRegime::SimplesNacional,
+        "SP",
+        IbgeCode("3550308".into()),
+        "Sao Paulo",
+        "Rua Teste",
+        "100",
+        "Centro",
+        "01001000",
     )
 }
 
 /// Base item for ICMS CST 00 with PIS/COFINS CST 01
 fn make_base_item() -> InvoiceItemData {
-    InvoiceItemData::new(1, "001", "Produto Teste", "61091000", "5102", "UN", 1.0, Cents(10000), Cents(10000), "00", Rate(1800), Cents(1800), "01", "01")
-        .icms_mod_bc(0)
+    InvoiceItemData::new(
+        1,
+        "001",
+        "Produto Teste",
+        "61091000",
+        "5102",
+        "UN",
+        1.0,
+        Cents(10000),
+        Cents(10000),
+        "00",
+        Rate(1800),
+        Cents(1800),
+        "01",
+        "01",
+    )
+    .icms_mod_bc(0)
 }
 
 /// Base invoice builder factory for model 55
 fn make_base_builder() -> InvoiceBuilder {
-    InvoiceBuilder::new(make_issuer_normal(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
-        .series(1)
-        .invoice_number(1)
-        .issued_at(make_issued_at())
-        .items(vec![make_base_item()])
-        .payments(vec![PaymentData::new("01", Cents(10000))])
+    InvoiceBuilder::new(
+        make_issuer_normal(),
+        SefazEnvironment::Homologation,
+        InvoiceModel::Nfe,
+    )
+    .series(1)
+    .invoice_number(1)
+    .issued_at(make_issued_at())
+    .items(vec![make_base_item()])
+    .payments(vec![PaymentData::new("01", Cents(10000))])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -87,19 +120,52 @@ mod render_complete_nfe_55 {
             .items(vec![item])
             .payments(vec![PaymentData::new("01", Cents(10000))])
             .recipient(RecipientData::new("12345678901", "Cliente Teste").state_code("SP"))
-            .withdrawal(LocationData::new("99887766000100", "Rua Retirada", "50", "Industrial", IbgeCode("4106902".into()), "Curitiba", "PR").name("Empresa Origem"))
-            .delivery(LocationData::new("11222333000181", "Rua Entrega", "200", "Centro", IbgeCode("3550308".into()), "Sao Paulo", "SP").name("Empresa Destino"))
+            .withdrawal(
+                LocationData::new(
+                    "99887766000100",
+                    "Rua Retirada",
+                    "50",
+                    "Industrial",
+                    IbgeCode("4106902".into()),
+                    "Curitiba",
+                    "PR",
+                )
+                .name("Empresa Origem"),
+            )
+            .delivery(
+                LocationData::new(
+                    "11222333000181",
+                    "Rua Entrega",
+                    "200",
+                    "Centro",
+                    IbgeCode("3550308".into()),
+                    "Sao Paulo",
+                    "SP",
+                )
+                .name("Empresa Destino"),
+            )
             .authorized_xml(vec![AuthorizedXml::new("12345678000195")])
-            .billing(BillingData::new()
-                .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
-                .installments(vec![Installment::new("001", "2025-02-15", Cents(10000))]))
-            .transport(TransportData::new("0")
-                .carrier(CarrierData::new().tax_id("12345678000195").name("Transportadora")))
+            .billing(
+                BillingData::new()
+                    .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
+                    .installments(vec![Installment::new("001", "2025-02-15", Cents(10000))]),
+            )
+            .transport(
+                TransportData::new("0").carrier(
+                    CarrierData::new()
+                        .tax_id("12345678000195")
+                        .name("Transportadora"),
+                ),
+            )
             .intermediary(IntermediaryData::new("55667788000199"))
             .additional_info(AdditionalInfo::new().taxpayer_note("Nota teste"))
             .export(ExportData::new("SP", "Porto de Santos"))
             .purchase(PurchaseData::new().order_number("PED-001"))
-            .tech_responsible(TechResponsibleData::new("11223344000155", "Suporte", "suporte@teste.com"))
+            .tech_responsible(TechResponsibleData::new(
+                "11223344000155",
+                "Suporte",
+                "suporte@teste.com",
+            ))
             .references(vec![ReferenceDoc::Nfe {
                 access_key: "35170358716523000119550010000000291000000291".into(),
             }])
@@ -165,17 +231,21 @@ mod render_nfce_model_65 {
         item.pis_cst = "07".into();
         item.cofins_cst = "07".into();
 
-        let built = InvoiceBuilder::new(make_issuer_simples(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
-            .series(1)
-            .invoice_number(1)
-            .issued_at(make_issued_at())
-            .consumer_type("1")
-            .buyer_presence("1")
-            .print_format("4")
-            .items(vec![item])
-            .payments(vec![PaymentData::new("01", Cents(5000))])
-            .build()
-            .unwrap();
+        let built = InvoiceBuilder::new(
+            make_issuer_simples(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfce,
+        )
+        .series(1)
+        .invoice_number(1)
+        .issued_at(make_issued_at())
+        .consumer_type("1")
+        .buyer_presence("1")
+        .print_format("4")
+        .items(vec![item])
+        .payments(vec![PaymentData::new("01", Cents(5000))])
+        .build()
+        .unwrap();
 
         let xml = built.xml();
 
@@ -220,25 +290,28 @@ mod trait_tag_total_icms_tot {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("vBC", "1000.00"),
-            ("vICMS", "180.00"),
-            ("vICMSDeson", "10.00"),
-            ("vBCST", "200.00"),
-            ("vST", "36.00"),
-            ("vFrete", "50.00"),
-            ("vSeg", "25.00"),
-            ("vDesc", "15.00"),
-            ("vII", "30.00"),
-            ("vIPI", "45.00"),
-            ("vPIS", "16.50"),
-            ("vCOFINS", "76.00"),
-            ("vOutro", "5.00"),
-            ("vTotTrib", "383.50"),
-            ("vFCP", "20.00"),
-            ("vFCPST", "4.00"),
-            ("vFCPSTRet", "2.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "1000.00"),
+                ("vICMS", "180.00"),
+                ("vICMSDeson", "10.00"),
+                ("vBCST", "200.00"),
+                ("vST", "36.00"),
+                ("vFrete", "50.00"),
+                ("vSeg", "25.00"),
+                ("vDesc", "15.00"),
+                ("vII", "30.00"),
+                ("vIPI", "45.00"),
+                ("vPIS", "16.50"),
+                ("vCOFINS", "76.00"),
+                ("vOutro", "5.00"),
+                ("vTotTrib", "383.50"),
+                ("vFCP", "20.00"),
+                ("vFCPST", "4.00"),
+                ("vFCPSTRet", "2.00"),
+            ],
+        );
     }
 }
 
@@ -270,14 +343,17 @@ mod trait_tag_total_issqn_tot {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("vServ", "500.00"),
-            ("vISS", "25.00"),
-            ("dCompet", "2017-03-03"),
-            ("vDeducao", "10.00"),
-            ("vISSRet", "12.50"),
-            ("cRegTrib", "5"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vServ", "500.00"),
+                ("vISS", "25.00"),
+                ("dCompet", "2017-03-03"),
+                ("vDeducao", "10.00"),
+                ("vISSRet", "12.50"),
+                ("cRegTrib", "5"),
+            ],
+        );
     }
 }
 
@@ -304,28 +380,32 @@ mod trait_tag_total_ret_trib {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("vRetPIS", "10.00"),
-            ("vRetCOFINS", "46.00"),
-            ("vRetCSLL", "5.00"),
-            ("vBCIRRF", "100.00"),
-            ("vIRRF", "15.00"),
-            ("vBCRetPrev", "200.00"),
-            ("vRetPrev", "22.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vRetPIS", "10.00"),
+                ("vRetCOFINS", "46.00"),
+                ("vRetCSLL", "5.00"),
+                ("vBCIRRF", "100.00"),
+                ("vIRRF", "15.00"),
+                ("vBCRetPrev", "200.00"),
+                ("vRetPrev", "22.00"),
+            ],
+        );
     }
 
     #[test]
     fn test_tag_ret_trib_should_be_inside_total_section_in_rendered_xml() {
         let built = make_base_builder()
-            .ret_trib(RetTribData::new()
-                .v_ret_pis(Cents(1000))
-                .v_ret_cofins(Cents(4600))
-                .v_ret_csll(Cents(500))
-                .v_bc_irrf(Cents(10000))
-                .v_irrf(Cents(1500))
-                .v_bc_ret_prev(Cents(20000))
-                .v_ret_prev(Cents(2200))
+            .ret_trib(
+                RetTribData::new()
+                    .v_ret_pis(Cents(1000))
+                    .v_ret_cofins(Cents(4600))
+                    .v_ret_csll(Cents(500))
+                    .v_bc_irrf(Cents(10000))
+                    .v_irrf(Cents(1500))
+                    .v_bc_ret_prev(Cents(20000))
+                    .v_ret_prev(Cents(2200)),
             )
             .build()
             .unwrap();
@@ -340,15 +420,18 @@ mod trait_tag_total_ret_trib {
         assert!(ret_trib_pos > total_pos);
         assert!(ret_trib_pos < total_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("vRetPIS", "10.00"),
-            ("vRetCOFINS", "46.00"),
-            ("vRetCSLL", "5.00"),
-            ("vBCIRRF", "100.00"),
-            ("vIRRF", "15.00"),
-            ("vBCRetPrev", "200.00"),
-            ("vRetPrev", "22.00"),
-        ]);
+        expect_xml_contains(
+            xml,
+            &[
+                ("vRetPIS", "10.00"),
+                ("vRetCOFINS", "46.00"),
+                ("vRetCSLL", "5.00"),
+                ("vBCIRRF", "100.00"),
+                ("vIRRF", "15.00"),
+                ("vBCRetPrev", "200.00"),
+                ("vRetPrev", "22.00"),
+            ],
+        );
     }
 }
 
@@ -421,17 +504,20 @@ mod trait_tag_transp {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("modFrete", "0"),
-            ("placa", "ABC1D23"),
-            ("RNTC", "12345678"),
-            ("qVol", "10"),
-            ("esp", "CAIXA"),
-            ("marca", "MARCA X"),
-            ("nVol", "001"),
-            ("pesoL", "100.500"),
-            ("pesoB", "120.300"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("modFrete", "0"),
+                ("placa", "ABC1D23"),
+                ("RNTC", "12345678"),
+                ("qVol", "10"),
+                ("esp", "CAIXA"),
+                ("marca", "MARCA X"),
+                ("nVol", "001"),
+                ("pesoL", "100.500"),
+                ("pesoB", "120.300"),
+            ],
+        );
         assert!(xml.contains("<transporta>"));
         assert!(xml.contains("<veicTransp>"));
         assert!(xml.contains("<reboque>"));
@@ -481,18 +567,21 @@ mod trait_tag_det_prod {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cEAN", "7891234567890"),
-            ("CEST", "2806300"),
-            ("indEscala", "S"),
-            ("CNPJFab", "12345678000195"),
-            ("vFrete", "10.00"),
-            ("vSeg", "5.00"),
-            ("vDesc", "3.00"),
-            ("vOutro", "2.00"),
-            ("xPed", "PED-12345"),
-            ("nItemPed", "001"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cEAN", "7891234567890"),
+                ("CEST", "2806300"),
+                ("indEscala", "S"),
+                ("CNPJFab", "12345678000195"),
+                ("vFrete", "10.00"),
+                ("vSeg", "5.00"),
+                ("vDesc", "3.00"),
+                ("vOutro", "2.00"),
+                ("xPed", "PED-12345"),
+                ("nItemPed", "001"),
+            ],
+        );
     }
 
     #[test]
@@ -500,13 +589,10 @@ mod trait_tag_det_prod {
         let mut item = make_base_item();
         item.description = "Produto Completo".into();
         item.inf_ad_prod = Some("Informacao adicional do produto item 1".into());
-        item.obs_item = Some(ObsItemData::new()
-            .obs_cont(ObsField::new("CampoTeste", "ValorTeste")));
+        item.obs_item =
+            Some(ObsItemData::new().obs_cont(ObsField::new("CampoTeste", "ValorTeste")));
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -536,15 +622,11 @@ mod trait_tag_det_options {
     fn test_tag_rastro_batch_tracking() {
         let mut item = make_base_item();
         item.rastro = Some(vec![
-            RastroData::new("LOTE2025A", 100.0, "2025-01-15", "2026-01-15")
-                .c_agreg("AGR001"),
+            RastroData::new("LOTE2025A", 100.0, "2025-01-15", "2026-01-15").c_agreg("AGR001"),
             RastroData::new("LOTE2025B", 50.0, "2025-02-10", "2026-02-10"),
         ]);
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -556,13 +638,16 @@ mod trait_tag_det_options {
         assert!(rastro_pos > prod_pos);
         assert!(rastro_pos < prod_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("nLote", "LOTE2025A"),
-            ("qLote", "100.000"),
-            ("dFab", "2025-01-15"),
-            ("dVal", "2026-01-15"),
-            ("cAgreg", "AGR001"),
-        ]);
+        expect_xml_contains(
+            xml,
+            &[
+                ("nLote", "LOTE2025A"),
+                ("qLote", "100.000"),
+                ("dFab", "2025-01-15"),
+                ("dVal", "2026-01-15"),
+                ("cAgreg", "AGR001"),
+            ],
+        );
         // Second rastro
         assert!(xml.contains("<nLote>LOTE2025B</nLote>"));
         // Count rastro occurrences
@@ -574,15 +659,33 @@ mod trait_tag_det_options {
     fn test_tag_veic_prod_vehicle() {
         let mut item = make_base_item();
         item.veic_prod = Some(VeicProdData::new(
-            "1", "9BWSU19F08B302158", "1", "BRANCA", "150", "1600", "1200", "1350",
-            "AAA111222", "16", "MOT12345", "1800.0000", "2600", "2025", "2024",
-            "M", "06", "1", "R", "1", "123456", "01", "5", "0",
+            "1",
+            "9BWSU19F08B302158",
+            "1",
+            "BRANCA",
+            "150",
+            "1600",
+            "1200",
+            "1350",
+            "AAA111222",
+            "16",
+            "MOT12345",
+            "1800.0000",
+            "2600",
+            "2025",
+            "2024",
+            "M",
+            "06",
+            "1",
+            "R",
+            "1",
+            "123456",
+            "01",
+            "5",
+            "0",
         ));
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -594,27 +697,26 @@ mod trait_tag_det_options {
         assert!(veic_pos > prod_pos);
         assert!(veic_pos < prod_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("chassi", "9BWSU19F08B302158"),
-            ("xCor", "BRANCA"),
-            ("pot", "150"),
-            ("nMotor", "MOT12345"),
-            ("anoMod", "2025"),
-            ("anoFab", "2024"),
-            ("tpRest", "0"),
-        ]);
+        expect_xml_contains(
+            xml,
+            &[
+                ("chassi", "9BWSU19F08B302158"),
+                ("xCor", "BRANCA"),
+                ("pot", "150"),
+                ("nMotor", "MOT12345"),
+                ("anoMod", "2025"),
+                ("anoFab", "2024"),
+                ("tpRest", "0"),
+            ],
+        );
     }
 
     #[test]
     fn test_tag_med_medicine() {
         let mut item = make_base_item();
-        item.med = Some(MedData::new(Cents(4990))
-            .c_prod_anvisa("1234567890123"));
+        item.med = Some(MedData::new(Cents(4990)).c_prod_anvisa("1234567890123"));
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -626,21 +728,20 @@ mod trait_tag_det_options {
         assert!(med_pos > prod_pos);
         assert!(med_pos < prod_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("cProdANVISA", "1234567890123"),
-            ("vPMC", "49.90"),
-        ]);
+        expect_xml_contains(xml, &[("cProdANVISA", "1234567890123"), ("vPMC", "49.90")]);
     }
 
     #[test]
     fn test_tag_arma_weapon() {
         let mut item = make_base_item();
-        item.arma = Some(vec![ArmaData::new("0", "SR12345", "CN67890", "REVOLVER CALIBRE 38")]);
+        item.arma = Some(vec![ArmaData::new(
+            "0",
+            "SR12345",
+            "CN67890",
+            "REVOLVER CALIBRE 38",
+        )]);
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -652,12 +753,15 @@ mod trait_tag_det_options {
         assert!(arma_pos > prod_pos);
         assert!(arma_pos < prod_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("tpArma", "0"),
-            ("nSerie", "SR12345"),
-            ("nCano", "CN67890"),
-            ("descr", "REVOLVER CALIBRE 38"),
-        ]);
+        expect_xml_contains(
+            xml,
+            &[
+                ("tpArma", "0"),
+                ("nSerie", "SR12345"),
+                ("nCano", "CN67890"),
+                ("descr", "REVOLVER CALIBRE 38"),
+            ],
+        );
     }
 
     #[test]
@@ -665,10 +769,7 @@ mod trait_tag_det_options {
         let mut item = make_base_item();
         item.n_recopi = Some("20250101120000123456".into());
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -686,10 +787,7 @@ mod trait_tag_det_options {
         let mut item = make_base_item();
         item.n_recopi = Some(String::new());
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -700,13 +798,11 @@ mod trait_tag_det_options {
     #[test]
     fn test_tag_dfe_referenciado() {
         let mut item = make_base_item();
-        item.dfe_referenciado = Some(DFeReferenciadoData::new("35170358716523000119550010000000291000000291")
-            .n_item("1"));
+        item.dfe_referenciado = Some(
+            DFeReferenciadoData::new("35170358716523000119550010000000291000000291").n_item("1"),
+        );
 
-        let built = make_base_builder()
-            .items(vec![item])
-            .build()
-            .unwrap();
+        let built = make_base_builder().items(vec![item]).build().unwrap();
 
         let xml = built.xml();
 
@@ -718,10 +814,16 @@ mod trait_tag_det_options {
         assert!(dfe_ref_pos > imposto_end_pos);
         assert!(dfe_ref_pos < det_end_pos);
 
-        expect_xml_contains(xml, &[
-            ("chaveAcesso", "35170358716523000119550010000000291000000291"),
-            ("nItem", "1"),
-        ]);
+        expect_xml_contains(
+            xml,
+            &[
+                (
+                    "chaveAcesso",
+                    "35170358716523000119550010000000291000000291",
+                ),
+                ("nItem", "1"),
+            ],
+        );
     }
 }
 
@@ -752,9 +854,7 @@ mod trait_tag_refs {
         );
 
         assert!(xml.contains("<NFref>"));
-        assert!(xml.contains(
-            "<refNFe>35170358716523000119550010000000291000000291</refNFe>"
-        ));
+        assert!(xml.contains("<refNFe>35170358716523000119550010000000291000000291</refNFe>"));
         // NFref should be inside ide
         let ide_pos = xml.find("<ide>").unwrap();
         let nfref_pos = xml.find("<NFref>").unwrap();
@@ -808,11 +908,14 @@ mod trait_tag_refs {
         );
 
         assert!(xml.contains("<refNFP>"));
-        expect_xml_contains(&xml, &[
-            ("CNPJ", "58716523000119"),
-            ("IE", "123456789012"),
-            ("mod", "04"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJ", "58716523000119"),
+                ("IE", "123456789012"),
+                ("mod", "04"),
+            ],
+        );
     }
 
     #[test]
@@ -852,9 +955,7 @@ mod trait_tag_refs {
         );
 
         assert!(xml.contains("<NFref>"));
-        assert!(xml.contains(
-            "<refCTe>35170358716523000119570010000000011000000014</refCTe>"
-        ));
+        assert!(xml.contains("<refCTe>35170358716523000119570010000000011000000014</refCTe>"));
     }
 
     #[test]
@@ -874,11 +975,7 @@ mod trait_tag_refs {
         );
 
         assert!(xml.contains("<refECF>"));
-        expect_xml_contains(&xml, &[
-            ("mod", "2D"),
-            ("nECF", "123"),
-            ("nCOO", "456789"),
-        ]);
+        expect_xml_contains(&xml, &[("mod", "2D"), ("nECF", "123"), ("nCOO", "456789")]);
     }
 
     #[test]
@@ -954,13 +1051,16 @@ mod trait_tag_pag {
         assert!(xml.contains("<pag>"));
         assert!(xml.contains("<vTroco>50.00</vTroco>"));
         assert!(xml.contains("<detPag>"));
-        expect_xml_contains(&xml, &[
-            ("tPag", "03"),
-            ("vPag", "150.00"),
-            ("tpIntegra", "1"),
-            ("tBand", "01"),
-            ("cAut", "AUTH123456"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("tPag", "03"),
+                ("vPag", "150.00"),
+                ("tpIntegra", "1"),
+                ("tBand", "01"),
+                ("cAut", "AUTH123456"),
+            ],
+        );
         assert!(xml.contains("<card>"));
 
         // vTroco must come AFTER detPag
@@ -1126,11 +1226,14 @@ mod trait_tag_cobr {
 
         assert!(xml.contains("<cobr>"));
         assert!(xml.contains("<fat>"));
-        expect_xml_contains(&xml, &[
-            ("nFat", "001"),
-            ("nDup", "001"),
-            ("dVenc", "2017-04-03"),
-            ("vDup", "100.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nFat", "001"),
+                ("nDup", "001"),
+                ("dVenc", "2017-04-03"),
+                ("vDup", "100.00"),
+            ],
+        );
     }
 }

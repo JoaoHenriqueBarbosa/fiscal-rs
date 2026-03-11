@@ -31,13 +31,11 @@ use std::time::Duration;
 
 use reqwest::{Client, Identity};
 
-use fiscal_core::types::SefazEnvironment;
 use fiscal_core::FiscalError;
+use fiscal_core::types::SefazEnvironment;
 
 use crate::request_builders;
-use crate::response_parsers::{
-    self, AuthorizationResponse, CancellationResponse, StatusResponse,
-};
+use crate::response_parsers::{self, AuthorizationResponse, CancellationResponse, StatusResponse};
 use crate::services::SefazService;
 use crate::soap;
 use crate::urls::get_sefaz_url;
@@ -128,9 +126,7 @@ impl SefazClient {
         let envelope = soap::build_envelope(request_xml, uf, &meta)?;
         let action = soap::build_action(&meta);
 
-        let content_type = format!(
-            "application/soap+xml;charset=utf-8;action=\"{action}\""
-        );
+        let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
 
         let response = self
             .http
@@ -219,8 +215,7 @@ impl SefazClient {
         environment: SefazEnvironment,
         receipt: &str,
     ) -> Result<AuthorizationResponse, FiscalError> {
-        let request_xml =
-            request_builders::build_consulta_recibo_request(receipt, environment);
+        let request_xml = request_builders::build_consulta_recibo_request(receipt, environment);
         let raw = self
             .send(SefazService::RetAutorizacao, uf, environment, &request_xml)
             .await?;
@@ -242,10 +237,14 @@ impl SefazClient {
         environment: SefazEnvironment,
         access_key: &str,
     ) -> Result<AuthorizationResponse, FiscalError> {
-        let request_xml =
-            request_builders::build_consulta_request(access_key, environment);
+        let request_xml = request_builders::build_consulta_request(access_key, environment);
         let raw = self
-            .send(SefazService::ConsultaProtocolo, uf, environment, &request_xml)
+            .send(
+                SefazService::ConsultaProtocolo,
+                uf,
+                environment,
+                &request_xml,
+            )
             .await?;
         response_parsers::parse_autorizacao_response(&raw)
     }
@@ -308,9 +307,8 @@ impl SefazClient {
         seq: u32,
         tax_id: &str,
     ) -> Result<CancellationResponse, FiscalError> {
-        let request_xml = request_builders::build_cce_request(
-            access_key, correction, seq, environment, tax_id,
-        );
+        let request_xml =
+            request_builders::build_cce_request(access_key, correction, seq, environment, tax_id);
         let raw = self
             .send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
             .await?;

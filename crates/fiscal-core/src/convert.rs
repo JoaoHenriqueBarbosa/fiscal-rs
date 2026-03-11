@@ -4,8 +4,8 @@
 
 use std::collections::HashMap;
 
-use crate::xml_utils::escape_xml;
 use crate::FiscalError;
+use crate::xml_utils::escape_xml;
 
 // ── Layout constants ────────────────────────────────────────────────────────
 
@@ -19,7 +19,10 @@ const NFE_NAMESPACE: &str = "http://www.portalfiscal.inf.br/nfe";
 ///
 /// Returns [`FiscalError::InvalidTxt`] if the version/layout combination
 /// is not supported.
-fn get_structure(version: &str, layout: &str) -> Result<HashMap<&'static str, &'static str>, FiscalError> {
+fn get_structure(
+    version: &str,
+    layout: &str,
+) -> Result<HashMap<&'static str, &'static str>, FiscalError> {
     let ver: u32 = version.replace('.', "").parse().unwrap_or(0);
     let lay = layout.to_uppercase();
 
@@ -72,7 +75,10 @@ pub fn txt_to_xml(txt: &str, layout: &str) -> Result<String, FiscalError> {
         ));
     }
 
-    let declared_count: usize = first_fields.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let declared_count: usize = first_fields
+        .get(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     let rest: Vec<&str> = lines[1..].to_vec();
 
     // Slice invoices
@@ -102,7 +108,10 @@ pub fn txt_to_xml(txt: &str, layout: &str) -> Result<String, FiscalError> {
 
     // Validate access key
     if !parser.inf_nfe_id.is_empty() {
-        let key = parser.inf_nfe_id.strip_prefix("NFe").unwrap_or(&parser.inf_nfe_id);
+        let key = parser
+            .inf_nfe_id
+            .strip_prefix("NFe")
+            .unwrap_or(&parser.inf_nfe_id);
         if !key.is_empty() && key.len() != 44 {
             return Err(FiscalError::InvalidTxt(format!(
                 "A chave informada est\u{e1} incorreta [{}]",
@@ -177,10 +186,7 @@ fn slice_invoices<'a>(rest: &[&'a str], declared: usize) -> Vec<Vec<&'a str>> {
         last.1 = rest.len();
     }
 
-    markers
-        .iter()
-        .map(|(s, e)| rest[*s..*e].to_vec())
-        .collect()
+    markers.iter().map(|(s, e)| rest[*s..*e].to_vec()).collect()
 }
 
 fn extract_layout_version(invoice: &[&str]) -> Result<String, FiscalError> {
@@ -274,7 +280,13 @@ fn validate_txt_lines(lines: &[&str], layout: &str) -> Vec<String> {
                 ));
                 continue;
             }
-            if field.contains('>') || field.contains('<') || field.contains('"') || field.contains('\'') || field.contains('\t') || field.contains('\r') {
+            if field.contains('>')
+                || field.contains('<')
+                || field.contains('"')
+                || field.contains('\'')
+                || field.contains('\t')
+                || field.contains('\r')
+            {
                 errors.push(format!(
                     "ERRO: ({num}) Existem caracteres especiais n\u{e3}o permitidos, como por ex. caracteres de controle, sinais de maior ou menor, aspas ou apostrofes, na entidade [{row}]"
                 ));
@@ -512,10 +524,7 @@ impl<'a> NFeParser<'a> {
             }
             "H" => {
                 self.finalize_current_item();
-                self.current_item_num = std
-                    .get("item")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0);
+                self.current_item_num = std.get("item").and_then(|s| s.parse().ok()).unwrap_or(0);
                 self.cur_prod = Fields::new();
                 self.cur_cest = None;
                 self.cur_g_cred = None;
@@ -784,27 +793,41 @@ impl<'a> NFeParser<'a> {
         add_child(&mut ec, "UF", ee.get("UF").map(|s| s.as_str()));
         add_child(&mut ec, "CEP", ee.get("CEP").map(|s| s.as_str()));
         if let Some(v) = ee.get("cPais") {
-            if !v.is_empty() { add_child_str(&mut ec, "cPais", v); }
+            if !v.is_empty() {
+                add_child_str(&mut ec, "cPais", v);
+            }
         }
         if let Some(v) = ee.get("xPais") {
-            if !v.is_empty() { add_child_str(&mut ec, "xPais", v); }
+            if !v.is_empty() {
+                add_child_str(&mut ec, "xPais", v);
+            }
         }
         if let Some(v) = ee.get("fone") {
-            if !v.is_empty() { add_child_str(&mut ec, "fone", v); }
+            if !v.is_empty() {
+                add_child_str(&mut ec, "fone", v);
+            }
         }
         c.push(xml_tag("enderEmit", &ec.join("")));
 
         if let Some(v) = e.get("IE") {
-            if !v.is_empty() { add_child_str(&mut c, "IE", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "IE", v);
+            }
         }
         if let Some(v) = e.get("IEST") {
-            if !v.is_empty() { add_child_str(&mut c, "IEST", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "IEST", v);
+            }
         }
         if let Some(v) = e.get("IM") {
-            if !v.is_empty() { add_child_str(&mut c, "IM", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "IM", v);
+            }
         }
         if let Some(v) = e.get("CNAE") {
-            if !v.is_empty() { add_child_str(&mut c, "CNAE", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "CNAE", v);
+            }
         }
         add_child(&mut c, "CRT", e.get("CRT").map(|s| s.as_str()));
 
@@ -832,7 +855,9 @@ impl<'a> NFeParser<'a> {
             add_child(&mut ec, "xLgr", ee.get("xLgr").map(|s| s.as_str()));
             add_child(&mut ec, "nro", ee.get("nro").map(|s| s.as_str()));
             if let Some(v) = ee.get("xCpl") {
-                if !v.is_empty() { add_child_str(&mut ec, "xCpl", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut ec, "xCpl", v);
+                }
             }
             add_child(&mut ec, "xBairro", ee.get("xBairro").map(|s| s.as_str()));
             add_child(&mut ec, "cMun", ee.get("cMun").map(|s| s.as_str()));
@@ -840,31 +865,47 @@ impl<'a> NFeParser<'a> {
             add_child(&mut ec, "UF", ee.get("UF").map(|s| s.as_str()));
             add_child(&mut ec, "CEP", ee.get("CEP").map(|s| s.as_str()));
             if let Some(v) = ee.get("cPais") {
-                if !v.is_empty() { add_child_str(&mut ec, "cPais", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut ec, "cPais", v);
+                }
             }
             if let Some(v) = ee.get("xPais") {
-                if !v.is_empty() { add_child_str(&mut ec, "xPais", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut ec, "xPais", v);
+                }
             }
             if let Some(v) = ee.get("fone") {
-                if !v.is_empty() { add_child_str(&mut ec, "fone", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut ec, "fone", v);
+                }
             }
             c.push(xml_tag("enderDest", &ec.join("")));
         }
 
         if let Some(v) = d.get("indIEDest") {
-            if !v.is_empty() { add_child_str(&mut c, "indIEDest", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "indIEDest", v);
+            }
         }
         if let Some(v) = d.get("IE") {
-            if !v.is_empty() { add_child_str(&mut c, "IE", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "IE", v);
+            }
         }
         if let Some(v) = d.get("ISUF") {
-            if !v.is_empty() { add_child_str(&mut c, "ISUF", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "ISUF", v);
+            }
         }
         if let Some(v) = d.get("IM") {
-            if !v.is_empty() { add_child_str(&mut c, "IM", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "IM", v);
+            }
         }
         if let Some(v) = d.get("email") {
-            if !v.is_empty() { add_child_str(&mut c, "email", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "email", v);
+            }
         }
 
         xml_tag("dest", &c.join(""))
@@ -881,7 +922,11 @@ impl<'a> NFeParser<'a> {
         let p = &item.prod;
         let mut c = Vec::new();
         add_child(&mut c, "cProd", p.get("cProd").map(|s| s.as_str()));
-        add_child_str(&mut c, "cEAN", p.get("cEAN").map(|s| s.as_str()).unwrap_or("SEM GTIN"));
+        add_child_str(
+            &mut c,
+            "cEAN",
+            p.get("cEAN").map(|s| s.as_str()).unwrap_or("SEM GTIN"),
+        );
         add_child(&mut c, "xProd", p.get("xProd").map(|s| s.as_str()));
         add_child(&mut c, "NCM", p.get("NCM").map(|s| s.as_str()));
         if let Some(cest) = &item.cest {
@@ -890,47 +935,79 @@ impl<'a> NFeParser<'a> {
             }
         }
         if let Some(v) = p.get("cBenef") {
-            if !v.is_empty() { add_child_str(&mut c, "cBenef", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "cBenef", v);
+            }
         }
         if let Some(v) = p.get("EXTIPI") {
-            if !v.is_empty() { add_child_str(&mut c, "EXTIPI", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "EXTIPI", v);
+            }
         }
         add_child(&mut c, "CFOP", p.get("CFOP").map(|s| s.as_str()));
         add_child(&mut c, "uCom", p.get("uCom").map(|s| s.as_str()));
         add_child(&mut c, "qCom", p.get("qCom").map(|s| s.as_str()));
         add_child(&mut c, "vUnCom", p.get("vUnCom").map(|s| s.as_str()));
         add_child(&mut c, "vProd", p.get("vProd").map(|s| s.as_str()));
-        add_child_str(&mut c, "cEANTrib", p.get("cEANTrib").map(|s| s.as_str()).unwrap_or("SEM GTIN"));
+        add_child_str(
+            &mut c,
+            "cEANTrib",
+            p.get("cEANTrib").map(|s| s.as_str()).unwrap_or("SEM GTIN"),
+        );
         add_child(&mut c, "uTrib", p.get("uTrib").map(|s| s.as_str()));
         add_child(&mut c, "qTrib", p.get("qTrib").map(|s| s.as_str()));
         add_child(&mut c, "vUnTrib", p.get("vUnTrib").map(|s| s.as_str()));
         if let Some(v) = p.get("vFrete") {
-            if !v.is_empty() { add_child_str(&mut c, "vFrete", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "vFrete", v);
+            }
         }
         if let Some(v) = p.get("vSeg") {
-            if !v.is_empty() { add_child_str(&mut c, "vSeg", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "vSeg", v);
+            }
         }
         if let Some(v) = p.get("vDesc") {
-            if !v.is_empty() { add_child_str(&mut c, "vDesc", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "vDesc", v);
+            }
         }
         if let Some(v) = p.get("vOutro") {
-            if !v.is_empty() { add_child_str(&mut c, "vOutro", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "vOutro", v);
+            }
         }
         let ind_tot = p.get("indTot").map(|s| s.as_str()).unwrap_or("1");
         add_child_str(&mut c, "indTot", ind_tot);
         if let Some(v) = p.get("xPed") {
-            if !v.is_empty() { add_child_str(&mut c, "xPed", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "xPed", v);
+            }
         }
         if let Some(v) = p.get("nItemPed") {
-            if !v.is_empty() { add_child_str(&mut c, "nItemPed", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "nItemPed", v);
+            }
         }
 
         // gCred
         if let Some(gc) = &item.g_cred {
             let mut gcc = Vec::new();
-            add_child(&mut gcc, "cCredPresumido", gc.get("cCredPresumido").map(|s| s.as_str()));
-            add_child(&mut gcc, "pCredPresumido", gc.get("pCredPresumido").map(|s| s.as_str()));
-            add_child(&mut gcc, "vCredPresumido", gc.get("vCredPresumido").map(|s| s.as_str()));
+            add_child(
+                &mut gcc,
+                "cCredPresumido",
+                gc.get("cCredPresumido").map(|s| s.as_str()),
+            );
+            add_child(
+                &mut gcc,
+                "pCredPresumido",
+                gc.get("pCredPresumido").map(|s| s.as_str()),
+            );
+            add_child(
+                &mut gcc,
+                "vCredPresumido",
+                gc.get("vCredPresumido").map(|s| s.as_str()),
+            );
             c.push(xml_tag("gCred", &gcc.join("")));
         }
 
@@ -962,28 +1039,65 @@ impl<'a> NFeParser<'a> {
             Some(d) => d,
             None => return String::new(),
         };
-        let cst = d.get("CST").or_else(|| d.get("CSOSN")).map(|s| s.as_str()).unwrap_or("");
+        let cst = d
+            .get("CST")
+            .or_else(|| d.get("CSOSN"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let group_tag = icms_group_tag(cst);
 
         let mut ic = Vec::new();
         add_child(&mut ic, "orig", d.get("orig").map(|s| s.as_str()));
-        if let Some(v) = d.get("CST") { add_child_str(&mut ic, "CST", v); }
-        if let Some(v) = d.get("CSOSN") { add_child_str(&mut ic, "CSOSN", v); }
+        if let Some(v) = d.get("CST") {
+            add_child_str(&mut ic, "CST", v);
+        }
+        if let Some(v) = d.get("CSOSN") {
+            add_child_str(&mut ic, "CSOSN", v);
+        }
         for &field in &[
-            "modBC", "pRedBC", "vBC", "pICMS", "vICMS", "vICMSOp", "pDif", "vICMSDif",
-            "vBCFCP", "pFCP", "vFCP",
-            "modBCST", "pMVAST", "pRedBCST", "vBCST", "pICMSST", "vICMSST",
-            "vBCFCPST", "pFCPST", "vFCPST",
-            "vICMSDeson", "motDesICMS",
-            "vBCSTRet", "pST", "vICMSSTRet", "vICMSSubstituto",
-            "vBCFCPSTRet", "pFCPSTRet", "vFCPSTRet",
-            "pRedBCEfet", "vBCEfet", "pICMSEfet", "vICMSEfet",
-            "pBCOp", "UFST",
-            "pCredSN", "vCredICMSSN",
+            "modBC",
+            "pRedBC",
+            "vBC",
+            "pICMS",
+            "vICMS",
+            "vICMSOp",
+            "pDif",
+            "vICMSDif",
+            "vBCFCP",
+            "pFCP",
+            "vFCP",
+            "modBCST",
+            "pMVAST",
+            "pRedBCST",
+            "vBCST",
+            "pICMSST",
+            "vICMSST",
+            "vBCFCPST",
+            "pFCPST",
+            "vFCPST",
+            "vICMSDeson",
+            "motDesICMS",
+            "vBCSTRet",
+            "pST",
+            "vICMSSTRet",
+            "vICMSSubstituto",
+            "vBCFCPSTRet",
+            "pFCPSTRet",
+            "vFCPSTRet",
+            "pRedBCEfet",
+            "vBCEfet",
+            "pICMSEfet",
+            "vICMSEfet",
+            "pBCOp",
+            "UFST",
+            "pCredSN",
+            "vCredICMSSN",
             "indDeduzDeson",
         ] {
             if let Some(v) = d.get(field) {
-                if !v.is_empty() { add_child_str(&mut ic, field, v); }
+                if !v.is_empty() {
+                    add_child_str(&mut ic, field, v);
+                }
             }
         }
 
@@ -994,10 +1108,14 @@ impl<'a> NFeParser<'a> {
         let mut c = Vec::new();
         if let Some(h) = &item.ipi_header {
             if let Some(v) = h.get("qSelo") {
-                if !v.is_empty() { add_child_str(&mut c, "qSelo", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut c, "qSelo", v);
+                }
             }
             if let Some(v) = h.get("cEnq") {
-                if !v.is_empty() { add_child_str(&mut c, "cEnq", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut c, "cEnq", v);
+                }
             }
         }
 
@@ -1006,9 +1124,15 @@ impl<'a> NFeParser<'a> {
         if trib_csts.contains(&cst.as_str()) {
             let mut tc = Vec::new();
             add_child_str(&mut tc, "CST", cst);
-            if !item.ipi_v_bc.is_empty() { add_child_str(&mut tc, "vBC", &item.ipi_v_bc); }
-            if !item.ipi_p_ipi.is_empty() { add_child_str(&mut tc, "pIPI", &item.ipi_p_ipi); }
-            if !item.ipi_v_ipi.is_empty() { add_child_str(&mut tc, "vIPI", &item.ipi_v_ipi); }
+            if !item.ipi_v_bc.is_empty() {
+                add_child_str(&mut tc, "vBC", &item.ipi_v_bc);
+            }
+            if !item.ipi_p_ipi.is_empty() {
+                add_child_str(&mut tc, "pIPI", &item.ipi_p_ipi);
+            }
+            if !item.ipi_v_ipi.is_empty() {
+                add_child_str(&mut tc, "vIPI", &item.ipi_v_ipi);
+            }
             c.push(xml_tag("IPITrib", &tc.join("")));
         } else if !cst.is_empty() {
             c.push(xml_tag("IPINT", &format!("<CST>{cst}</CST>")));
@@ -1020,13 +1144,23 @@ impl<'a> NFeParser<'a> {
     fn build_pis(&self, item: &ItemBuild) -> String {
         let cst = &item.pis_cst;
         let aliq_csts = ["01", "02"];
-        let inner_tag = if aliq_csts.contains(&cst.as_str()) { "PISAliq" } else { "PISOutr" };
+        let inner_tag = if aliq_csts.contains(&cst.as_str()) {
+            "PISAliq"
+        } else {
+            "PISOutr"
+        };
 
         let mut c = Vec::new();
         add_child_str(&mut c, "CST", cst);
-        if !item.pis_v_bc.is_empty() { add_child_str(&mut c, "vBC", &item.pis_v_bc); }
-        if !item.pis_p_pis.is_empty() { add_child_str(&mut c, "pPIS", &item.pis_p_pis); }
-        if !item.pis_v_pis.is_empty() { add_child_str(&mut c, "vPIS", &item.pis_v_pis); }
+        if !item.pis_v_bc.is_empty() {
+            add_child_str(&mut c, "vBC", &item.pis_v_bc);
+        }
+        if !item.pis_p_pis.is_empty() {
+            add_child_str(&mut c, "pPIS", &item.pis_p_pis);
+        }
+        if !item.pis_v_pis.is_empty() {
+            add_child_str(&mut c, "vPIS", &item.pis_v_pis);
+        }
 
         xml_tag("PIS", &xml_tag(inner_tag, &c.join("")))
     }
@@ -1034,13 +1168,23 @@ impl<'a> NFeParser<'a> {
     fn build_cofins(&self, item: &ItemBuild) -> String {
         let cst = &item.cofins_cst;
         let aliq_csts = ["01", "02"];
-        let inner_tag = if aliq_csts.contains(&cst.as_str()) { "COFINSAliq" } else { "COFINSOutr" };
+        let inner_tag = if aliq_csts.contains(&cst.as_str()) {
+            "COFINSAliq"
+        } else {
+            "COFINSOutr"
+        };
 
         let mut c = Vec::new();
         add_child_str(&mut c, "CST", cst);
-        if !item.cofins_v_bc.is_empty() { add_child_str(&mut c, "vBC", &item.cofins_v_bc); }
-        if !item.cofins_p_cofins.is_empty() { add_child_str(&mut c, "pCOFINS", &item.cofins_p_cofins); }
-        if !item.cofins_v_cofins.is_empty() { add_child_str(&mut c, "vCOFINS", &item.cofins_v_cofins); }
+        if !item.cofins_v_bc.is_empty() {
+            add_child_str(&mut c, "vBC", &item.cofins_v_bc);
+        }
+        if !item.cofins_p_cofins.is_empty() {
+            add_child_str(&mut c, "pCOFINS", &item.cofins_p_cofins);
+        }
+        if !item.cofins_v_cofins.is_empty() {
+            add_child_str(&mut c, "vCOFINS", &item.cofins_v_cofins);
+        }
 
         xml_tag("COFINS", &xml_tag(inner_tag, &c.join("")))
     }
@@ -1049,38 +1193,72 @@ impl<'a> NFeParser<'a> {
         let t = &self.totals_fields;
         let mut c = Vec::new();
         for &field in &[
-            "vBC", "vICMS", "vICMSDeson", "vFCP", "vBCST", "vST", "vFCPST", "vFCPSTRet",
-            "vProd", "vFrete", "vSeg", "vDesc", "vII", "vIPI", "vIPIDevol",
-            "vPIS", "vCOFINS", "vOutro", "vNF",
+            "vBC",
+            "vICMS",
+            "vICMSDeson",
+            "vFCP",
+            "vBCST",
+            "vST",
+            "vFCPST",
+            "vFCPSTRet",
+            "vProd",
+            "vFrete",
+            "vSeg",
+            "vDesc",
+            "vII",
+            "vIPI",
+            "vIPIDevol",
+            "vPIS",
+            "vCOFINS",
+            "vOutro",
+            "vNF",
         ] {
             add_child(&mut c, field, t.get(field).map(|s| s.as_str()));
         }
         if let Some(v) = t.get("vTotTrib") {
-            if !v.is_empty() { add_child_str(&mut c, "vTotTrib", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "vTotTrib", v);
+            }
         }
         xml_tag("total", &xml_tag("ICMSTot", &c.join("")))
     }
 
     fn build_transp(&self) -> String {
         let mut c = Vec::new();
-        add_child(&mut c, "modFrete", self.transp_fields.get("modFrete").map(|s| s.as_str()));
+        add_child(
+            &mut c,
+            "modFrete",
+            self.transp_fields.get("modFrete").map(|s| s.as_str()),
+        );
 
         if let Some(t) = &self.transporta_fields {
             let mut tc = Vec::new();
-            if let Some(v) = t.get("CNPJ") { add_child_str(&mut tc, "CNPJ", v); }
-            if let Some(v) = t.get("CPF") { add_child_str(&mut tc, "CPF", v); }
+            if let Some(v) = t.get("CNPJ") {
+                add_child_str(&mut tc, "CNPJ", v);
+            }
+            if let Some(v) = t.get("CPF") {
+                add_child_str(&mut tc, "CPF", v);
+            }
             add_child(&mut tc, "xNome", t.get("xNome").map(|s| s.as_str()));
             if let Some(v) = t.get("IE") {
-                if !v.is_empty() { add_child_str(&mut tc, "IE", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut tc, "IE", v);
+                }
             }
             if let Some(v) = t.get("xEnder") {
-                if !v.is_empty() { add_child_str(&mut tc, "xEnder", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut tc, "xEnder", v);
+                }
             }
             if let Some(v) = t.get("xMun") {
-                if !v.is_empty() { add_child_str(&mut tc, "xMun", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut tc, "xMun", v);
+                }
             }
             if let Some(v) = t.get("UF") {
-                if !v.is_empty() { add_child_str(&mut tc, "UF", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut tc, "UF", v);
+                }
             }
             c.push(xml_tag("transporta", &tc.join("")));
         }
@@ -1088,22 +1266,34 @@ impl<'a> NFeParser<'a> {
         for vol in &self.volumes {
             let mut vc = Vec::new();
             if let Some(v) = vol.get("qVol") {
-                if !v.is_empty() { add_child_str(&mut vc, "qVol", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "qVol", v);
+                }
             }
             if let Some(v) = vol.get("esp") {
-                if !v.is_empty() { add_child_str(&mut vc, "esp", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "esp", v);
+                }
             }
             if let Some(v) = vol.get("marca") {
-                if !v.is_empty() { add_child_str(&mut vc, "marca", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "marca", v);
+                }
             }
             if let Some(v) = vol.get("nVol") {
-                if !v.is_empty() { add_child_str(&mut vc, "nVol", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "nVol", v);
+                }
             }
             if let Some(v) = vol.get("pesoL") {
-                if !v.is_empty() { add_child_str(&mut vc, "pesoL", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "pesoL", v);
+                }
             }
             if let Some(v) = vol.get("pesoB") {
-                if !v.is_empty() { add_child_str(&mut vc, "pesoB", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "pesoB", v);
+                }
             }
             c.push(xml_tag("vol", &vc.join("")));
         }
@@ -1136,7 +1326,9 @@ impl<'a> NFeParser<'a> {
         for dp in &self.det_pag_list {
             let mut dc = Vec::new();
             if let Some(v) = dp.get("indPag") {
-                if !v.is_empty() { add_child_str(&mut dc, "indPag", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut dc, "indPag", v);
+                }
             }
             add_child(&mut dc, "tPag", dp.get("tPag").map(|s| s.as_str()));
             add_child(&mut dc, "vPag", dp.get("vPag").map(|s| s.as_str()));
@@ -1144,7 +1336,9 @@ impl<'a> NFeParser<'a> {
         }
         if let Some(pf) = &self.pag_fields {
             if let Some(v) = pf.get("vTroco") {
-                if !v.is_empty() { add_child_str(&mut c, "vTroco", v); }
+                if !v.is_empty() {
+                    add_child_str(&mut c, "vTroco", v);
+                }
             }
         }
         xml_tag("pag", &c.join(""))
@@ -1153,10 +1347,14 @@ impl<'a> NFeParser<'a> {
     fn build_inf_adic(&self) -> String {
         let mut c = Vec::new();
         if let Some(v) = self.inf_adic_fields.get("infAdFisco") {
-            if !v.is_empty() { add_child_str(&mut c, "infAdFisco", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "infAdFisco", v);
+            }
         }
         if let Some(v) = self.inf_adic_fields.get("infCpl") {
-            if !v.is_empty() { add_child_str(&mut c, "infCpl", v); }
+            if !v.is_empty() {
+                add_child_str(&mut c, "infCpl", v);
+            }
         }
         xml_tag("infAdic", &c.join(""))
     }

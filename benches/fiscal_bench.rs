@@ -1,61 +1,61 @@
 use chrono::TimeZone;
+use fiscal::certificate::sign_xml;
+use fiscal::complement::{attach_b2b, attach_event_protocol, attach_inutilizacao, attach_protocol};
+use fiscal::contingency::{Contingency, adjust_nfe_contingency, contingency_for_state};
 use fiscal::format_utils::{
-    format_cents, format_cents_2, format_cents_10, format_decimal,
-    format_rate, format_rate_4, format_rate4,
-    format_cents_or_none, format_cents_or_zero, format_rate4_or_zero,
+    format_cents, format_cents_2, format_cents_10, format_cents_or_none, format_cents_or_zero,
+    format_decimal, format_rate, format_rate_4, format_rate4, format_rate4_or_zero,
 };
-use fiscal::xml_utils::{escape_xml, extract_xml_tag_value, tag, TagContent};
-use fiscal::tax_element::{TaxElement, TaxField, filter_fields, serialize_tax_element};
-use fiscal::tax_icms::{
-    IcmsTotals, IcmsCst, IcmsCsosn, IcmsVariant,
-    IcmsPartData, IcmsStData, IcmsUfDestData,
-    create_icms_totals, merge_icms_totals,
-    build_icms_xml, build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml,
-};
-use fiscal::newtypes::{Cents, Rate, Rate4, AccessKey, StateCode, IbgeCode};
-use fiscal::tax_pis_cofins_ipi::{
-    PisData, PisStData, CofinsData, CofinsStData, IpiData, IiData,
-    build_pis_xml, build_pis_st_xml, build_cofins_xml, build_cofins_st_xml, build_ipi_xml, build_ii_xml,
-};
-use fiscal::tax_issqn::{IssqnData, build_issqn_xml, build_issqn_xml_with_totals, create_issqn_totals, build_imposto_devol};
-use fiscal::tax_is::{IsData, build_is_xml};
-use fiscal::gtin::{is_valid_gtin, calculate_check_digit};
-use fiscal::state_codes::{get_state_code, get_state_by_code};
-use fiscal::xml_builder::access_key::{build_access_key, calculate_mod11, generate_numeric_code, format_year_month};
-use fiscal::xml_builder::tax_id::TaxId;
-use fiscal::xml_builder::InvoiceBuilder;
-use fiscal::xml_builder::ide::format_datetime_nfe;
-use fiscal::xml_builder::emit::build_address_fields;
-use fiscal::xml_builder::total::{build_total, OtherTotals};
-use fiscal::xml_builder::pag::build_pag;
-use fiscal::xml_builder::optional::{
-    build_cobr, build_intermediary, build_tech_responsible,
-    build_purchase, build_export, build_withdrawal, build_delivery, build_aut_xml,
-};
-use fiscal::types::{
-    AccessKeyParams, InvoiceModel, EmissionType,
-    SefazEnvironment, TaxRegime, IssuerData, RecipientData, InvoiceItemData,
-    PaymentData, BillingData, BillingInvoice, Installment, LocationData,
-    IntermediaryData, TechResponsibleData, PurchaseData, ExportData,
-    AuthorizedXml, NfceQrCodeParams, PutQRTagParams, QrCodeVersion,
-    ContingencyType,
-};
-use fiscal::complement::{attach_protocol, attach_inutilizacao, attach_event_protocol, attach_b2b};
-use fiscal::qrcode::{build_nfce_qr_code_url, build_nfce_consult_url, put_qr_tag};
-use fiscal::contingency::{Contingency, contingency_for_state, adjust_nfe_contingency};
+use fiscal::gtin::{calculate_check_digit, is_valid_gtin};
+use fiscal::newtypes::{AccessKey, Cents, IbgeCode, Rate, Rate4, StateCode};
+use fiscal::qrcode::{build_nfce_consult_url, build_nfce_qr_code_url, put_qr_tag};
 use fiscal::sefaz::request_builders::{
-    build_autorizacao_request, build_status_request, build_consulta_request,
-    build_cancela_request, build_inutilizacao_request, build_cce_request,
-    build_dist_dfe_request, build_cadastro_request,
-    build_consulta_recibo_request, build_manifesta_request,
+    build_autorizacao_request, build_cadastro_request, build_cancela_request, build_cce_request,
+    build_consulta_recibo_request, build_consulta_request, build_dist_dfe_request,
+    build_inutilizacao_request, build_manifesta_request, build_status_request,
 };
-use fiscal::sefaz::urls::{get_sefaz_url, get_nfce_consult_url as get_nfce_consult_url_sefaz};
 use fiscal::sefaz::response_parsers::{
-    parse_autorizacao_response, parse_status_response, parse_cancellation_response,
+    parse_autorizacao_response, parse_cancellation_response, parse_status_response,
 };
 use fiscal::sefaz::services::SefazService;
+use fiscal::sefaz::urls::{get_nfce_consult_url as get_nfce_consult_url_sefaz, get_sefaz_url};
 use fiscal::standardize::{identify_xml_type, xml_to_json};
-use fiscal::certificate::sign_xml;
+use fiscal::state_codes::{get_state_by_code, get_state_code};
+use fiscal::tax_element::{TaxElement, TaxField, filter_fields, serialize_tax_element};
+use fiscal::tax_icms::{
+    IcmsCsosn, IcmsCst, IcmsPartData, IcmsStData, IcmsTotals, IcmsUfDestData, IcmsVariant,
+    build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml, build_icms_xml,
+    create_icms_totals, merge_icms_totals,
+};
+use fiscal::tax_is::{IsData, build_is_xml};
+use fiscal::tax_issqn::{
+    IssqnData, build_imposto_devol, build_issqn_xml, build_issqn_xml_with_totals,
+    create_issqn_totals,
+};
+use fiscal::tax_pis_cofins_ipi::{
+    CofinsData, CofinsStData, IiData, IpiData, PisData, PisStData, build_cofins_st_xml,
+    build_cofins_xml, build_ii_xml, build_ipi_xml, build_pis_st_xml, build_pis_xml,
+};
+use fiscal::types::{
+    AccessKeyParams, AuthorizedXml, BillingData, BillingInvoice, ContingencyType, EmissionType,
+    ExportData, Installment, IntermediaryData, InvoiceItemData, InvoiceModel, IssuerData,
+    LocationData, NfceQrCodeParams, PaymentData, PurchaseData, PutQRTagParams, QrCodeVersion,
+    RecipientData, SefazEnvironment, TaxRegime, TechResponsibleData,
+};
+use fiscal::xml_builder::InvoiceBuilder;
+use fiscal::xml_builder::access_key::{
+    build_access_key, calculate_mod11, format_year_month, generate_numeric_code,
+};
+use fiscal::xml_builder::emit::build_address_fields;
+use fiscal::xml_builder::ide::format_datetime_nfe;
+use fiscal::xml_builder::optional::{
+    build_aut_xml, build_cobr, build_delivery, build_export, build_intermediary, build_purchase,
+    build_tech_responsible, build_withdrawal,
+};
+use fiscal::xml_builder::pag::build_pag;
+use fiscal::xml_builder::tax_id::TaxId;
+use fiscal::xml_builder::total::{OtherTotals, build_total};
+use fiscal::xml_utils::{TagContent, escape_xml, extract_xml_tag_value, tag};
 
 fn main() {
     divan::main();
@@ -89,15 +89,15 @@ fn bench_rate4_display(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_access_key_new_valid(bencher: divan::Bencher) {
     bencher.bench(|| {
-        AccessKey::new(divan::black_box("43250304123456789012550010000000011000000010"))
+        AccessKey::new(divan::black_box(
+            "43250304123456789012550010000000011000000010",
+        ))
     });
 }
 
 #[divan::bench]
 fn bench_access_key_new_invalid(bencher: divan::Bencher) {
-    bencher.bench(|| {
-        AccessKey::new(divan::black_box("1234"))
-    });
+    bencher.bench(|| AccessKey::new(divan::black_box("1234")));
 }
 
 #[divan::bench]
@@ -191,9 +191,7 @@ fn bench_escape_xml_dirty(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_tag_simple_text(bencher: divan::Bencher) {
-    bencher.bench(|| {
-        tag("xNome", &[], divan::black_box("Test Company").into())
-    });
+    bencher.bench(|| tag("xNome", &[], divan::black_box("Test Company").into()));
 }
 
 #[divan::bench]
@@ -213,36 +211,52 @@ fn bench_tag_with_attrs(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_tag_nested_invoice_item(bencher: divan::Bencher) {
     bencher.bench(|| {
-        tag("det", &[("nItem", "1")], TagContent::Children(vec![
-            tag("prod", &[], TagContent::Children(vec![
-                tag("cProd", &[], "001".into()),
-                tag("cEAN", &[], "SEM GTIN".into()),
-                tag("xProd", &[], "Servico de eletrica".into()),
-                tag("NCM", &[], "00000000".into()),
-                tag("CFOP", &[], "5102".into()),
-                tag("uCom", &[], "UN".into()),
-                tag("qCom", &[], "1.0000".into()),
-                tag("vUnCom", &[], "150.0000000000".into()),
-                tag("vProd", &[], "150.00".into()),
-                tag("cEANTrib", &[], "SEM GTIN".into()),
-                tag("uTrib", &[], "UN".into()),
-                tag("qTrib", &[], "1.0000".into()),
-                tag("vUnTrib", &[], "150.0000000000".into()),
-                tag("indTot", &[], "1".into()),
-            ])),
-            tag("imposto", &[], TagContent::Children(vec![
-                tag("ICMS", &[], TagContent::Children(vec![
-                    tag("ICMS00", &[], TagContent::Children(vec![
-                        tag("orig", &[], "0".into()),
-                        tag("CST", &[], "00".into()),
-                        tag("modBC", &[], "0".into()),
-                        tag("vBC", &[], "150.00".into()),
-                        tag("pICMS", &[], "18.0000".into()),
-                        tag("vICMS", &[], "27.00".into()),
-                    ])),
-                ])),
-            ])),
-        ]))
+        tag(
+            "det",
+            &[("nItem", "1")],
+            TagContent::Children(vec![
+                tag(
+                    "prod",
+                    &[],
+                    TagContent::Children(vec![
+                        tag("cProd", &[], "001".into()),
+                        tag("cEAN", &[], "SEM GTIN".into()),
+                        tag("xProd", &[], "Servico de eletrica".into()),
+                        tag("NCM", &[], "00000000".into()),
+                        tag("CFOP", &[], "5102".into()),
+                        tag("uCom", &[], "UN".into()),
+                        tag("qCom", &[], "1.0000".into()),
+                        tag("vUnCom", &[], "150.0000000000".into()),
+                        tag("vProd", &[], "150.00".into()),
+                        tag("cEANTrib", &[], "SEM GTIN".into()),
+                        tag("uTrib", &[], "UN".into()),
+                        tag("qTrib", &[], "1.0000".into()),
+                        tag("vUnTrib", &[], "150.0000000000".into()),
+                        tag("indTot", &[], "1".into()),
+                    ]),
+                ),
+                tag(
+                    "imposto",
+                    &[],
+                    TagContent::Children(vec![tag(
+                        "ICMS",
+                        &[],
+                        TagContent::Children(vec![tag(
+                            "ICMS00",
+                            &[],
+                            TagContent::Children(vec![
+                                tag("orig", &[], "0".into()),
+                                tag("CST", &[], "00".into()),
+                                tag("modBC", &[], "0".into()),
+                                tag("vBC", &[], "150.00".into()),
+                                tag("pICMS", &[], "18.0000".into()),
+                                tag("vICMS", &[], "27.00".into()),
+                            ]),
+                        )]),
+                    )]),
+                ),
+            ]),
+        )
     });
 }
 
@@ -432,32 +446,41 @@ fn bench_build_icms_xml_csosn102(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_build_icms_part_xml(bencher: divan::Bencher) {
     let data = IcmsPartData::new(
-        "0", "10", "0",
-        Cents(10000), Rate(1200), Cents(1200),
-        "4", Cents(14000), Rate(1800), Cents(720),
-        Rate(10000), "SP",
+        "0",
+        "10",
+        "0",
+        Cents(10000),
+        Rate(1200),
+        Cents(1200),
+        "4",
+        Cents(14000),
+        Rate(1800),
+        Cents(720),
+        Rate(10000),
+        "SP",
     );
     bencher.bench(|| build_icms_part_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_icms_uf_dest_xml(bencher: divan::Bencher) {
-    let data = IcmsUfDestData::new(
-        Cents(10000), Rate(1800), Rate(1200), Cents(600),
-    )
-    .v_bc_fcp_uf_dest(Cents(10000))
-    .p_fcp_uf_dest(Rate(200))
-    .v_fcp_uf_dest(Cents(200))
-    .v_icms_uf_remet(Cents(0));
+    let data = IcmsUfDestData::new(Cents(10000), Rate(1800), Rate(1200), Cents(600))
+        .v_bc_fcp_uf_dest(Cents(10000))
+        .p_fcp_uf_dest(Rate(200))
+        .v_fcp_uf_dest(Cents(200))
+        .v_icms_uf_remet(Cents(0));
     bencher.bench(|| build_icms_uf_dest_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_icms_st_xml(bencher: divan::Bencher) {
     let data = IcmsStData::new(
-        "0", "60",
-        Cents(15000), Cents(2700),
-        Cents(12000), Cents(2160),
+        "0",
+        "60",
+        Cents(15000),
+        Cents(2700),
+        Cents(12000),
+        Cents(2160),
     )
     .v_bc_fcp_st_ret(Cents(15000))
     .p_fcp_st_ret(Rate(200))
@@ -585,9 +608,8 @@ fn bench_get_state_by_code(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_state_code_all_27(bencher: divan::Bencher) {
     let states = [
-        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO",
-        "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI",
-        "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB",
+        "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
     ];
     bencher.bench(|| {
         for uf in &states {
@@ -700,10 +722,13 @@ fn bench_build_address_fields(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_total(bencher: divan::Bencher) {
-    let icms = IcmsTotals::new()
-        .v_bc(Cents(15000))
-        .v_icms(Cents(2700));
-    let other = OtherTotals { v_ipi: 500, v_pis: 165, v_cofins: 760, v_ii: 0 };
+    let icms = IcmsTotals::new().v_bc(Cents(15000)).v_icms(Cents(2700));
+    let other = OtherTotals {
+        v_ipi: 500,
+        v_pis: 165,
+        v_cofins: 760,
+        v_ii: 0,
+    };
     bencher.bench(|| {
         build_total(
             divan::black_box(15000),
@@ -720,7 +745,11 @@ fn bench_build_total(bencher: divan::Bencher) {
 fn bench_build_pag_cash(bencher: divan::Bencher) {
     let payments = vec![PaymentData::new("01", Cents(15000))];
     bencher.bench(|| {
-        build_pag(divan::black_box(&payments), divan::black_box(None), divan::black_box(None))
+        build_pag(
+            divan::black_box(&payments),
+            divan::black_box(None),
+            divan::black_box(None),
+        )
     });
 }
 
@@ -740,7 +769,11 @@ fn bench_build_pag_with_change(bencher: divan::Bencher) {
 fn bench_build_pag_empty(bencher: divan::Bencher) {
     let payments: Vec<PaymentData> = vec![];
     bencher.bench(|| {
-        build_pag(divan::black_box(&payments), divan::black_box(None), divan::black_box(None))
+        build_pag(
+            divan::black_box(&payments),
+            divan::black_box(None),
+            divan::black_box(None),
+        )
     });
 }
 
@@ -749,10 +782,7 @@ fn bench_build_pag_empty(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_build_cobr(bencher: divan::Bencher) {
     let billing = BillingData::new()
-        .invoice(
-            BillingInvoice::new("001", Cents(15000), Cents(14500))
-                .discount_value(Cents(500)),
-        )
+        .invoice(BillingInvoice::new("001", Cents(15000), Cents(14500)).discount_value(Cents(500)))
         .installments(vec![
             Installment::new("001", "2026-04-11", Cents(7250)),
             Installment::new("002", "2026-05-11", Cents(7250)),
@@ -762,8 +792,7 @@ fn bench_build_cobr(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_intermediary(bencher: divan::Bencher) {
-    let intermed = IntermediaryData::new("04123456000190")
-        .id_cad_int_tran("ABC12345");
+    let intermed = IntermediaryData::new("04123456000190").id_cad_int_tran("ABC12345");
     bencher.bench(|| build_intermediary(divan::black_box(&intermed)));
 }
 
@@ -785,8 +814,7 @@ fn bench_build_purchase(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_export(bencher: divan::Bencher) {
-    let exp = ExportData::new("PR", "Porto de Paranagua")
-        .dispatch_location("Terminal de Cargas");
+    let exp = ExportData::new("PR", "Porto de Paranagua").dispatch_location("Terminal de Cargas");
     bencher.bench(|| build_export(divan::black_box(&exp)));
 }
 
@@ -1052,16 +1080,14 @@ fn bench_contingency_activate(bencher: divan::Bencher) {
 fn bench_adjust_nfe_contingency(bencher: divan::Bencher) {
     let xml = make_sample_nfe_xml_for_contingency();
     let mut contingency = Contingency::new();
-    contingency.activate(
-        ContingencyType::SvcAn,
-        "Indisponibilidade do servico de autorizacao SEFAZ PR",
-    ).unwrap();
-    bencher.bench(|| {
-        adjust_nfe_contingency(
-            divan::black_box(&xml),
-            divan::black_box(&contingency),
+    contingency
+        .activate(
+            ContingencyType::SvcAn,
+            "Indisponibilidade do servico de autorizacao SEFAZ PR",
         )
-    });
+        .unwrap();
+    bencher
+        .bench(|| adjust_nfe_contingency(divan::black_box(&xml), divan::black_box(&contingency)));
 }
 
 // ── SEFAZ Services ──────────────────────────────────────────────────────────
@@ -1518,7 +1544,8 @@ fn make_sample_autorizacao_response_xml() -> String {
         "<nProt>141260000012345</nProt>",
         "<dhRecbto>2026-03-11T10:30:00-03:00</dhRecbto>",
         "</infProt></protNFe></retEnviNFe>",
-    ).to_string()
+    )
+    .to_string()
 }
 
 fn make_sample_nfce_signed_xml() -> String {
@@ -1605,7 +1632,8 @@ fn make_sample_nfe_xml_for_contingency() -> String {
         "<transp><modFrete>9</modFrete></transp>",
         "<pag><detPag><tPag>01</tPag><vPag>150.00</vPag></detPag></pag>",
         "</infNFe></NFe>",
-    ).to_string()
+    )
+    .to_string()
 }
 
 fn make_sample_nfe_xml_for_json() -> String {
@@ -1689,31 +1717,40 @@ fn make_sample_unsigned_nfe_xml() -> String {
         "<transp><modFrete>9</modFrete></transp>",
         "<pag><detPag><tPag>01</tPag><vPag>150.00</vPag></detPag></pag>",
         "</infNFe></NFe>",
-    ).to_string()
+    )
+    .to_string()
 }
 
 fn make_test_keypair() -> (String, String) {
-    use openssl::rsa::Rsa;
-    use openssl::pkey::PKey;
-    use openssl::x509::{X509NameBuilder, X509};
     use openssl::bn::BigNum;
     use openssl::hash::MessageDigest;
+    use openssl::pkey::PKey;
+    use openssl::rsa::Rsa;
+    use openssl::x509::{X509, X509NameBuilder};
 
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut name_builder = X509NameBuilder::new().unwrap();
-    name_builder.append_entry_by_text("CN", "Bench Test").unwrap();
+    name_builder
+        .append_entry_by_text("CN", "Bench Test")
+        .unwrap();
     let name = name_builder.build();
 
     let mut builder = X509::builder().unwrap();
     builder.set_version(2).unwrap();
     let serial = BigNum::from_u32(1).unwrap();
-    builder.set_serial_number(&serial.to_asn1_integer().unwrap()).unwrap();
+    builder
+        .set_serial_number(&serial.to_asn1_integer().unwrap())
+        .unwrap();
     builder.set_subject_name(&name).unwrap();
     builder.set_issuer_name(&name).unwrap();
-    builder.set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap()).unwrap();
-    builder.set_not_after(&openssl::asn1::Asn1Time::days_from_now(365).unwrap()).unwrap();
+    builder
+        .set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap())
+        .unwrap();
+    builder
+        .set_not_after(&openssl::asn1::Asn1Time::days_from_now(365).unwrap())
+        .unwrap();
     builder.set_pubkey(&pkey).unwrap();
     builder.sign(&pkey, MessageDigest::sha256()).unwrap();
     let cert = builder.build();

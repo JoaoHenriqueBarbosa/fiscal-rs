@@ -1,9 +1,9 @@
+use fiscal::newtypes::{Cents, Rate};
 use fiscal::tax_icms::{
-    build_icms_xml, build_icms_uf_dest_xml, create_icms_totals, merge_icms_totals,
-    IcmsCst, IcmsCsosn, IcmsVariant, IcmsTotals, IcmsUfDestData,
+    IcmsCsosn, IcmsCst, IcmsTotals, IcmsUfDestData, IcmsVariant, build_icms_uf_dest_xml,
+    build_icms_xml, create_icms_totals, merge_icms_totals,
 };
 use rstest::rstest;
-use fiscal::newtypes::{Cents, Rate};
 
 // ── buildIcmsXml — Regime Normal (CST) ──────────────────────────────────────
 
@@ -165,8 +165,14 @@ mod regime_normal_cst {
         };
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&variant, &mut totals).unwrap();
-        assert!(xml.contains(expected_tag), "CST {cst} should produce {expected_tag}");
-        assert!(xml.contains(expected_cst), "CST {cst} should contain {expected_cst}");
+        assert!(
+            xml.contains(expected_tag),
+            "CST {cst} should produce {expected_tag}"
+        );
+        assert!(
+            xml.contains(expected_cst),
+            "CST {cst} should contain {expected_cst}"
+        );
         assert_eq!(totals.v_icms, Cents(0), "CST {cst} should have zero ICMS");
     }
 
@@ -331,7 +337,10 @@ mod simples_nacional_csosn {
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains(&format!("<CSOSN>{csosn}</CSOSN>")));
-        assert!(!xml.contains("<pCredSN>"), "CSOSN {csosn} should not have credit");
+        assert!(
+            !xml.contains("<pCredSN>"),
+            "CSOSN {csosn} should not have credit"
+        );
     }
 
     #[test]
@@ -448,7 +457,8 @@ mod icms_uf_dest {
                 .p_fcp_uf_dest(Rate(200))
                 .v_fcp_uf_dest(Cents(200))
                 .v_icms_uf_remet(Cents(1200)),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(xml.contains("<ICMSUFDest>"));
         assert!(xml.contains("<vBCUFDest>100.00</vBCUFDest>"));
     }

@@ -1,7 +1,7 @@
 //! Build the `<emit>` (issuer/emitter) group of the NF-e XML.
 
 use crate::types::InvoiceBuildData;
-use crate::xml_utils::{tag, TagContent};
+use crate::xml_utils::{TagContent, tag};
 
 /// Build the `<emit>` element with issuer data and address.
 pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
@@ -16,17 +16,27 @@ pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
         children.push(tag("xFant", &[], TagContent::Text(trade_name)));
     }
 
-    children.push(tag("enderEmit", &[], TagContent::Children(
-        build_address_fields(
-            &iss.street, &iss.street_number, iss.address_complement.as_deref(),
-            &iss.district, &iss.city_code.0, &iss.city_name,
-            &iss.state_code, Some(&iss.zip_code), true,
-        ),
-    )));
+    children.push(tag(
+        "enderEmit",
+        &[],
+        TagContent::Children(build_address_fields(
+            &iss.street,
+            &iss.street_number,
+            iss.address_complement.as_deref(),
+            &iss.district,
+            &iss.city_code.0,
+            &iss.city_name,
+            &iss.state_code,
+            Some(&iss.zip_code),
+            true,
+        )),
+    ));
     children.push(tag("IE", &[], TagContent::Text(&iss.state_tax_id)));
-    children.push(tag("CRT", &[], TagContent::Text(
-        &(iss.tax_regime as u8).to_string(),
-    )));
+    children.push(tag(
+        "CRT",
+        &[],
+        TagContent::Text(&(iss.tax_regime as u8).to_string()),
+    ));
 
     tag("emit", &[], TagContent::Children(children))
 }

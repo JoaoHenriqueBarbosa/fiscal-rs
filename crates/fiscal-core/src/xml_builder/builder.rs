@@ -18,9 +18,9 @@ use std::marker::PhantomData;
 
 use chrono::{DateTime, FixedOffset};
 
+use crate::FiscalError;
 use crate::newtypes::Cents;
 use crate::types::*;
-use crate::FiscalError;
 
 // ── Typestate markers ────────────────────────────────────────────────────────
 
@@ -96,14 +96,9 @@ impl InvoiceBuilder<Draft> {
     ///
     /// The three arguments are required; everything else has sensible defaults
     /// or is optional.
-    pub fn new(
-        issuer: IssuerData,
-        environment: SefazEnvironment,
-        model: InvoiceModel,
-    ) -> Self {
-        let now = chrono::Utc::now().with_timezone(
-            &FixedOffset::west_opt(3 * 3600).expect("valid offset"),
-        );
+    pub fn new(issuer: IssuerData, environment: SefazEnvironment, model: InvoiceModel) -> Self {
+        let now = chrono::Utc::now()
+            .with_timezone(&FixedOffset::west_opt(3 * 3600).expect("valid offset"));
 
         Self {
             issuer,

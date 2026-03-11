@@ -3,8 +3,8 @@
 //! A CPF has at most 11 digits; a CNPJ has 14. This module encapsulates
 //! the detection logic and zero-padding rules used throughout the XML builder.
 
-use crate::xml_utils::tag;
 use crate::xml_utils::TagContent;
+use crate::xml_utils::tag;
 
 /// Determines whether a tax identifier is CPF or CNPJ based on length,
 /// and provides XML tag generation helpers.
@@ -37,7 +37,11 @@ impl<'a> TaxId<'a> {
 
     /// Build the XML tag: `<CPF>00012345678</CPF>` or `<CNPJ>…</CNPJ>`.
     pub fn to_xml_tag(&self) -> String {
-        tag(self.tag_name(), &[], TagContent::Text(&self.padded_static()))
+        tag(
+            self.tag_name(),
+            &[],
+            TagContent::Text(&self.padded_static()),
+        )
     }
 
     // Internal: return padded as owned String (for borrowing into tag)

@@ -1,10 +1,10 @@
 use sha1::{Digest, Sha1};
 
+use crate::FiscalError;
 use crate::types::{
     EmissionType, NfceQrCodeParams, PutQRTagParams, QrCodeVersion, SefazEnvironment,
 };
 use crate::xml_utils::extract_xml_tag_value;
-use crate::FiscalError;
 
 // ── QR Code URL builder ─────────────────────────────────────────────────────
 
@@ -191,24 +191,27 @@ fn build_v200(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalErro
     }
 
     // Offline mode -- full format
-    let issued_at = params
-        .issued_at
-        .as_deref()
-        .ok_or_else(|| FiscalError::MissingRequiredField {
-            field: "issued_at".into(),
-        })?;
-    let total_value = params
-        .total_value
-        .as_deref()
-        .ok_or_else(|| FiscalError::MissingRequiredField {
-            field: "total_value".into(),
-        })?;
-    let digest_value = params
-        .digest_value
-        .as_deref()
-        .ok_or_else(|| FiscalError::MissingRequiredField {
-            field: "digest_value".into(),
-        })?;
+    let issued_at =
+        params
+            .issued_at
+            .as_deref()
+            .ok_or_else(|| FiscalError::MissingRequiredField {
+                field: "issued_at".into(),
+            })?;
+    let total_value =
+        params
+            .total_value
+            .as_deref()
+            .ok_or_else(|| FiscalError::MissingRequiredField {
+                field: "total_value".into(),
+            })?;
+    let digest_value =
+        params
+            .digest_value
+            .as_deref()
+            .ok_or_else(|| FiscalError::MissingRequiredField {
+                field: "digest_value".into(),
+            })?;
 
     let day = extract_day(issued_at);
     let valor = format_value(total_value);

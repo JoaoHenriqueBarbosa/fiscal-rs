@@ -338,17 +338,16 @@ mod complements_ported_from_php {
         //
         // The PHP test expected: $this->expectException(DocumentsException::class);
         // The TS behavior: succeeds and returns the nfeProc XML.
-        let nfe_protocoled =
-            attach_protocol(NFE_REQUEST, RET_ENVI_NFE_INVALID_DIGEST)
-                .expect("should succeed (TS behavior: best-effort, no strict digest check)");
+        let nfe_protocoled = attach_protocol(NFE_REQUEST, RET_ENVI_NFE_INVALID_DIGEST)
+            .expect("should succeed (TS behavior: best-effort, no strict digest check)");
         // The function succeeds -- it falls back to extracting the single protNFe
         assert!(nfe_protocoled.contains("143220000009921"));
     }
 
     #[test]
     fn test_to_authorize_inut_cpf() {
-        let output = attach_inutilizacao(REQUEST_INUT_CPF, RESPONSE_INUT_CPF)
-            .expect("should succeed");
+        let output =
+            attach_inutilizacao(REQUEST_INUT_CPF, RESPONSE_INUT_CPF).expect("should succeed");
         assert!(output.contains("ProcInutNFe"));
         // Mirrors PHP: assertEquals('151250011427132', $numeroProtocolo)
         assert!(output.contains("<nProt>151250011427132</nProt>"));
@@ -356,8 +355,8 @@ mod complements_ported_from_php {
 
     #[test]
     fn test_to_authorize_inut_cnpj() {
-        let output = attach_inutilizacao(REQUEST_INUT_CNPJ, RESPONSE_INUT_CNPJ)
-            .expect("should succeed");
+        let output =
+            attach_inutilizacao(REQUEST_INUT_CNPJ, RESPONSE_INUT_CNPJ).expect("should succeed");
         assert!(output.contains("ProcInutNFe"));
         // Mirrors PHP: assertEquals('152250025831513', $numeroProtocolo)
         assert!(output.contains("<nProt>152250025831513</nProt>"));

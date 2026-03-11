@@ -1,10 +1,10 @@
 use fiscal::format_utils::*;
+use fiscal::newtypes::Cents;
 use fiscal::state_codes::*;
 use fiscal::tax_element::*;
 use fiscal::tax_icms::*;
 use fiscal::xml_utils::*;
 use proptest::prelude::*;
-use fiscal::newtypes::{Cents};
 
 // ---------------------------------------------------------------------------
 // Strategies
@@ -355,9 +355,8 @@ proptest! {
 // ---------------------------------------------------------------------------
 
 const ALL_UFS: [&str; 27] = [
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
-    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
-    "SP", "SE", "TO",
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR",
+    "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
 #[test]
@@ -375,9 +374,15 @@ fn state_ibge_codes_has_all_27_ufs() {
 #[test]
 fn get_state_code_and_get_state_by_code_are_inverses() {
     for uf in &ALL_UFS {
-        let code = get_state_code(uf).unwrap_or_else(|_| panic!("get_state_code failed for {}", uf));
-        let back = get_state_by_code(code).unwrap_or_else(|_| panic!("get_state_by_code failed for {}", code));
-        assert_eq!(*uf, back, "round-trip failed: {} -> {} -> {}", uf, code, back);
+        let code =
+            get_state_code(uf).unwrap_or_else(|_| panic!("get_state_code failed for {}", uf));
+        let back = get_state_by_code(code)
+            .unwrap_or_else(|_| panic!("get_state_by_code failed for {}", code));
+        assert_eq!(
+            *uf, back,
+            "round-trip failed: {} -> {} -> {}",
+            uf, code, back
+        );
     }
 }
 

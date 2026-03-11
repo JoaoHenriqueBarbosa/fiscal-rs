@@ -20,13 +20,16 @@ use fiscal_core::types::{CertificateData, CertificateInfo};
 /// - The buffer is not a valid PKCS#12 file
 /// - The passphrase is incorrect
 /// - The PFX does not contain a private key or certificate
-pub fn load_certificate(pfx_buffer: &[u8], passphrase: &str) -> Result<CertificateData, FiscalError> {
+pub fn load_certificate(
+    pfx_buffer: &[u8],
+    passphrase: &str,
+) -> Result<CertificateData, FiscalError> {
     let pkcs12 = Pkcs12::from_der(pfx_buffer)
         .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
 
-    let parsed = pkcs12
-        .parse2(passphrase)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to parse PFX (wrong password?): {e}")))?;
+    let parsed = pkcs12.parse2(passphrase).map_err(|e| {
+        FiscalError::Certificate(format!("Failed to parse PFX (wrong password?): {e}"))
+    })?;
 
     let pkey = parsed
         .pkey
@@ -67,7 +70,10 @@ pub fn load_certificate(pfx_buffer: &[u8], passphrase: &str) -> Result<Certifica
 /// - The buffer is not a valid PKCS#12 file
 /// - The passphrase is incorrect
 /// - The certificate fields cannot be parsed
-pub fn get_certificate_info(pfx_buffer: &[u8], passphrase: &str) -> Result<CertificateInfo, FiscalError> {
+pub fn get_certificate_info(
+    pfx_buffer: &[u8],
+    passphrase: &str,
+) -> Result<CertificateInfo, FiscalError> {
     let pkcs12 = Pkcs12::from_der(pfx_buffer)
         .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
 
@@ -129,7 +135,11 @@ pub fn sign_xml(xml: &str, private_key: &str, certificate: &str) -> Result<Strin
 /// - The XML does not contain an `<infEvento>` element with an `Id` attribute
 /// - The private key or certificate PEM cannot be parsed
 /// - The RSA-SHA1 signing operation fails
-pub fn sign_event_xml(xml: &str, private_key: &str, certificate: &str) -> Result<String, FiscalError> {
+pub fn sign_event_xml(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+) -> Result<String, FiscalError> {
     sign_xml_generic(xml, private_key, certificate, "infEvento", "evento")
 }
 
@@ -150,8 +160,9 @@ fn sign_xml_generic(
     let id = extract_element_id(xml, signed_tag)?;
 
     // 2. Extract the signed element content (including the element itself)
-    let signed_element = extract_element(xml, signed_tag)
-        .ok_or_else(|| FiscalError::Certificate(format!("<{signed_tag}> element not found in XML")))?;
+    let signed_element = extract_element(xml, signed_tag).ok_or_else(|| {
+        FiscalError::Certificate(format!("<{signed_tag}> element not found in XML"))
+    })?;
 
     // 3. Apply enveloped-signature transform: remove any existing <Signature> from the content
     let without_sig = remove_signature_element(&signed_element);
@@ -219,9 +230,9 @@ fn extract_element_id(xml: &str, tag_name: &str) -> Result<String, FiscalError> 
 
     let rest = &xml[tag_start..];
     // Find the closing > of this opening tag
-    let tag_end = rest.find('>').ok_or_else(|| {
-        FiscalError::Certificate(format!("<{tag_name}> tag is malformed"))
-    })?;
+    let tag_end = rest
+        .find('>')
+        .ok_or_else(|| FiscalError::Certificate(format!("<{tag_name}> tag is malformed")))?;
 
     let tag_content = &rest[..tag_end];
 
@@ -300,9 +311,13 @@ fn build_signed_info(reference_id: &str, digest_value: &str) -> String {
     s.push_str("\">");
     s.push_str("<Transforms>");
     s.push_str("<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform>");
-    s.push_str("<Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></Transform>");
+    s.push_str(
+        "<Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></Transform>",
+    );
     s.push_str("</Transforms>");
-    s.push_str("<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod>");
+    s.push_str(
+        "<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod>",
+    );
     s.push_str("<DigestValue>");
     s.push_str(digest_value);
     s.push_str("</DigestValue>");
@@ -312,11 +327,7 @@ fn build_signed_info(reference_id: &str, digest_value: &str) -> String {
 }
 
 /// Build the full `<Signature>` element including SignedInfo, SignatureValue, and KeyInfo.
-fn build_signature_element(
-    signed_info: &str,
-    signature_value: &str,
-    cert_base64: &str,
-) -> String {
+fn build_signature_element(signed_info: &str, signature_value: &str, cert_base64: &str) -> String {
     let mut s = String::with_capacity(2048);
     s.push_str("<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">");
     s.push_str(signed_info);
@@ -357,7 +368,8 @@ fn asn1_time_to_naive_date(
 ) -> Result<chrono::NaiveDate, FiscalError> {
     let epoch = openssl::asn1::Asn1Time::from_unix(0)
         .map_err(|e| FiscalError::Certificate(format!("ASN1 epoch creation failed: {e}")))?;
-    let diff = epoch.diff(time)
+    let diff = epoch
+        .diff(time)
         .map_err(|e| FiscalError::Certificate(format!("ASN1 time diff failed: {e}")))?;
 
     let days = diff.days as i64;

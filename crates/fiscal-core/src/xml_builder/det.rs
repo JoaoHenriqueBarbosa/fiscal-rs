@@ -1,12 +1,12 @@
 //! Build `<det>` (item detail) elements of the NF-e XML.
 
+use crate::FiscalError;
 use crate::format_utils::{format_cents, format_decimal};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_icms::{self, IcmsCsosn, IcmsCst, IcmsTotals, IcmsVariant};
 use crate::tax_pis_cofins_ipi::{self, CofinsData, IiData, IpiData, PisData};
 use crate::types::{InvoiceBuildData, InvoiceItemData, TaxRegime};
-use crate::xml_utils::{tag, TagContent};
-use crate::FiscalError;
+use crate::xml_utils::{TagContent, tag};
 
 /// Result from building a single `<det>` element.
 #[derive(Debug, Clone)]
@@ -55,19 +55,18 @@ fn build_icms_variant(
             "201" => IcmsCsosn::Csosn201 {
                 orig,
                 csosn: csosn_code.to_string(),
-                mod_bc_st: item
-                    .icms_mod_bc_st
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| FiscalError::MissingRequiredField {
-                        field: "modBCST".to_string(),
-                    })?,
-                p_mva_st: item.icms_p_mva_st,
-                p_red_bc_st: item.icms_red_bc_st,
-                v_bc_st: item.icms_v_bc_st.ok_or_else(|| {
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
                     FiscalError::MissingRequiredField {
-                        field: "vBCST".to_string(),
+                        field: "modBCST".to_string(),
                     }
                 })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
                 p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
                     FiscalError::MissingRequiredField {
                         field: "pICMSST".to_string(),
@@ -87,19 +86,18 @@ fn build_icms_variant(
             "202" | "203" => IcmsCsosn::Csosn202 {
                 orig,
                 csosn: csosn_code.to_string(),
-                mod_bc_st: item
-                    .icms_mod_bc_st
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| FiscalError::MissingRequiredField {
-                        field: "modBCST".to_string(),
-                    })?,
-                p_mva_st: item.icms_p_mva_st,
-                p_red_bc_st: item.icms_red_bc_st,
-                v_bc_st: item.icms_v_bc_st.ok_or_else(|| {
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
                     FiscalError::MissingRequiredField {
-                        field: "vBCST".to_string(),
+                        field: "modBCST".to_string(),
                     }
                 })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
                 p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
                     FiscalError::MissingRequiredField {
                         field: "pICMSST".to_string(),
@@ -179,19 +177,18 @@ fn build_icms_variant(
                 v_bc_fcp: item.icms_v_bc_fcp,
                 p_fcp: item.icms_p_fcp,
                 v_fcp: item.icms_v_fcp,
-                mod_bc_st: item
-                    .icms_mod_bc_st
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| FiscalError::MissingRequiredField {
-                        field: "modBCST".to_string(),
-                    })?,
-                p_mva_st: item.icms_p_mva_st,
-                p_red_bc_st: item.icms_red_bc_st,
-                v_bc_st: item.icms_v_bc_st.ok_or_else(|| {
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
                     FiscalError::MissingRequiredField {
-                        field: "vBCST".to_string(),
+                        field: "modBCST".to_string(),
                     }
                 })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
                 p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
                     FiscalError::MissingRequiredField {
                         field: "pICMSST".to_string(),
@@ -227,19 +224,18 @@ fn build_icms_variant(
             },
             "30" => IcmsCst::Cst30 {
                 orig,
-                mod_bc_st: item
-                    .icms_mod_bc_st
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| FiscalError::MissingRequiredField {
-                        field: "modBCST".to_string(),
-                    })?,
-                p_mva_st: item.icms_p_mva_st,
-                p_red_bc_st: item.icms_red_bc_st,
-                v_bc_st: item.icms_v_bc_st.ok_or_else(|| {
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
                     FiscalError::MissingRequiredField {
-                        field: "vBCST".to_string(),
+                        field: "modBCST".to_string(),
                     }
                 })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
                 p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
                     FiscalError::MissingRequiredField {
                         field: "pICMSST".to_string(),
@@ -320,19 +316,18 @@ fn build_icms_variant(
                 v_bc_fcp: item.icms_v_bc_fcp,
                 p_fcp: item.icms_p_fcp,
                 v_fcp: item.icms_v_fcp,
-                mod_bc_st: item
-                    .icms_mod_bc_st
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| FiscalError::MissingRequiredField {
-                        field: "modBCST".to_string(),
-                    })?,
-                p_mva_st: item.icms_p_mva_st,
-                p_red_bc_st: item.icms_red_bc_st,
-                v_bc_st: item.icms_v_bc_st.ok_or_else(|| {
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
                     FiscalError::MissingRequiredField {
-                        field: "vBCST".to_string(),
+                        field: "modBCST".to_string(),
                     }
                 })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
                 p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
                     FiscalError::MissingRequiredField {
                         field: "pICMSST".to_string(),
@@ -463,10 +458,14 @@ pub(crate) fn build_det(
 
     // Assemble imposto
     let mut imposto_children: Vec<String> = vec![icms_xml];
-    if !ipi_xml.is_empty() { imposto_children.push(ipi_xml); }
+    if !ipi_xml.is_empty() {
+        imposto_children.push(ipi_xml);
+    }
     imposto_children.push(pis_xml);
     imposto_children.push(cofins_xml);
-    if !ii_xml.is_empty() { imposto_children.push(ii_xml); }
+    if !ii_xml.is_empty() {
+        imposto_children.push(ii_xml);
+    }
 
     // Assemble prod
     let fc2 = |c: i64| format_cents(c, 2);
@@ -475,7 +474,11 @@ pub(crate) fn build_det(
 
     let mut prod_children = vec![
         tag("cProd", &[], TagContent::Text(&item.product_code)),
-        tag("cEAN", &[], TagContent::Text(item.c_ean.as_deref().unwrap_or("SEM GTIN"))),
+        tag(
+            "cEAN",
+            &[],
+            TagContent::Text(item.c_ean.as_deref().unwrap_or("SEM GTIN")),
+        ),
         tag("xProd", &[], TagContent::Text(&item.description)),
         tag("NCM", &[], TagContent::Text(&item.ncm)),
     ];
@@ -488,15 +491,27 @@ pub(crate) fn build_det(
         tag("qCom", &[], TagContent::Text(&fd4(item.quantity))),
         tag("vUnCom", &[], TagContent::Text(&fc10(item.unit_price.0))),
         tag("vProd", &[], TagContent::Text(&fc2(item.total_price.0))),
-        tag("cEANTrib", &[], TagContent::Text(item.c_ean_trib.as_deref().unwrap_or("SEM GTIN"))),
+        tag(
+            "cEANTrib",
+            &[],
+            TagContent::Text(item.c_ean_trib.as_deref().unwrap_or("SEM GTIN")),
+        ),
         tag("uTrib", &[], TagContent::Text(&item.unit_of_measure)),
         tag("qTrib", &[], TagContent::Text(&fd4(item.quantity))),
         tag("vUnTrib", &[], TagContent::Text(&fc10(item.unit_price.0))),
     ]);
-    if let Some(v) = item.v_frete { prod_children.push(tag("vFrete", &[], TagContent::Text(&fc2(v.0)))); }
-    if let Some(v) = item.v_seg { prod_children.push(tag("vSeg", &[], TagContent::Text(&fc2(v.0)))); }
-    if let Some(v) = item.v_desc { prod_children.push(tag("vDesc", &[], TagContent::Text(&fc2(v.0)))); }
-    if let Some(v) = item.v_outro { prod_children.push(tag("vOutro", &[], TagContent::Text(&fc2(v.0)))); }
+    if let Some(v) = item.v_frete {
+        prod_children.push(tag("vFrete", &[], TagContent::Text(&fc2(v.0))));
+    }
+    if let Some(v) = item.v_seg {
+        prod_children.push(tag("vSeg", &[], TagContent::Text(&fc2(v.0))));
+    }
+    if let Some(v) = item.v_desc {
+        prod_children.push(tag("vDesc", &[], TagContent::Text(&fc2(v.0))));
+    }
+    if let Some(v) = item.v_outro {
+        prod_children.push(tag("vOutro", &[], TagContent::Text(&fc2(v.0))));
+    }
     prod_children.push(tag("indTot", &[], TagContent::Text("1")));
     prod_children.extend(prod_options);
 
@@ -508,7 +523,11 @@ pub(crate) fn build_det(
     ];
     det_children.extend(det_extras);
 
-    let xml = tag("det", &[("nItem", &nitem)], TagContent::Children(det_children));
+    let xml = tag(
+        "det",
+        &[("nItem", &nitem)],
+        TagContent::Children(det_children),
+    );
 
     Ok(DetResult {
         xml,
@@ -541,32 +560,36 @@ fn build_prod_options(item: &InvoiceItemData) -> Vec<String> {
 
     // CHOICE group: veicProd, med, arma, nRECOPI (mutually exclusive)
     if let Some(ref v) = item.veic_prod {
-        opts.push(tag("veicProd", &[], TagContent::Children(vec![
-            tag("tpOp", &[], TagContent::Text(&v.tp_op)),
-            tag("chassi", &[], TagContent::Text(&v.chassi)),
-            tag("cCor", &[], TagContent::Text(&v.c_cor)),
-            tag("xCor", &[], TagContent::Text(&v.x_cor)),
-            tag("pot", &[], TagContent::Text(&v.pot)),
-            tag("cilin", &[], TagContent::Text(&v.cilin)),
-            tag("pesoL", &[], TagContent::Text(&v.peso_l)),
-            tag("pesoB", &[], TagContent::Text(&v.peso_b)),
-            tag("nSerie", &[], TagContent::Text(&v.n_serie)),
-            tag("tpComb", &[], TagContent::Text(&v.tp_comb)),
-            tag("nMotor", &[], TagContent::Text(&v.n_motor)),
-            tag("CMT", &[], TagContent::Text(&v.cmt)),
-            tag("dist", &[], TagContent::Text(&v.dist)),
-            tag("anoMod", &[], TagContent::Text(&v.ano_mod)),
-            tag("anoFab", &[], TagContent::Text(&v.ano_fab)),
-            tag("tpPint", &[], TagContent::Text(&v.tp_pint)),
-            tag("tpVeic", &[], TagContent::Text(&v.tp_veic)),
-            tag("espVeic", &[], TagContent::Text(&v.esp_veic)),
-            tag("VIN", &[], TagContent::Text(&v.vin)),
-            tag("condVeic", &[], TagContent::Text(&v.cond_veic)),
-            tag("cMod", &[], TagContent::Text(&v.c_mod)),
-            tag("cCorDENATRAN", &[], TagContent::Text(&v.c_cor_denatran)),
-            tag("lota", &[], TagContent::Text(&v.lota)),
-            tag("tpRest", &[], TagContent::Text(&v.tp_rest)),
-        ])));
+        opts.push(tag(
+            "veicProd",
+            &[],
+            TagContent::Children(vec![
+                tag("tpOp", &[], TagContent::Text(&v.tp_op)),
+                tag("chassi", &[], TagContent::Text(&v.chassi)),
+                tag("cCor", &[], TagContent::Text(&v.c_cor)),
+                tag("xCor", &[], TagContent::Text(&v.x_cor)),
+                tag("pot", &[], TagContent::Text(&v.pot)),
+                tag("cilin", &[], TagContent::Text(&v.cilin)),
+                tag("pesoL", &[], TagContent::Text(&v.peso_l)),
+                tag("pesoB", &[], TagContent::Text(&v.peso_b)),
+                tag("nSerie", &[], TagContent::Text(&v.n_serie)),
+                tag("tpComb", &[], TagContent::Text(&v.tp_comb)),
+                tag("nMotor", &[], TagContent::Text(&v.n_motor)),
+                tag("CMT", &[], TagContent::Text(&v.cmt)),
+                tag("dist", &[], TagContent::Text(&v.dist)),
+                tag("anoMod", &[], TagContent::Text(&v.ano_mod)),
+                tag("anoFab", &[], TagContent::Text(&v.ano_fab)),
+                tag("tpPint", &[], TagContent::Text(&v.tp_pint)),
+                tag("tpVeic", &[], TagContent::Text(&v.tp_veic)),
+                tag("espVeic", &[], TagContent::Text(&v.esp_veic)),
+                tag("VIN", &[], TagContent::Text(&v.vin)),
+                tag("condVeic", &[], TagContent::Text(&v.cond_veic)),
+                tag("cMod", &[], TagContent::Text(&v.c_mod)),
+                tag("cCorDENATRAN", &[], TagContent::Text(&v.c_cor_denatran)),
+                tag("lota", &[], TagContent::Text(&v.lota)),
+                tag("tpRest", &[], TagContent::Text(&v.tp_rest)),
+            ]),
+        ));
     } else if let Some(ref m) = item.med {
         let mut med_children = Vec::new();
         if let Some(ref code) = m.c_prod_anvisa {
@@ -575,16 +598,24 @@ fn build_prod_options(item: &InvoiceItemData) -> Vec<String> {
         if let Some(ref reason) = m.x_motivo_isencao {
             med_children.push(tag("xMotivoIsencao", &[], TagContent::Text(reason)));
         }
-        med_children.push(tag("vPMC", &[], TagContent::Text(&format_cents(m.v_pmc.0, 2))));
+        med_children.push(tag(
+            "vPMC",
+            &[],
+            TagContent::Text(&format_cents(m.v_pmc.0, 2)),
+        ));
         opts.push(tag("med", &[], TagContent::Children(med_children)));
     } else if let Some(ref arms) = item.arma {
         for a in arms.iter().take(500) {
-            opts.push(tag("arma", &[], TagContent::Children(vec![
-                tag("tpArma", &[], TagContent::Text(&a.tp_arma)),
-                tag("nSerie", &[], TagContent::Text(&a.n_serie)),
-                tag("nCano", &[], TagContent::Text(&a.n_cano)),
-                tag("descr", &[], TagContent::Text(&a.descr)),
-            ])));
+            opts.push(tag(
+                "arma",
+                &[],
+                TagContent::Children(vec![
+                    tag("tpArma", &[], TagContent::Text(&a.tp_arma)),
+                    tag("nSerie", &[], TagContent::Text(&a.n_serie)),
+                    tag("nCano", &[], TagContent::Text(&a.n_cano)),
+                    tag("descr", &[], TagContent::Text(&a.descr)),
+                ]),
+            ));
         }
     } else if let Some(ref recopi) = item.n_recopi {
         if !recopi.is_empty() {
@@ -606,31 +637,31 @@ fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
         let mut obs_children = Vec::new();
         if let Some(ref cont) = obs.obs_cont {
             obs_children.push(tag(
-                "obsCont", &[("xCampo", &cont.x_campo)],
-                TagContent::Children(vec![
-                    tag("xTexto", &[], TagContent::Text(&cont.x_texto)),
-                ]),
+                "obsCont",
+                &[("xCampo", &cont.x_campo)],
+                TagContent::Children(vec![tag("xTexto", &[], TagContent::Text(&cont.x_texto))]),
             ));
         }
         if let Some(ref fisco) = obs.obs_fisco {
             obs_children.push(tag(
-                "obsFisco", &[("xCampo", &fisco.x_campo)],
-                TagContent::Children(vec![
-                    tag("xTexto", &[], TagContent::Text(&fisco.x_texto)),
-                ]),
+                "obsFisco",
+                &[("xCampo", &fisco.x_campo)],
+                TagContent::Children(vec![tag("xTexto", &[], TagContent::Text(&fisco.x_texto))]),
             ));
         }
         extras.push(tag("obsItem", &[], TagContent::Children(obs_children)));
     }
 
     if let Some(ref dfe) = item.dfe_referenciado {
-        let mut dfe_children = vec![
-            tag("chaveAcesso", &[], TagContent::Text(&dfe.chave_acesso)),
-        ];
+        let mut dfe_children = vec![tag("chaveAcesso", &[], TagContent::Text(&dfe.chave_acesso))];
         if let Some(ref n) = dfe.n_item {
             dfe_children.push(tag("nItem", &[], TagContent::Text(n)));
         }
-        extras.push(tag("DFeReferenciado", &[], TagContent::Children(dfe_children)));
+        extras.push(tag(
+            "DFeReferenciado",
+            &[],
+            TagContent::Children(dfe_children),
+        ));
     }
 
     extras

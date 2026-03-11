@@ -1,7 +1,7 @@
-use crate::constants::NFE_NAMESPACE;
-use crate::status_codes::{sefaz_status, VALID_EVENT_STATUSES, VALID_PROTOCOL_STATUSES};
-use crate::xml_utils::extract_xml_tag_value;
 use crate::FiscalError;
+use crate::constants::NFE_NAMESPACE;
+use crate::status_codes::{VALID_EVENT_STATUSES, VALID_PROTOCOL_STATUSES, sefaz_status};
+use crate::xml_utils::extract_xml_tag_value;
 
 /// NF-e version used in wrapper elements when no version is found.
 const DEFAULT_VERSION: &str = "4.00";
@@ -30,9 +30,7 @@ const DEFAULT_VERSION: &str = "4.00";
 /// is not in [`VALID_PROTOCOL_STATUSES`].
 pub fn attach_protocol(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
     if request_xml.is_empty() {
-        return Err(FiscalError::XmlParsing(
-            "Request XML (NFe) is empty".into(),
-        ));
+        return Err(FiscalError::XmlParsing("Request XML (NFe) is empty".into()));
     }
     if response_xml.is_empty() {
         return Err(FiscalError::XmlParsing(
@@ -60,11 +58,9 @@ pub fn attach_protocol(request_xml: &str, response_xml: &str) -> Result<String, 
             if let (Some(ak), Some(cn)) = (&access_key, &ch_nfe) {
                 if dn == dv && ak == cn {
                     // Exact match — validate status
-                    let c_stat =
-                        extract_xml_tag_value(prot, "cStat").unwrap_or_default();
+                    let c_stat = extract_xml_tag_value(prot, "cStat").unwrap_or_default();
                     if !VALID_PROTOCOL_STATUSES.contains(&c_stat.as_str()) {
-                        let x_motivo =
-                            extract_xml_tag_value(prot, "xMotivo").unwrap_or_default();
+                        let x_motivo = extract_xml_tag_value(prot, "xMotivo").unwrap_or_default();
                         return Err(FiscalError::SefazRejection {
                             code: c_stat,
                             message: x_motivo,
@@ -121,10 +117,7 @@ pub fn attach_protocol(request_xml: &str, response_xml: &str) -> Result<String, 
 /// - The `<retInutNFe>` tag is missing from `response_xml`
 ///
 /// Returns [`FiscalError::SefazRejection`] if the response status is not `102`.
-pub fn attach_inutilizacao(
-    request_xml: &str,
-    response_xml: &str,
-) -> Result<String, FiscalError> {
+pub fn attach_inutilizacao(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
     if request_xml.is_empty() {
         return Err(FiscalError::XmlParsing(
             "Inutilizacao request XML is empty".into(),
@@ -182,14 +175,9 @@ pub fn attach_inutilizacao(
 ///
 /// Returns [`FiscalError::SefazRejection`] if the event status code
 /// is not in [`VALID_EVENT_STATUSES`].
-pub fn attach_event_protocol(
-    request_xml: &str,
-    response_xml: &str,
-) -> Result<String, FiscalError> {
+pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
     if request_xml.is_empty() {
-        return Err(FiscalError::XmlParsing(
-            "Event request XML is empty".into(),
-        ));
+        return Err(FiscalError::XmlParsing("Event request XML is empty".into()));
     }
     if response_xml.is_empty() {
         return Err(FiscalError::XmlParsing(
@@ -262,9 +250,8 @@ pub fn attach_b2b(
         )));
     }
 
-    let nfe_proc_content = extract_tag(nfe_proc_xml, "nfeProc").ok_or_else(|| {
-        FiscalError::XmlParsing("Could not extract <nfeProc> from XML".into())
-    })?;
+    let nfe_proc_content = extract_tag(nfe_proc_xml, "nfeProc")
+        .ok_or_else(|| FiscalError::XmlParsing("Could not extract <nfeProc> from XML".into()))?;
 
     let b2b_content = extract_tag(b2b_xml, tag_name).ok_or_else(|| {
         FiscalError::XmlParsing(format!("Could not extract <{tag_name}> from B2B XML"))
@@ -310,7 +297,13 @@ fn extract_tag(xml: &str, tag_name: &str) -> Option<String> {
     let after_open = start + open_pattern.len();
     if after_open < xml.len() {
         let next_char = xml.as_bytes()[after_open];
-        if next_char != b' ' && next_char != b'>' && next_char != b'/' && next_char != b'\n' && next_char != b'\r' && next_char != b'\t' {
+        if next_char != b' '
+            && next_char != b'>'
+            && next_char != b'/'
+            && next_char != b'\n'
+            && next_char != b'\r'
+            && next_char != b'\t'
+        {
             return None;
         }
     }
@@ -339,7 +332,13 @@ fn extract_all_tags(xml: &str, tag_name: &str) -> Vec<String> {
         let after_open = start + open_pattern.len();
         if after_open < xml.len() {
             let next_char = xml.as_bytes()[after_open];
-            if next_char != b' ' && next_char != b'>' && next_char != b'/' && next_char != b'\n' && next_char != b'\r' && next_char != b'\t' {
+            if next_char != b' '
+                && next_char != b'>'
+                && next_char != b'/'
+                && next_char != b'\n'
+                && next_char != b'\r'
+                && next_char != b'\t'
+            {
                 search_from = after_open;
                 continue;
             }
@@ -379,7 +378,12 @@ fn extract_attribute(xml: &str, tag_name: &str, attr_name: &str) -> Option<Strin
 /// Returns the 44-digit key (without the "NFe" prefix).
 fn extract_inf_nfe_id(xml: &str) -> Option<String> {
     let attr_val = extract_attribute(xml, "infNFe", "Id")?;
-    Some(attr_val.strip_prefix("NFe").unwrap_or(&attr_val).to_string())
+    Some(
+        attr_val
+            .strip_prefix("NFe")
+            .unwrap_or(&attr_val)
+            .to_string(),
+    )
 }
 
 #[cfg(test)]

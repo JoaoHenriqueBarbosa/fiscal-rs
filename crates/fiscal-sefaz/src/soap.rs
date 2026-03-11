@@ -3,8 +3,8 @@
 //! This module is internal to the crate — [`crate::client::SefazClient`]
 //! handles envelope wrapping automatically.
 
-use fiscal_core::state_codes::get_state_code;
 use fiscal_core::FiscalError;
+use fiscal_core::state_codes::get_state_code;
 
 use crate::services::ServiceMeta;
 

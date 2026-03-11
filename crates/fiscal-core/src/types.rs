@@ -446,7 +446,9 @@ impl PaymentCardDetail {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ReferenceDoc {
-    Nfe { access_key: String },
+    Nfe {
+        access_key: String,
+    },
     Nf {
         /// IBGE numeric state code (e.g. "41" for PR).
         state_code: IbgeCode,
@@ -465,7 +467,9 @@ pub enum ReferenceDoc {
         series: String,
         number: String,
     },
-    Cte { access_key: String },
+    Cte {
+        access_key: String,
+    },
     Ecf {
         model: String,
         ecf_number: String,
@@ -619,19 +623,40 @@ impl VolumeData {
     }
 
     /// Set the quantity.
-    pub fn quantity(mut self, v: u32) -> Self { self.quantity = Some(v); self }
+    pub fn quantity(mut self, v: u32) -> Self {
+        self.quantity = Some(v);
+        self
+    }
     /// Set the species.
-    pub fn species(mut self, v: impl Into<String>) -> Self { self.species = Some(v.into()); self }
+    pub fn species(mut self, v: impl Into<String>) -> Self {
+        self.species = Some(v.into());
+        self
+    }
     /// Set the brand.
-    pub fn brand(mut self, v: impl Into<String>) -> Self { self.brand = Some(v.into()); self }
+    pub fn brand(mut self, v: impl Into<String>) -> Self {
+        self.brand = Some(v.into());
+        self
+    }
     /// Set the number.
-    pub fn number(mut self, v: impl Into<String>) -> Self { self.number = Some(v.into()); self }
+    pub fn number(mut self, v: impl Into<String>) -> Self {
+        self.number = Some(v.into());
+        self
+    }
     /// Set the net weight.
-    pub fn net_weight(mut self, v: f64) -> Self { self.net_weight = Some(v); self }
+    pub fn net_weight(mut self, v: f64) -> Self {
+        self.net_weight = Some(v);
+        self
+    }
     /// Set the gross weight.
-    pub fn gross_weight(mut self, v: f64) -> Self { self.gross_weight = Some(v); self }
+    pub fn gross_weight(mut self, v: f64) -> Self {
+        self.gross_weight = Some(v);
+        self
+    }
     /// Set the seals.
-    pub fn seals(mut self, v: Vec<String>) -> Self { self.seals = Some(v); self }
+    pub fn seals(mut self, v: Vec<String>) -> Self {
+        self.seals = Some(v);
+        self
+    }
 }
 
 /// Retained ICMS on transport services (retTransp).
@@ -655,7 +680,13 @@ impl RetainedIcmsTransp {
         cfop: impl Into<String>,
         city_code: IbgeCode,
     ) -> Self {
-        Self { v_bc_ret, p_icms_ret, v_icms_ret, cfop: cfop.into(), city_code }
+        Self {
+            v_bc_ret,
+            p_icms_ret,
+            v_icms_ret,
+            cfop: cfop.into(),
+            city_code,
+        }
     }
 }
 
@@ -726,7 +757,11 @@ pub struct Installment {
 impl Installment {
     /// Create a new `Installment`.
     pub fn new(number: impl Into<String>, due_date: impl Into<String>, value: Cents) -> Self {
-        Self { number: number.into(), due_date: due_date.into(), value }
+        Self {
+            number: number.into(),
+            due_date: due_date.into(),
+            value,
+        }
     }
 }
 
@@ -775,11 +810,20 @@ impl LocationData {
     }
 
     /// Set the name.
-    pub fn name(mut self, v: impl Into<String>) -> Self { self.name = Some(v.into()); self }
+    pub fn name(mut self, v: impl Into<String>) -> Self {
+        self.name = Some(v.into());
+        self
+    }
     /// Set the complement.
-    pub fn complement(mut self, v: impl Into<String>) -> Self { self.complement = Some(v.into()); self }
+    pub fn complement(mut self, v: impl Into<String>) -> Self {
+        self.complement = Some(v.into());
+        self
+    }
     /// Set the zip code.
-    pub fn zip_code(mut self, v: impl Into<String>) -> Self { self.zip_code = Some(v.into()); self }
+    pub fn zip_code(mut self, v: impl Into<String>) -> Self {
+        self.zip_code = Some(v.into());
+        self
+    }
 }
 
 /// Additional info (infAdic)
@@ -800,15 +844,30 @@ impl AdditionalInfo {
     }
 
     /// Set the taxpayer note.
-    pub fn taxpayer_note(mut self, v: impl Into<String>) -> Self { self.taxpayer_note = Some(v.into()); self }
+    pub fn taxpayer_note(mut self, v: impl Into<String>) -> Self {
+        self.taxpayer_note = Some(v.into());
+        self
+    }
     /// Set the tax authority note.
-    pub fn tax_authority_note(mut self, v: impl Into<String>) -> Self { self.tax_authority_note = Some(v.into()); self }
+    pub fn tax_authority_note(mut self, v: impl Into<String>) -> Self {
+        self.tax_authority_note = Some(v.into());
+        self
+    }
     /// Set the contributor observations.
-    pub fn contributor_obs(mut self, v: Vec<FieldText>) -> Self { self.contributor_obs = Some(v); self }
+    pub fn contributor_obs(mut self, v: Vec<FieldText>) -> Self {
+        self.contributor_obs = Some(v);
+        self
+    }
     /// Set the fiscal observations.
-    pub fn fiscal_obs(mut self, v: Vec<FieldText>) -> Self { self.fiscal_obs = Some(v); self }
+    pub fn fiscal_obs(mut self, v: Vec<FieldText>) -> Self {
+        self.fiscal_obs = Some(v);
+        self
+    }
     /// Set the process references.
-    pub fn process_refs(mut self, v: Vec<ProcessRef>) -> Self { self.process_refs = Some(v); self }
+    pub fn process_refs(mut self, v: Vec<ProcessRef>) -> Self {
+        self.process_refs = Some(v);
+        self
+    }
 }
 
 /// Generic field/text pair used in contributor and fiscal observations.
@@ -822,7 +881,10 @@ pub struct FieldText {
 impl FieldText {
     /// Create a new `FieldText`.
     pub fn new(field: impl Into<String>, text: impl Into<String>) -> Self {
-        Self { field: field.into(), text: text.into() }
+        Self {
+            field: field.into(),
+            text: text.into(),
+        }
     }
 }
 
@@ -837,7 +899,10 @@ pub struct ProcessRef {
 impl ProcessRef {
     /// Create a new `ProcessRef`.
     pub fn new(number: impl Into<String>, origin: impl Into<String>) -> Self {
-        Self { number: number.into(), origin: origin.into() }
+        Self {
+            number: number.into(),
+            origin: origin.into(),
+        }
     }
 }
 
@@ -852,7 +917,10 @@ pub struct IntermediaryData {
 impl IntermediaryData {
     /// Create a new `IntermediaryData`.
     pub fn new(tax_id: impl Into<String>) -> Self {
-        Self { tax_id: tax_id.into(), id_cad_int_tran: None }
+        Self {
+            tax_id: tax_id.into(),
+            id_cad_int_tran: None,
+        }
     }
 
     /// Set the intermediary transaction registration ID.
@@ -910,11 +978,20 @@ impl PurchaseData {
     }
 
     /// Set the order number.
-    pub fn order_number(mut self, v: impl Into<String>) -> Self { self.order_number = Some(v.into()); self }
+    pub fn order_number(mut self, v: impl Into<String>) -> Self {
+        self.order_number = Some(v.into());
+        self
+    }
     /// Set the contract number.
-    pub fn contract_number(mut self, v: impl Into<String>) -> Self { self.contract_number = Some(v.into()); self }
+    pub fn contract_number(mut self, v: impl Into<String>) -> Self {
+        self.contract_number = Some(v.into());
+        self
+    }
     /// Set the purchase note.
-    pub fn purchase_note(mut self, v: impl Into<String>) -> Self { self.purchase_note = Some(v.into()); self }
+    pub fn purchase_note(mut self, v: impl Into<String>) -> Self {
+        self.purchase_note = Some(v.into());
+        self
+    }
 }
 
 /// Export data (exporta)
@@ -963,19 +1040,40 @@ impl RetTribData {
     }
 
     /// Set the retained PIS value.
-    pub fn v_ret_pis(mut self, v: Cents) -> Self { self.v_ret_pis = Some(v); self }
+    pub fn v_ret_pis(mut self, v: Cents) -> Self {
+        self.v_ret_pis = Some(v);
+        self
+    }
     /// Set the retained COFINS value.
-    pub fn v_ret_cofins(mut self, v: Cents) -> Self { self.v_ret_cofins = Some(v); self }
+    pub fn v_ret_cofins(mut self, v: Cents) -> Self {
+        self.v_ret_cofins = Some(v);
+        self
+    }
     /// Set the retained CSLL value.
-    pub fn v_ret_csll(mut self, v: Cents) -> Self { self.v_ret_csll = Some(v); self }
+    pub fn v_ret_csll(mut self, v: Cents) -> Self {
+        self.v_ret_csll = Some(v);
+        self
+    }
     /// Set the IRRF base calculation value.
-    pub fn v_bc_irrf(mut self, v: Cents) -> Self { self.v_bc_irrf = Some(v); self }
+    pub fn v_bc_irrf(mut self, v: Cents) -> Self {
+        self.v_bc_irrf = Some(v);
+        self
+    }
     /// Set the IRRF value.
-    pub fn v_irrf(mut self, v: Cents) -> Self { self.v_irrf = Some(v); self }
+    pub fn v_irrf(mut self, v: Cents) -> Self {
+        self.v_irrf = Some(v);
+        self
+    }
     /// Set the social security base calculation value.
-    pub fn v_bc_ret_prev(mut self, v: Cents) -> Self { self.v_bc_ret_prev = Some(v); self }
+    pub fn v_bc_ret_prev(mut self, v: Cents) -> Self {
+        self.v_bc_ret_prev = Some(v);
+        self
+    }
     /// Set the retained social security value.
-    pub fn v_ret_prev(mut self, v: Cents) -> Self { self.v_ret_prev = Some(v); self }
+    pub fn v_ret_prev(mut self, v: Cents) -> Self {
+        self.v_ret_prev = Some(v);
+        self
+    }
 }
 
 /// Batch tracking (rastro)
@@ -1073,14 +1171,30 @@ impl VeicProdData {
         tp_rest: impl Into<String>,
     ) -> Self {
         Self {
-            tp_op: tp_op.into(), chassi: chassi.into(), c_cor: c_cor.into(),
-            x_cor: x_cor.into(), pot: pot.into(), cilin: cilin.into(),
-            peso_l: peso_l.into(), peso_b: peso_b.into(), n_serie: n_serie.into(),
-            tp_comb: tp_comb.into(), n_motor: n_motor.into(), cmt: cmt.into(),
-            dist: dist.into(), ano_mod: ano_mod.into(), ano_fab: ano_fab.into(),
-            tp_pint: tp_pint.into(), tp_veic: tp_veic.into(), esp_veic: esp_veic.into(),
-            vin: vin.into(), cond_veic: cond_veic.into(), c_mod: c_mod.into(),
-            c_cor_denatran: c_cor_denatran.into(), lota: lota.into(), tp_rest: tp_rest.into(),
+            tp_op: tp_op.into(),
+            chassi: chassi.into(),
+            c_cor: c_cor.into(),
+            x_cor: x_cor.into(),
+            pot: pot.into(),
+            cilin: cilin.into(),
+            peso_l: peso_l.into(),
+            peso_b: peso_b.into(),
+            n_serie: n_serie.into(),
+            tp_comb: tp_comb.into(),
+            n_motor: n_motor.into(),
+            cmt: cmt.into(),
+            dist: dist.into(),
+            ano_mod: ano_mod.into(),
+            ano_fab: ano_fab.into(),
+            tp_pint: tp_pint.into(),
+            tp_veic: tp_veic.into(),
+            esp_veic: esp_veic.into(),
+            vin: vin.into(),
+            cond_veic: cond_veic.into(),
+            c_mod: c_mod.into(),
+            c_cor_denatran: c_cor_denatran.into(),
+            lota: lota.into(),
+            tp_rest: tp_rest.into(),
         }
     }
 }
@@ -1097,13 +1211,23 @@ pub struct MedData {
 impl MedData {
     /// Create a new `MedData` with the required PMC value.
     pub fn new(v_pmc: Cents) -> Self {
-        Self { c_prod_anvisa: None, x_motivo_isencao: None, v_pmc }
+        Self {
+            c_prod_anvisa: None,
+            x_motivo_isencao: None,
+            v_pmc,
+        }
     }
 
     /// Set the ANVISA product code.
-    pub fn c_prod_anvisa(mut self, v: impl Into<String>) -> Self { self.c_prod_anvisa = Some(v.into()); self }
+    pub fn c_prod_anvisa(mut self, v: impl Into<String>) -> Self {
+        self.c_prod_anvisa = Some(v.into());
+        self
+    }
     /// Set the exemption reason.
-    pub fn x_motivo_isencao(mut self, v: impl Into<String>) -> Self { self.x_motivo_isencao = Some(v.into()); self }
+    pub fn x_motivo_isencao(mut self, v: impl Into<String>) -> Self {
+        self.x_motivo_isencao = Some(v.into());
+        self
+    }
 }
 
 /// Weapon details (arma)
@@ -1148,9 +1272,15 @@ impl ObsItemData {
     }
 
     /// Set the contributor observation.
-    pub fn obs_cont(mut self, v: ObsField) -> Self { self.obs_cont = Some(v); self }
+    pub fn obs_cont(mut self, v: ObsField) -> Self {
+        self.obs_cont = Some(v);
+        self
+    }
     /// Set the fiscal observation.
-    pub fn obs_fisco(mut self, v: ObsField) -> Self { self.obs_fisco = Some(v); self }
+    pub fn obs_fisco(mut self, v: ObsField) -> Self {
+        self.obs_fisco = Some(v);
+        self
+    }
 }
 
 /// Per-item observation field (obsCont / obsFisco) with field name and text.
@@ -1164,7 +1294,10 @@ pub struct ObsField {
 impl ObsField {
     /// Create a new `ObsField`.
     pub fn new(x_campo: impl Into<String>, x_texto: impl Into<String>) -> Self {
-        Self { x_campo: x_campo.into(), x_texto: x_texto.into() }
+        Self {
+            x_campo: x_campo.into(),
+            x_texto: x_texto.into(),
+        }
     }
 }
 
@@ -1179,7 +1312,10 @@ pub struct DFeReferenciadoData {
 impl DFeReferenciadoData {
     /// Create a new `DFeReferenciadoData`.
     pub fn new(chave_acesso: impl Into<String>) -> Self {
-        Self { chave_acesso: chave_acesso.into(), n_item: None }
+        Self {
+            chave_acesso: chave_acesso.into(),
+            n_item: None,
+        }
     }
 
     /// Set the item number.
@@ -1301,143 +1437,351 @@ impl InvoiceItemData {
             quantity,
             unit_price,
             total_price,
-            c_ean: None, c_ean_trib: None, cest: None,
-            v_frete: None, v_seg: None, v_desc: None, v_outro: None, orig: None,
-            icms_cst: icms_cst.into(), icms_rate, icms_amount,
-            icms_mod_bc: None, icms_red_bc: None,
-            icms_mod_bc_st: None, icms_p_mva_st: None, icms_red_bc_st: None,
-            icms_v_bc_st: None, icms_p_icms_st: None, icms_v_icms_st: None,
-            icms_v_icms_deson: None, icms_mot_des_icms: None,
-            icms_p_fcp: None, icms_v_fcp: None, icms_v_bc_fcp: None,
-            icms_p_fcp_st: None, icms_v_fcp_st: None, icms_v_bc_fcp_st: None,
-            icms_p_cred_sn: None, icms_v_cred_icms_sn: None, icms_v_icms_substituto: None,
+            c_ean: None,
+            c_ean_trib: None,
+            cest: None,
+            v_frete: None,
+            v_seg: None,
+            v_desc: None,
+            v_outro: None,
+            orig: None,
+            icms_cst: icms_cst.into(),
+            icms_rate,
+            icms_amount,
+            icms_mod_bc: None,
+            icms_red_bc: None,
+            icms_mod_bc_st: None,
+            icms_p_mva_st: None,
+            icms_red_bc_st: None,
+            icms_v_bc_st: None,
+            icms_p_icms_st: None,
+            icms_v_icms_st: None,
+            icms_v_icms_deson: None,
+            icms_mot_des_icms: None,
+            icms_p_fcp: None,
+            icms_v_fcp: None,
+            icms_v_bc_fcp: None,
+            icms_p_fcp_st: None,
+            icms_v_fcp_st: None,
+            icms_v_bc_fcp_st: None,
+            icms_p_cred_sn: None,
+            icms_v_cred_icms_sn: None,
+            icms_v_icms_substituto: None,
             pis_cst: pis_cst.into(),
-            pis_v_bc: None, pis_p_pis: None, pis_v_pis: None,
-            pis_q_bc_prod: None, pis_v_aliq_prod: None,
+            pis_v_bc: None,
+            pis_p_pis: None,
+            pis_v_pis: None,
+            pis_q_bc_prod: None,
+            pis_v_aliq_prod: None,
             cofins_cst: cofins_cst.into(),
-            cofins_v_bc: None, cofins_p_cofins: None, cofins_v_cofins: None,
-            cofins_q_bc_prod: None, cofins_v_aliq_prod: None,
-            ipi_cst: None, ipi_c_enq: None, ipi_v_bc: None, ipi_p_ipi: None,
-            ipi_v_ipi: None, ipi_q_unid: None, ipi_v_unid: None,
-            ii_v_bc: None, ii_v_desp_adu: None, ii_v_ii: None, ii_v_iof: None,
-            rastro: None, veic_prod: None, med: None, arma: None,
-            n_recopi: None, inf_ad_prod: None, obs_item: None, dfe_referenciado: None,
+            cofins_v_bc: None,
+            cofins_p_cofins: None,
+            cofins_v_cofins: None,
+            cofins_q_bc_prod: None,
+            cofins_v_aliq_prod: None,
+            ipi_cst: None,
+            ipi_c_enq: None,
+            ipi_v_bc: None,
+            ipi_p_ipi: None,
+            ipi_v_ipi: None,
+            ipi_q_unid: None,
+            ipi_v_unid: None,
+            ii_v_bc: None,
+            ii_v_desp_adu: None,
+            ii_v_ii: None,
+            ii_v_iof: None,
+            rastro: None,
+            veic_prod: None,
+            med: None,
+            arma: None,
+            n_recopi: None,
+            inf_ad_prod: None,
+            obs_item: None,
+            dfe_referenciado: None,
         }
     }
 
     // Chainable setters for optional fields
     /// Set the EAN code.
-    pub fn c_ean(mut self, v: impl Into<String>) -> Self { self.c_ean = Some(v.into()); self }
+    pub fn c_ean(mut self, v: impl Into<String>) -> Self {
+        self.c_ean = Some(v.into());
+        self
+    }
     /// Set the tributary EAN code.
-    pub fn c_ean_trib(mut self, v: impl Into<String>) -> Self { self.c_ean_trib = Some(v.into()); self }
+    pub fn c_ean_trib(mut self, v: impl Into<String>) -> Self {
+        self.c_ean_trib = Some(v.into());
+        self
+    }
     /// Set the CEST code.
-    pub fn cest(mut self, v: impl Into<String>) -> Self { self.cest = Some(v.into()); self }
+    pub fn cest(mut self, v: impl Into<String>) -> Self {
+        self.cest = Some(v.into());
+        self
+    }
     /// Set the freight value.
-    pub fn v_frete(mut self, v: Cents) -> Self { self.v_frete = Some(v); self }
+    pub fn v_frete(mut self, v: Cents) -> Self {
+        self.v_frete = Some(v);
+        self
+    }
     /// Set the insurance value.
-    pub fn v_seg(mut self, v: Cents) -> Self { self.v_seg = Some(v); self }
+    pub fn v_seg(mut self, v: Cents) -> Self {
+        self.v_seg = Some(v);
+        self
+    }
     /// Set the discount value.
-    pub fn v_desc(mut self, v: Cents) -> Self { self.v_desc = Some(v); self }
+    pub fn v_desc(mut self, v: Cents) -> Self {
+        self.v_desc = Some(v);
+        self
+    }
     /// Set the "other" value.
-    pub fn v_outro(mut self, v: Cents) -> Self { self.v_outro = Some(v); self }
+    pub fn v_outro(mut self, v: Cents) -> Self {
+        self.v_outro = Some(v);
+        self
+    }
     /// Set the origin code.
-    pub fn orig(mut self, v: impl Into<String>) -> Self { self.orig = Some(v.into()); self }
+    pub fn orig(mut self, v: impl Into<String>) -> Self {
+        self.orig = Some(v.into());
+        self
+    }
     /// Set the ICMS base calculation modality.
-    pub fn icms_mod_bc(mut self, v: i64) -> Self { self.icms_mod_bc = Some(v); self }
+    pub fn icms_mod_bc(mut self, v: i64) -> Self {
+        self.icms_mod_bc = Some(v);
+        self
+    }
     /// Set the ICMS base reduction rate.
-    pub fn icms_red_bc(mut self, v: Rate) -> Self { self.icms_red_bc = Some(v); self }
+    pub fn icms_red_bc(mut self, v: Rate) -> Self {
+        self.icms_red_bc = Some(v);
+        self
+    }
     /// Set the ICMS ST base calculation modality.
-    pub fn icms_mod_bc_st(mut self, v: i64) -> Self { self.icms_mod_bc_st = Some(v); self }
+    pub fn icms_mod_bc_st(mut self, v: i64) -> Self {
+        self.icms_mod_bc_st = Some(v);
+        self
+    }
     /// Set the ICMS ST MVA rate.
-    pub fn icms_p_mva_st(mut self, v: Rate) -> Self { self.icms_p_mva_st = Some(v); self }
+    pub fn icms_p_mva_st(mut self, v: Rate) -> Self {
+        self.icms_p_mva_st = Some(v);
+        self
+    }
     /// Set the ICMS ST base reduction rate.
-    pub fn icms_red_bc_st(mut self, v: Rate) -> Self { self.icms_red_bc_st = Some(v); self }
+    pub fn icms_red_bc_st(mut self, v: Rate) -> Self {
+        self.icms_red_bc_st = Some(v);
+        self
+    }
     /// Set the ICMS ST base value.
-    pub fn icms_v_bc_st(mut self, v: Cents) -> Self { self.icms_v_bc_st = Some(v); self }
+    pub fn icms_v_bc_st(mut self, v: Cents) -> Self {
+        self.icms_v_bc_st = Some(v);
+        self
+    }
     /// Set the ICMS ST rate.
-    pub fn icms_p_icms_st(mut self, v: Rate) -> Self { self.icms_p_icms_st = Some(v); self }
+    pub fn icms_p_icms_st(mut self, v: Rate) -> Self {
+        self.icms_p_icms_st = Some(v);
+        self
+    }
     /// Set the ICMS ST value.
-    pub fn icms_v_icms_st(mut self, v: Cents) -> Self { self.icms_v_icms_st = Some(v); self }
+    pub fn icms_v_icms_st(mut self, v: Cents) -> Self {
+        self.icms_v_icms_st = Some(v);
+        self
+    }
     /// Set the desonerated ICMS value.
-    pub fn icms_v_icms_deson(mut self, v: Cents) -> Self { self.icms_v_icms_deson = Some(v); self }
+    pub fn icms_v_icms_deson(mut self, v: Cents) -> Self {
+        self.icms_v_icms_deson = Some(v);
+        self
+    }
     /// Set the ICMS desonerating motive.
-    pub fn icms_mot_des_icms(mut self, v: i64) -> Self { self.icms_mot_des_icms = Some(v); self }
+    pub fn icms_mot_des_icms(mut self, v: i64) -> Self {
+        self.icms_mot_des_icms = Some(v);
+        self
+    }
     /// Set the FCP rate.
-    pub fn icms_p_fcp(mut self, v: Rate) -> Self { self.icms_p_fcp = Some(v); self }
+    pub fn icms_p_fcp(mut self, v: Rate) -> Self {
+        self.icms_p_fcp = Some(v);
+        self
+    }
     /// Set the FCP value.
-    pub fn icms_v_fcp(mut self, v: Cents) -> Self { self.icms_v_fcp = Some(v); self }
+    pub fn icms_v_fcp(mut self, v: Cents) -> Self {
+        self.icms_v_fcp = Some(v);
+        self
+    }
     /// Set the FCP base value.
-    pub fn icms_v_bc_fcp(mut self, v: Cents) -> Self { self.icms_v_bc_fcp = Some(v); self }
+    pub fn icms_v_bc_fcp(mut self, v: Cents) -> Self {
+        self.icms_v_bc_fcp = Some(v);
+        self
+    }
     /// Set the FCP ST rate.
-    pub fn icms_p_fcp_st(mut self, v: Rate) -> Self { self.icms_p_fcp_st = Some(v); self }
+    pub fn icms_p_fcp_st(mut self, v: Rate) -> Self {
+        self.icms_p_fcp_st = Some(v);
+        self
+    }
     /// Set the FCP ST value.
-    pub fn icms_v_fcp_st(mut self, v: Cents) -> Self { self.icms_v_fcp_st = Some(v); self }
+    pub fn icms_v_fcp_st(mut self, v: Cents) -> Self {
+        self.icms_v_fcp_st = Some(v);
+        self
+    }
     /// Set the FCP ST base value.
-    pub fn icms_v_bc_fcp_st(mut self, v: Cents) -> Self { self.icms_v_bc_fcp_st = Some(v); self }
+    pub fn icms_v_bc_fcp_st(mut self, v: Cents) -> Self {
+        self.icms_v_bc_fcp_st = Some(v);
+        self
+    }
     /// Set the Simples Nacional credit rate.
-    pub fn icms_p_cred_sn(mut self, v: Rate) -> Self { self.icms_p_cred_sn = Some(v); self }
+    pub fn icms_p_cred_sn(mut self, v: Rate) -> Self {
+        self.icms_p_cred_sn = Some(v);
+        self
+    }
     /// Set the Simples Nacional credit ICMS value.
-    pub fn icms_v_cred_icms_sn(mut self, v: Cents) -> Self { self.icms_v_cred_icms_sn = Some(v); self }
+    pub fn icms_v_cred_icms_sn(mut self, v: Cents) -> Self {
+        self.icms_v_cred_icms_sn = Some(v);
+        self
+    }
     /// Set the ICMS substitute value.
-    pub fn icms_v_icms_substituto(mut self, v: Cents) -> Self { self.icms_v_icms_substituto = Some(v); self }
+    pub fn icms_v_icms_substituto(mut self, v: Cents) -> Self {
+        self.icms_v_icms_substituto = Some(v);
+        self
+    }
     /// Set the PIS base value.
-    pub fn pis_v_bc(mut self, v: Cents) -> Self { self.pis_v_bc = Some(v); self }
+    pub fn pis_v_bc(mut self, v: Cents) -> Self {
+        self.pis_v_bc = Some(v);
+        self
+    }
     /// Set the PIS rate.
-    pub fn pis_p_pis(mut self, v: Rate4) -> Self { self.pis_p_pis = Some(v); self }
+    pub fn pis_p_pis(mut self, v: Rate4) -> Self {
+        self.pis_p_pis = Some(v);
+        self
+    }
     /// Set the PIS value.
-    pub fn pis_v_pis(mut self, v: Cents) -> Self { self.pis_v_pis = Some(v); self }
+    pub fn pis_v_pis(mut self, v: Cents) -> Self {
+        self.pis_v_pis = Some(v);
+        self
+    }
     /// Set the PIS quantity base.
-    pub fn pis_q_bc_prod(mut self, v: i64) -> Self { self.pis_q_bc_prod = Some(v); self }
+    pub fn pis_q_bc_prod(mut self, v: i64) -> Self {
+        self.pis_q_bc_prod = Some(v);
+        self
+    }
     /// Set the PIS quantity rate.
-    pub fn pis_v_aliq_prod(mut self, v: i64) -> Self { self.pis_v_aliq_prod = Some(v); self }
+    pub fn pis_v_aliq_prod(mut self, v: i64) -> Self {
+        self.pis_v_aliq_prod = Some(v);
+        self
+    }
     /// Set the COFINS base value.
-    pub fn cofins_v_bc(mut self, v: Cents) -> Self { self.cofins_v_bc = Some(v); self }
+    pub fn cofins_v_bc(mut self, v: Cents) -> Self {
+        self.cofins_v_bc = Some(v);
+        self
+    }
     /// Set the COFINS rate.
-    pub fn cofins_p_cofins(mut self, v: Rate4) -> Self { self.cofins_p_cofins = Some(v); self }
+    pub fn cofins_p_cofins(mut self, v: Rate4) -> Self {
+        self.cofins_p_cofins = Some(v);
+        self
+    }
     /// Set the COFINS value.
-    pub fn cofins_v_cofins(mut self, v: Cents) -> Self { self.cofins_v_cofins = Some(v); self }
+    pub fn cofins_v_cofins(mut self, v: Cents) -> Self {
+        self.cofins_v_cofins = Some(v);
+        self
+    }
     /// Set the COFINS quantity base.
-    pub fn cofins_q_bc_prod(mut self, v: i64) -> Self { self.cofins_q_bc_prod = Some(v); self }
+    pub fn cofins_q_bc_prod(mut self, v: i64) -> Self {
+        self.cofins_q_bc_prod = Some(v);
+        self
+    }
     /// Set the COFINS quantity rate.
-    pub fn cofins_v_aliq_prod(mut self, v: i64) -> Self { self.cofins_v_aliq_prod = Some(v); self }
+    pub fn cofins_v_aliq_prod(mut self, v: i64) -> Self {
+        self.cofins_v_aliq_prod = Some(v);
+        self
+    }
     /// Set the IPI CST.
-    pub fn ipi_cst(mut self, v: impl Into<String>) -> Self { self.ipi_cst = Some(v.into()); self }
+    pub fn ipi_cst(mut self, v: impl Into<String>) -> Self {
+        self.ipi_cst = Some(v.into());
+        self
+    }
     /// Set the IPI enquadramento code.
-    pub fn ipi_c_enq(mut self, v: impl Into<String>) -> Self { self.ipi_c_enq = Some(v.into()); self }
+    pub fn ipi_c_enq(mut self, v: impl Into<String>) -> Self {
+        self.ipi_c_enq = Some(v.into());
+        self
+    }
     /// Set the IPI base value.
-    pub fn ipi_v_bc(mut self, v: Cents) -> Self { self.ipi_v_bc = Some(v); self }
+    pub fn ipi_v_bc(mut self, v: Cents) -> Self {
+        self.ipi_v_bc = Some(v);
+        self
+    }
     /// Set the IPI rate.
-    pub fn ipi_p_ipi(mut self, v: Rate) -> Self { self.ipi_p_ipi = Some(v); self }
+    pub fn ipi_p_ipi(mut self, v: Rate) -> Self {
+        self.ipi_p_ipi = Some(v);
+        self
+    }
     /// Set the IPI value.
-    pub fn ipi_v_ipi(mut self, v: Cents) -> Self { self.ipi_v_ipi = Some(v); self }
+    pub fn ipi_v_ipi(mut self, v: Cents) -> Self {
+        self.ipi_v_ipi = Some(v);
+        self
+    }
     /// Set the IPI quantity.
-    pub fn ipi_q_unid(mut self, v: i64) -> Self { self.ipi_q_unid = Some(v); self }
+    pub fn ipi_q_unid(mut self, v: i64) -> Self {
+        self.ipi_q_unid = Some(v);
+        self
+    }
     /// Set the IPI unit value.
-    pub fn ipi_v_unid(mut self, v: i64) -> Self { self.ipi_v_unid = Some(v); self }
+    pub fn ipi_v_unid(mut self, v: i64) -> Self {
+        self.ipi_v_unid = Some(v);
+        self
+    }
     /// Set the II base value.
-    pub fn ii_v_bc(mut self, v: Cents) -> Self { self.ii_v_bc = Some(v); self }
+    pub fn ii_v_bc(mut self, v: Cents) -> Self {
+        self.ii_v_bc = Some(v);
+        self
+    }
     /// Set the II customs expenses.
-    pub fn ii_v_desp_adu(mut self, v: Cents) -> Self { self.ii_v_desp_adu = Some(v); self }
+    pub fn ii_v_desp_adu(mut self, v: Cents) -> Self {
+        self.ii_v_desp_adu = Some(v);
+        self
+    }
     /// Set the II value.
-    pub fn ii_v_ii(mut self, v: Cents) -> Self { self.ii_v_ii = Some(v); self }
+    pub fn ii_v_ii(mut self, v: Cents) -> Self {
+        self.ii_v_ii = Some(v);
+        self
+    }
     /// Set the II IOF value.
-    pub fn ii_v_iof(mut self, v: Cents) -> Self { self.ii_v_iof = Some(v); self }
+    pub fn ii_v_iof(mut self, v: Cents) -> Self {
+        self.ii_v_iof = Some(v);
+        self
+    }
     /// Set batch tracking data.
-    pub fn rastro(mut self, v: Vec<RastroData>) -> Self { self.rastro = Some(v); self }
+    pub fn rastro(mut self, v: Vec<RastroData>) -> Self {
+        self.rastro = Some(v);
+        self
+    }
     /// Set vehicle product data.
-    pub fn veic_prod(mut self, v: VeicProdData) -> Self { self.veic_prod = Some(v); self }
+    pub fn veic_prod(mut self, v: VeicProdData) -> Self {
+        self.veic_prod = Some(v);
+        self
+    }
     /// Set medicine data.
-    pub fn med(mut self, v: MedData) -> Self { self.med = Some(v); self }
+    pub fn med(mut self, v: MedData) -> Self {
+        self.med = Some(v);
+        self
+    }
     /// Set weapon data.
-    pub fn arma(mut self, v: Vec<ArmaData>) -> Self { self.arma = Some(v); self }
+    pub fn arma(mut self, v: Vec<ArmaData>) -> Self {
+        self.arma = Some(v);
+        self
+    }
     /// Set RECOPI number.
-    pub fn n_recopi(mut self, v: impl Into<String>) -> Self { self.n_recopi = Some(v.into()); self }
+    pub fn n_recopi(mut self, v: impl Into<String>) -> Self {
+        self.n_recopi = Some(v.into());
+        self
+    }
     /// Set additional product info.
-    pub fn inf_ad_prod(mut self, v: impl Into<String>) -> Self { self.inf_ad_prod = Some(v.into()); self }
+    pub fn inf_ad_prod(mut self, v: impl Into<String>) -> Self {
+        self.inf_ad_prod = Some(v.into());
+        self
+    }
     /// Set per-item observation data.
-    pub fn obs_item(mut self, v: ObsItemData) -> Self { self.obs_item = Some(v); self }
+    pub fn obs_item(mut self, v: ObsItemData) -> Self {
+        self.obs_item = Some(v);
+        self
+    }
     /// Set referenced DFe data.
-    pub fn dfe_referenciado(mut self, v: DFeReferenciadoData) -> Self { self.dfe_referenciado = Some(v); self }
+    pub fn dfe_referenciado(mut self, v: DFeReferenciadoData) -> Self {
+        self.dfe_referenciado = Some(v);
+        self
+    }
 }
 
 /// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
@@ -1492,7 +1836,9 @@ pub struct AuthorizedXml {
 impl AuthorizedXml {
     /// Create a new `AuthorizedXml`.
     pub fn new(tax_id: impl Into<String>) -> Self {
-        Self { tax_id: tax_id.into() }
+        Self {
+            tax_id: tax_id.into(),
+        }
     }
 }
 
@@ -1537,28 +1883,57 @@ impl NfceQrCodeParams {
             environment,
             emission_type,
             qr_code_base_url: qr_code_base_url.into(),
-            csc_token: None, csc_id: None,
-            issued_at: None, total_value: None, total_icms: None,
-            digest_value: None, dest_document: None, dest_id_type: None,
+            csc_token: None,
+            csc_id: None,
+            issued_at: None,
+            total_value: None,
+            total_icms: None,
+            digest_value: None,
+            dest_document: None,
+            dest_id_type: None,
         }
     }
 
     /// Set the CSC token.
-    pub fn csc_token(mut self, v: impl Into<String>) -> Self { self.csc_token = Some(v.into()); self }
+    pub fn csc_token(mut self, v: impl Into<String>) -> Self {
+        self.csc_token = Some(v.into());
+        self
+    }
     /// Set the CSC ID.
-    pub fn csc_id(mut self, v: impl Into<String>) -> Self { self.csc_id = Some(v.into()); self }
+    pub fn csc_id(mut self, v: impl Into<String>) -> Self {
+        self.csc_id = Some(v.into());
+        self
+    }
     /// Set the issued at date.
-    pub fn issued_at(mut self, v: impl Into<String>) -> Self { self.issued_at = Some(v.into()); self }
+    pub fn issued_at(mut self, v: impl Into<String>) -> Self {
+        self.issued_at = Some(v.into());
+        self
+    }
     /// Set the total value.
-    pub fn total_value(mut self, v: impl Into<String>) -> Self { self.total_value = Some(v.into()); self }
+    pub fn total_value(mut self, v: impl Into<String>) -> Self {
+        self.total_value = Some(v.into());
+        self
+    }
     /// Set the total ICMS.
-    pub fn total_icms(mut self, v: impl Into<String>) -> Self { self.total_icms = Some(v.into()); self }
+    pub fn total_icms(mut self, v: impl Into<String>) -> Self {
+        self.total_icms = Some(v.into());
+        self
+    }
     /// Set the digest value.
-    pub fn digest_value(mut self, v: impl Into<String>) -> Self { self.digest_value = Some(v.into()); self }
+    pub fn digest_value(mut self, v: impl Into<String>) -> Self {
+        self.digest_value = Some(v.into());
+        self
+    }
     /// Set the destination document.
-    pub fn dest_document(mut self, v: impl Into<String>) -> Self { self.dest_document = Some(v.into()); self }
+    pub fn dest_document(mut self, v: impl Into<String>) -> Self {
+        self.dest_document = Some(v.into());
+        self
+    }
     /// Set the destination ID type.
-    pub fn dest_id_type(mut self, v: impl Into<String>) -> Self { self.dest_id_type = Some(v.into()); self }
+    pub fn dest_id_type(mut self, v: impl Into<String>) -> Self {
+        self.dest_id_type = Some(v.into());
+        self
+    }
 }
 
 /// Parameters for inserting QR Code into NFC-e XML

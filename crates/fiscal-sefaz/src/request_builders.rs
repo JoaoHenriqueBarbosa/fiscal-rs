@@ -71,18 +71,14 @@ fn tax_id_xml_tag(tax_id: &str) -> String {
 /// # Errors
 ///
 /// This function does not return `Result` errors but panics on invalid input.
-pub fn build_autorizacao_request(
-    xml: &str,
-    lot_id: &str,
-    sync: bool,
-    _compressed: bool,
-) -> String {
-    assert!(!xml.is_empty(), "XML content is required for authorization request");
+pub fn build_autorizacao_request(xml: &str, lot_id: &str, sync: bool, _compressed: bool) -> String {
+    assert!(
+        !xml.is_empty(),
+        "XML content is required for authorization request"
+    );
 
     // Strip XML declaration if present
-    let content = xml
-        .trim()
-        .trim_start_matches(|c: char| c != '<');
+    let content = xml.trim().trim_start_matches(|c: char| c != '<');
     let stripped = strip_xml_declaration(content);
 
     let ind_sinc = if sync { "1" } else { "0" };
@@ -155,10 +151,7 @@ pub fn build_consulta_request(access_key: &str, environment: SefazEnvironment) -
 /// # Errors
 ///
 /// This function panics on invalid input rather than returning `Result`.
-pub fn build_consulta_recibo_request(
-    receipt: &str,
-    environment: SefazEnvironment,
-) -> String {
+pub fn build_consulta_recibo_request(receipt: &str, environment: SefazEnvironment) -> String {
     assert!(!receipt.is_empty(), "Receipt number (recibo) is required");
     let tp_amb = environment.as_str();
 
@@ -209,9 +202,8 @@ pub fn build_inutilizacao_request(
     let cuf = get_state_code(uf).expect("Invalid state code");
     let tp_amb = environment.as_str();
 
-    let id = format!(
-        "ID{cuf}{year:02}{tax_id}{model:0>2}{series:03}{start_number:09}{end_number:09}"
-    );
+    let id =
+        format!("ID{cuf}{year:02}{tax_id}{model:0>2}{series:03}{start_number:09}{end_number:09}");
 
     format!(
         "<inutNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\">\
@@ -265,9 +257,7 @@ pub fn build_cancela_request(
         "Cancellation justification (xJust) is required"
     );
 
-    let additional = format!(
-        "<nProt>{protocol}</nProt><xJust>{justification}</xJust>"
-    );
+    let additional = format!("<nProt>{protocol}</nProt><xJust>{justification}</xJust>");
 
     build_event_xml(
         access_key,
@@ -325,9 +315,8 @@ pub fn build_cce_request(
         "emissao ou de saida."
     );
 
-    let additional = format!(
-        "<xCorrecao>{correction}</xCorrecao><xCondUso>{x_cond_uso}</xCondUso>"
-    );
+    let additional =
+        format!("<xCorrecao>{correction}</xCorrecao><xCondUso>{x_cond_uso}</xCondUso>");
 
     build_event_xml(
         access_key,
@@ -469,11 +458,7 @@ pub fn build_dist_dfe_request(
 /// # Errors
 ///
 /// This function does not return `Result` errors.
-pub fn build_cadastro_request(
-    uf: &str,
-    search_type: &str,
-    search_value: &str,
-) -> String {
+pub fn build_cadastro_request(uf: &str, search_type: &str, search_value: &str) -> String {
     let filter = match search_type {
         "CNPJ" => format!("<CNPJ>{search_value}</CNPJ>"),
         "IE" => format!("<IE>{search_value}</IE>"),

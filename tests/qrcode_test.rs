@@ -21,15 +21,17 @@ mod build_nfce_qr_code_url_v200 {
         )
         .expect("should build v200 online QR code URL");
 
-        assert!(url.contains(
-            "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode?p="
-        ));
+        assert!(url.contains("https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode?p="));
         assert!(url.contains("35260112345678000199650010000000011123456780"));
         assert!(url.contains("|2|")); // version
         // Should end with hex SHA-1 hash (40 uppercase hex chars)
         let after_last_pipe = url.rsplit('|').next().unwrap();
         assert_eq!(after_last_pipe.len(), 40);
-        assert!(after_last_pipe.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()));
+        assert!(
+            after_last_pipe
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase())
+        );
     }
 
     #[test]
@@ -79,20 +81,18 @@ mod build_nfce_qr_code_url_v300 {
 
     #[test]
     fn generates_online_qr_code_url_no_csc_needed() {
-        let url = build_nfce_qr_code_url(
-            &NfceQrCodeParams::new(
-                "35260112345678000199650010000000011123456780",
-                QrCodeVersion::V300,
-                SefazEnvironment::Homologation,
-                EmissionType::Normal,
-                "https://example.com/qrcode",
-            ),
-        )
+        let url = build_nfce_qr_code_url(&NfceQrCodeParams::new(
+            "35260112345678000199650010000000011123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Normal,
+            "https://example.com/qrcode",
+        ))
         .expect("should build v300 online QR code URL");
 
         assert!(url.contains("?p="));
         assert!(url.contains("|3|")); // version 3
-        assert!(url.contains("|2"));  // tpAmb
+        assert!(url.contains("|2")); // tpAmb
     }
 }
 
@@ -109,9 +109,7 @@ mod build_nfce_consult_url_tests {
             SefazEnvironment::Homologation,
         );
 
-        assert!(url.contains(
-            "https://www.homologacao.nfce.fazenda.sp.gov.br/consulta"
-        ));
+        assert!(url.contains("https://www.homologacao.nfce.fazenda.sp.gov.br/consulta"));
         assert!(url.contains("35260112345678000199650010000000011123456780"));
     }
 }

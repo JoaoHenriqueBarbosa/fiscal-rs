@@ -8,8 +8,8 @@
 //! + tpEmis(1) + cNF(8) + cDV(1) = 44 digits
 //! ```
 
-use crate::types::AccessKeyParams;
 use crate::FiscalError;
+use crate::types::AccessKeyParams;
 
 /// Build the 44-digit access key from its component parts.
 ///
@@ -60,7 +60,11 @@ pub fn calculate_mod11(digits: &str) -> u8 {
     }
 
     let remainder = sum % 11;
-    if remainder < 2 { 0 } else { (11 - remainder) as u8 }
+    if remainder < 2 {
+        0
+    } else {
+        (11 - remainder) as u8
+    }
 }
 
 /// Generate an 8-digit random numeric code for the access key.

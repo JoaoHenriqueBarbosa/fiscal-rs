@@ -5,16 +5,15 @@
 mod common;
 
 use fiscal::types::*;
-use fiscal::xml_utils::{tag, TagContent};
+use fiscal::xml_utils::{TagContent, tag};
 
-use common::{expect_xml_tag_values as expect_xml_contains, FIXTURES_PATH};
+use common::{FIXTURES_PATH, expect_xml_tag_values as expect_xml_contains};
 
 // =============================================================================
 // ConfigTest
 // =============================================================================
 
 mod config_test {
-    
 
     // Note: The Rust crate does not currently expose a `validate` config function.
     // These tests exercise the concept by verifying JSON parsing behavior.
@@ -106,10 +105,7 @@ mod standardize_test {
     use super::*;
 
     fn nfe_xml_path() -> String {
-        format!(
-            "{}xml/2017nfe_antiga_v310.xml",
-            FIXTURES_PATH
-        )
+        format!("{}xml/2017nfe_antiga_v310.xml", FIXTURES_PATH)
     }
 
     fn cte_xml_path() -> String {
@@ -216,7 +212,8 @@ mod webservices_test {
             "RS",
             SefazEnvironment::Homologation,
             "NfeStatusServico",
-        ).expect("get_sefaz_url failed");
+        )
+        .expect("get_sefaz_url failed");
         assert!(url.contains("https://"));
         assert!(url.contains("sefazrs") || url.contains("rs.gov.br"));
     }
@@ -271,7 +268,9 @@ mod valid_txt_test {
         let txt = String::from_utf8_lossy(&bytes);
         let result = fiscal::convert::validate_txt(&txt, "local");
         // Should return Ok with errors or Err — either way, validation detected problems
-        if let Ok(valid) = result { assert!(!valid, "Expected validation to fail") }
+        if let Ok(valid) = result {
+            assert!(!valid, "Expected validation to fail")
+        }
     }
 
     #[test]
@@ -297,12 +296,9 @@ mod valid_txt_test {
 // =============================================================================
 
 mod certificate_test {
-    
 
-    const CNPJ_PFX_PATH: &str =
-        "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx";
-    const CPF_PFX_PATH: &str =
-        "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/certs/novo_cert_cpf_90483926086_minhasenha.pfx";
+    const CNPJ_PFX_PATH: &str = "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx";
+    const CPF_PFX_PATH: &str = "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/certs/novo_cert_cpf_90483926086_minhasenha.pfx";
     const PASSWORD: &str = "minhasenha";
 
     #[test]
@@ -311,8 +307,16 @@ mod certificate_test {
         let pfx_bytes = std::fs::read(CNPJ_PFX_PATH).expect("Failed to read PJ PFX");
         let cert_data = fiscal::certificate::load_certificate(&pfx_bytes, PASSWORD)
             .expect("load_certificate failed");
-        assert!(cert_data.private_key.contains("-----BEGIN PRIVATE KEY-----"));
-        assert!(cert_data.certificate.contains("-----BEGIN CERTIFICATE-----"));
+        assert!(
+            cert_data
+                .private_key
+                .contains("-----BEGIN PRIVATE KEY-----")
+        );
+        assert!(
+            cert_data
+                .certificate
+                .contains("-----BEGIN CERTIFICATE-----")
+        );
 
         let info = fiscal::certificate::get_certificate_info(&pfx_bytes, PASSWORD)
             .expect("get_certificate_info failed");
@@ -328,8 +332,16 @@ mod certificate_test {
         let pfx_bytes = std::fs::read(CPF_PFX_PATH).expect("Failed to read PF PFX");
         let cert_data = fiscal::certificate::load_certificate(&pfx_bytes, PASSWORD)
             .expect("load_certificate failed");
-        assert!(cert_data.private_key.contains("-----BEGIN PRIVATE KEY-----"));
-        assert!(cert_data.certificate.contains("-----BEGIN CERTIFICATE-----"));
+        assert!(
+            cert_data
+                .private_key
+                .contains("-----BEGIN PRIVATE KEY-----")
+        );
+        assert!(
+            cert_data
+                .certificate
+                .contains("-----BEGIN CERTIFICATE-----")
+        );
 
         let info = fiscal::certificate::get_certificate_info(&pfx_bytes, PASSWORD)
             .expect("get_certificate_info failed");
@@ -350,16 +362,14 @@ mod convert_test {
     fn convert_local_txt() -> String {
         let txt = std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_01.txt"))
             .expect("Failed to read local txt");
-        fiscal::convert::txt_to_xml(&txt, "local_v12")
-            .expect("txt_to_xml failed")
+        fiscal::convert::txt_to_xml(&txt, "local_v12").expect("txt_to_xml failed")
     }
 
     #[test]
     fn convert_local_txt_to_xml_produces_nfe() {
         let txt = std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_01.txt"))
             .expect("Failed to read local txt");
-        let xml = fiscal::convert::txt_to_xml(&txt, "local_v12")
-            .expect("txt_to_xml failed");
+        let xml = fiscal::convert::txt_to_xml(&txt, "local_v12").expect("txt_to_xml failed");
         assert!(xml.contains("<NFe"));
         assert!(xml.contains("<infNFe"));
     }
@@ -377,8 +387,7 @@ mod convert_test {
         // test_convert_dump: dump parsed TXT returns stdNfe with correct Id
         let txt = std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_01.txt"))
             .expect("Failed to read local txt");
-        let xml = fiscal::convert::txt_to_xml(&txt, "local_v12")
-            .expect("txt_to_xml failed");
+        let xml = fiscal::convert::txt_to_xml(&txt, "local_v12").expect("txt_to_xml failed");
         // The XML should contain the expected access key in the Id attribute
         assert!(xml.contains("NFe35180825028332000105550010000005021000005010"));
     }
@@ -386,49 +395,58 @@ mod convert_test {
     #[test]
     fn converted_xml_has_correct_ide_fields() {
         let xml = convert_local_txt();
-        expect_xml_contains(&xml, &[
-            ("cUF", "35"),
-            ("cNF", "00000501"),
-            ("natOp", "VENDA MERC.SUB.TRIBUTARIA"),
-            ("mod", "55"),
-            ("serie", "1"),
-            ("nNF", "502"),
-            ("dhEmi", "2018-08-13T17:28:10-03:00"),
-            ("dhSaiEnt", "2018-08-14T09:00:00-03:00"),
-            ("tpNF", "1"),
-            ("idDest", "1"),
-            ("cMunFG", "3550308"),
-            ("tpImp", "1"),
-            ("tpEmis", "1"),
-            ("cDV", "8"),
-            ("tpAmb", "1"),
-            ("finNFe", "1"),
-            ("indFinal", "0"),
-            ("indPres", "3"),
-            ("indIntermed", "0"),
-            ("procEmi", "0"),
-            ("verProc", "3.2.1.1"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "35"),
+                ("cNF", "00000501"),
+                ("natOp", "VENDA MERC.SUB.TRIBUTARIA"),
+                ("mod", "55"),
+                ("serie", "1"),
+                ("nNF", "502"),
+                ("dhEmi", "2018-08-13T17:28:10-03:00"),
+                ("dhSaiEnt", "2018-08-14T09:00:00-03:00"),
+                ("tpNF", "1"),
+                ("idDest", "1"),
+                ("cMunFG", "3550308"),
+                ("tpImp", "1"),
+                ("tpEmis", "1"),
+                ("cDV", "8"),
+                ("tpAmb", "1"),
+                ("finNFe", "1"),
+                ("indFinal", "0"),
+                ("indPres", "3"),
+                ("indIntermed", "0"),
+                ("procEmi", "0"),
+                ("verProc", "3.2.1.1"),
+            ],
+        );
     }
 
     #[test]
     fn converted_xml_has_correct_emit_fields() {
         let xml = convert_local_txt();
-        expect_xml_contains(&xml, &[
-            ("CNPJ", "25028332000105"),
-            ("xNome", "GSMMY COMERCIO DE CHOCOLATES LTDA"),
-            ("IE", "140950881119"),
-            ("CRT", "3"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJ", "25028332000105"),
+                ("xNome", "GSMMY COMERCIO DE CHOCOLATES LTDA"),
+                ("IE", "140950881119"),
+                ("CRT", "3"),
+            ],
+        );
         assert!(xml.contains("<enderEmit>"));
-        expect_xml_contains(&xml, &[
-            ("xLgr", "RUA CAETEZAL"),
-            ("nro", "296"),
-            ("xBairro", "AGUA FRIA"),
-            ("xMun", "SAO PAULO"),
-            ("UF", "SP"),
-            ("CEP", "02334130"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("xLgr", "RUA CAETEZAL"),
+                ("nro", "296"),
+                ("xBairro", "AGUA FRIA"),
+                ("xMun", "SAO PAULO"),
+                ("UF", "SP"),
+                ("CEP", "02334130"),
+            ],
+        );
     }
 
     #[test]
@@ -494,27 +512,30 @@ mod convert_test {
     fn converted_xml_has_correct_icms_tot_fields() {
         let xml = convert_local_txt();
         assert!(xml.contains("<ICMSTot>"));
-        expect_xml_contains(&xml, &[
-            ("vBC", "55.84"),
-            ("vICMS", "10.04"),
-            ("vICMSDeson", "0.00"),
-            ("vFCP", "0.00"),
-            ("vBCST", "94.87"),
-            ("vST", "12.39"),
-            ("vFCPST", "0.00"),
-            ("vFCPSTRet", "0.00"),
-            ("vProd", "103.88"),
-            ("vFrete", "0.00"),
-            ("vSeg", "0.00"),
-            ("vDesc", "0.00"),
-            ("vII", "0.00"),
-            ("vIPI", "0.12"),
-            ("vIPIDevol", "0.00"),
-            ("vPIS", "0.67"),
-            ("vCOFINS", "3.12"),
-            ("vOutro", "0.00"),
-            ("vNF", "116.39"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "55.84"),
+                ("vICMS", "10.04"),
+                ("vICMSDeson", "0.00"),
+                ("vFCP", "0.00"),
+                ("vBCST", "94.87"),
+                ("vST", "12.39"),
+                ("vFCPST", "0.00"),
+                ("vFCPSTRet", "0.00"),
+                ("vProd", "103.88"),
+                ("vFrete", "0.00"),
+                ("vSeg", "0.00"),
+                ("vDesc", "0.00"),
+                ("vII", "0.00"),
+                ("vIPI", "0.12"),
+                ("vIPIDevol", "0.00"),
+                ("vPIS", "0.67"),
+                ("vCOFINS", "3.12"),
+                ("vOutro", "0.00"),
+                ("vNF", "116.39"),
+            ],
+        );
     }
 
     #[test]
@@ -538,17 +559,15 @@ mod convert_test {
     fn converted_xml_has_correct_cobr_fields() {
         let xml = convert_local_txt();
         assert!(xml.contains("<cobr>"));
-        expect_xml_contains(&xml, &[
-            ("nFat", "502"),
-            ("vOrig", "116.39"),
-            ("vLiq", "116.39"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[("nFat", "502"), ("vOrig", "116.39"), ("vLiq", "116.39")],
+        );
         assert!(xml.contains("<dup>"));
-        expect_xml_contains(&xml, &[
-            ("nDup", "001"),
-            ("dVenc", "2018-08-13"),
-            ("vDup", "116.39"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[("nDup", "001"), ("dVenc", "2018-08-13"), ("vDup", "116.39")],
+        );
     }
 
     #[test]
@@ -556,11 +575,7 @@ mod convert_test {
         let xml = convert_local_txt();
         assert!(xml.contains("<pag>"));
         assert!(xml.contains("<detPag>"));
-        expect_xml_contains(&xml, &[
-            ("indPag", "0"),
-            ("tPag", "01"),
-            ("vPag", "116.39"),
-        ]);
+        expect_xml_contains(&xml, &[("indPag", "0"), ("tPag", "01"), ("vPag", "116.39")]);
     }
 
     #[test]
@@ -582,7 +597,10 @@ mod tipos_basicos_test {
         let xsd = std::fs::read_to_string(xsd_path).expect("Failed to read XSD");
 
         // Find the TString pattern
-        assert!(xsd.contains("TString"), "XSD should contain TString simpleType");
+        assert!(
+            xsd.contains("TString"),
+            "XSD should contain TString simpleType"
+        );
         // The pattern should contain the byte range [!-\xFF]
         assert!(
             xsd.contains("[!-\u{00FF}]"),
@@ -615,7 +633,11 @@ mod make_dev_test {
         let id = "35170358716523000119550010000000301000000300";
         let xml = tag(
             "infNFe",
-            &[("Id", &format!("NFe{id}")), ("versao", "4.00"), ("pk_nItem", "1")],
+            &[
+                ("Id", &format!("NFe{id}")),
+                ("versao", "4.00"),
+                ("pk_nItem", "1"),
+            ],
             TagContent::Text(""),
         );
         assert!(xml.contains(&format!(r#"Id="NFe{id}""#)));
@@ -636,51 +658,62 @@ mod make_dev_test {
 
     #[test]
     fn tag_ide_model_55_with_all_values() {
-        let xml = tag("ide", &[], TagContent::Children(vec![
-            tag("cUF", &[], TagContent::Text("50")),
-            tag("cNF", &[], TagContent::Text("80070008")),
-            tag("natOp", &[], TagContent::Text("VENDA")),
-            tag("mod", &[], TagContent::Text("55")),
-            tag("serie", &[], TagContent::Text("1")),
-            tag("nNF", &[], TagContent::Text("1")),
-            tag("dhEmi", &[], TagContent::Text("2018-06-23T17:45:49-03:00")),
-            tag("dhSaiEnt", &[], TagContent::Text("2018-06-23T17:45:49-03:00")),
-            tag("tpNF", &[], TagContent::Text("1")),
-            tag("idDest", &[], TagContent::Text("1")),
-            tag("cMunFG", &[], TagContent::Text("5002704")),
-            tag("tpImp", &[], TagContent::Text("1")),
-            tag("tpEmis", &[], TagContent::Text("1")),
-            tag("cDV", &[], TagContent::Text("2")),
-            tag("tpAmb", &[], TagContent::Text("2")),
-            tag("finNFe", &[], TagContent::Text("1")),
-            tag("indFinal", &[], TagContent::Text("0")),
-            tag("indPres", &[], TagContent::Text("1")),
-            tag("procEmi", &[], TagContent::Text("0")),
-            tag("verProc", &[], TagContent::Text("5.0")),
-        ]));
+        let xml = tag(
+            "ide",
+            &[],
+            TagContent::Children(vec![
+                tag("cUF", &[], TagContent::Text("50")),
+                tag("cNF", &[], TagContent::Text("80070008")),
+                tag("natOp", &[], TagContent::Text("VENDA")),
+                tag("mod", &[], TagContent::Text("55")),
+                tag("serie", &[], TagContent::Text("1")),
+                tag("nNF", &[], TagContent::Text("1")),
+                tag("dhEmi", &[], TagContent::Text("2018-06-23T17:45:49-03:00")),
+                tag(
+                    "dhSaiEnt",
+                    &[],
+                    TagContent::Text("2018-06-23T17:45:49-03:00"),
+                ),
+                tag("tpNF", &[], TagContent::Text("1")),
+                tag("idDest", &[], TagContent::Text("1")),
+                tag("cMunFG", &[], TagContent::Text("5002704")),
+                tag("tpImp", &[], TagContent::Text("1")),
+                tag("tpEmis", &[], TagContent::Text("1")),
+                tag("cDV", &[], TagContent::Text("2")),
+                tag("tpAmb", &[], TagContent::Text("2")),
+                tag("finNFe", &[], TagContent::Text("1")),
+                tag("indFinal", &[], TagContent::Text("0")),
+                tag("indPres", &[], TagContent::Text("1")),
+                tag("procEmi", &[], TagContent::Text("0")),
+                tag("verProc", &[], TagContent::Text("5.0")),
+            ]),
+        );
 
-        expect_xml_contains(&xml, &[
-            ("cUF", "50"),
-            ("cNF", "80070008"),
-            ("natOp", "VENDA"),
-            ("mod", "55"),
-            ("serie", "1"),
-            ("nNF", "1"),
-            ("dhEmi", "2018-06-23T17:45:49-03:00"),
-            ("dhSaiEnt", "2018-06-23T17:45:49-03:00"),
-            ("tpNF", "1"),
-            ("idDest", "1"),
-            ("cMunFG", "5002704"),
-            ("tpImp", "1"),
-            ("tpEmis", "1"),
-            ("cDV", "2"),
-            ("tpAmb", "2"),
-            ("finNFe", "1"),
-            ("indFinal", "0"),
-            ("indPres", "1"),
-            ("procEmi", "0"),
-            ("verProc", "5.0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "50"),
+                ("cNF", "80070008"),
+                ("natOp", "VENDA"),
+                ("mod", "55"),
+                ("serie", "1"),
+                ("nNF", "1"),
+                ("dhEmi", "2018-06-23T17:45:49-03:00"),
+                ("dhSaiEnt", "2018-06-23T17:45:49-03:00"),
+                ("tpNF", "1"),
+                ("idDest", "1"),
+                ("cMunFG", "5002704"),
+                ("tpImp", "1"),
+                ("tpEmis", "1"),
+                ("cDV", "2"),
+                ("tpAmb", "2"),
+                ("finNFe", "1"),
+                ("indFinal", "0"),
+                ("indPres", "1"),
+                ("procEmi", "0"),
+                ("verProc", "5.0"),
+            ],
+        );
         assert!(!xml.contains("<indPag>"));
         assert!(!xml.contains("<dhCont>"));
         assert!(!xml.contains("<xJust>"));
@@ -688,27 +721,31 @@ mod make_dev_test {
 
     #[test]
     fn tag_ide_empty_required_fields() {
-        let xml = tag("ide", &[], TagContent::Children(vec![
-            tag("cUF", &[], TagContent::Text("")),
-            tag("cNF", &[], TagContent::Text("78888888")),
-            tag("natOp", &[], TagContent::Text("")),
-            tag("mod", &[], TagContent::Text("")),
-            tag("serie", &[], TagContent::Text("")),
-            tag("nNF", &[], TagContent::Text("")),
-            tag("dhEmi", &[], TagContent::Text("")),
-            tag("tpNF", &[], TagContent::Text("")),
-            tag("idDest", &[], TagContent::Text("")),
-            tag("cMunFG", &[], TagContent::Text("")),
-            tag("tpImp", &[], TagContent::Text("1")),
-            tag("tpEmis", &[], TagContent::Text("1")),
-            tag("cDV", &[], TagContent::Text("0")),
-            tag("tpAmb", &[], TagContent::Text("")),
-            tag("finNFe", &[], TagContent::Text("")),
-            tag("indFinal", &[], TagContent::Text("")),
-            tag("indPres", &[], TagContent::Text("")),
-            tag("procEmi", &[], TagContent::Text("")),
-            tag("verProc", &[], TagContent::Text("")),
-        ]));
+        let xml = tag(
+            "ide",
+            &[],
+            TagContent::Children(vec![
+                tag("cUF", &[], TagContent::Text("")),
+                tag("cNF", &[], TagContent::Text("78888888")),
+                tag("natOp", &[], TagContent::Text("")),
+                tag("mod", &[], TagContent::Text("")),
+                tag("serie", &[], TagContent::Text("")),
+                tag("nNF", &[], TagContent::Text("")),
+                tag("dhEmi", &[], TagContent::Text("")),
+                tag("tpNF", &[], TagContent::Text("")),
+                tag("idDest", &[], TagContent::Text("")),
+                tag("cMunFG", &[], TagContent::Text("")),
+                tag("tpImp", &[], TagContent::Text("1")),
+                tag("tpEmis", &[], TagContent::Text("1")),
+                tag("cDV", &[], TagContent::Text("0")),
+                tag("tpAmb", &[], TagContent::Text("")),
+                tag("finNFe", &[], TagContent::Text("")),
+                tag("indFinal", &[], TagContent::Text("")),
+                tag("indPres", &[], TagContent::Text("")),
+                tag("procEmi", &[], TagContent::Text("")),
+                tag("verProc", &[], TagContent::Text("")),
+            ]),
+        );
 
         assert!(xml.contains("<cUF></cUF>"));
         assert!(xml.contains("<cNF>78888888</cNF>"));
@@ -731,53 +768,67 @@ mod make_dev_test {
 
     #[test]
     fn tag_ide_contingency_fields() {
-        let xml = tag("ide", &[], TagContent::Children(vec![
-            tag("dhCont", &[], TagContent::Text("2018-06-26T17:45:49-03:00")),
-            tag("xJust", &[], TagContent::Text("SEFAZ INDISPONIVEL")),
-        ]));
+        let xml = tag(
+            "ide",
+            &[],
+            TagContent::Children(vec![
+                tag("dhCont", &[], TagContent::Text("2018-06-26T17:45:49-03:00")),
+                tag("xJust", &[], TagContent::Text("SEFAZ INDISPONIVEL")),
+            ]),
+        );
 
-        expect_xml_contains(&xml, &[
-            ("dhCont", "2018-06-26T17:45:49-03:00"),
-            ("xJust", "SEFAZ INDISPONIVEL"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("dhCont", "2018-06-26T17:45:49-03:00"),
+                ("xJust", "SEFAZ INDISPONIVEL"),
+            ],
+        );
     }
 
     #[test]
     fn tag_ide_model_65_with_nfce_specifics() {
-        let xml = tag("ide", &[], TagContent::Children(vec![
-            tag("cUF", &[], TagContent::Text("50")),
-            tag("cNF", &[], TagContent::Text("80070008")),
-            tag("natOp", &[], TagContent::Text("VENDA")),
-            tag("mod", &[], TagContent::Text("65")),
-            tag("serie", &[], TagContent::Text("1")),
-            tag("nNF", &[], TagContent::Text("1")),
-            tag("dhEmi", &[], TagContent::Text("2018-06-23T17:45:49-03:00")),
-            tag("tpNF", &[], TagContent::Text("1")),
-            tag("idDest", &[], TagContent::Text("1")),
-            tag("cMunFG", &[], TagContent::Text("5002704")),
-            tag("cMunFGIBS", &[], TagContent::Text("5002704")),
-            tag("tpImp", &[], TagContent::Text("4")),
-            tag("tpEmis", &[], TagContent::Text("1")),
-            tag("tpNFDebito", &[], TagContent::Text("1")),
-            tag("cDV", &[], TagContent::Text("2")),
-            tag("tpAmb", &[], TagContent::Text("2")),
-            tag("finNFe", &[], TagContent::Text("1")),
-            tag("indFinal", &[], TagContent::Text("0")),
-            tag("indPres", &[], TagContent::Text("5")),
-            tag("indIntermed", &[], TagContent::Text("1")),
-            tag("procEmi", &[], TagContent::Text("0")),
-            tag("verProc", &[], TagContent::Text("5.0")),
-        ]));
+        let xml = tag(
+            "ide",
+            &[],
+            TagContent::Children(vec![
+                tag("cUF", &[], TagContent::Text("50")),
+                tag("cNF", &[], TagContent::Text("80070008")),
+                tag("natOp", &[], TagContent::Text("VENDA")),
+                tag("mod", &[], TagContent::Text("65")),
+                tag("serie", &[], TagContent::Text("1")),
+                tag("nNF", &[], TagContent::Text("1")),
+                tag("dhEmi", &[], TagContent::Text("2018-06-23T17:45:49-03:00")),
+                tag("tpNF", &[], TagContent::Text("1")),
+                tag("idDest", &[], TagContent::Text("1")),
+                tag("cMunFG", &[], TagContent::Text("5002704")),
+                tag("cMunFGIBS", &[], TagContent::Text("5002704")),
+                tag("tpImp", &[], TagContent::Text("4")),
+                tag("tpEmis", &[], TagContent::Text("1")),
+                tag("tpNFDebito", &[], TagContent::Text("1")),
+                tag("cDV", &[], TagContent::Text("2")),
+                tag("tpAmb", &[], TagContent::Text("2")),
+                tag("finNFe", &[], TagContent::Text("1")),
+                tag("indFinal", &[], TagContent::Text("0")),
+                tag("indPres", &[], TagContent::Text("5")),
+                tag("indIntermed", &[], TagContent::Text("1")),
+                tag("procEmi", &[], TagContent::Text("0")),
+                tag("verProc", &[], TagContent::Text("5.0")),
+            ]),
+        );
 
-        expect_xml_contains(&xml, &[
-            ("cUF", "50"),
-            ("mod", "65"),
-            ("cMunFGIBS", "5002704"),
-            ("tpImp", "4"),
-            ("tpNFDebito", "1"),
-            ("indPres", "5"),
-            ("indIntermed", "1"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "50"),
+                ("mod", "65"),
+                ("cMunFGIBS", "5002704"),
+                ("tpImp", "4"),
+                ("tpNFDebito", "1"),
+                ("indPres", "5"),
+                ("indIntermed", "1"),
+            ],
+        );
 
         assert!(!xml.contains("<indPag>"));
         assert!(!xml.contains("<dhSaiEnt>"));
@@ -792,7 +843,6 @@ mod make_dev_test {
 // =============================================================================
 
 mod complements_test {
-    
 
     #[test]
     fn attach_event_protocol_produces_proc_evento() {

@@ -1,8 +1,8 @@
+use crate::FiscalError;
 use crate::newtypes::IbgeCode;
 use crate::types::{AccessKeyParams, ContingencyType, EmissionType, InvoiceModel};
 use crate::xml_builder::access_key::build_access_key;
 use crate::xml_utils::extract_xml_tag_value;
-use crate::FiscalError;
 
 /// Contingency manager for NF-e emission.
 ///
@@ -202,10 +202,7 @@ pub fn contingency_for_state(uf: &str) -> ContingencyType {
 /// since SVC-AN/SVC-RS contingency does not apply to NFC-e documents.
 ///
 /// Returns [`FiscalError::XmlParsing`] if required XML tags cannot be found.
-pub fn adjust_nfe_contingency(
-    xml: &str,
-    contingency: &Contingency,
-) -> Result<String, FiscalError> {
+pub fn adjust_nfe_contingency(xml: &str, contingency: &Contingency) -> Result<String, FiscalError> {
     // If no contingency is active, return XML unchanged
     if contingency.contingency_type.is_none() {
         return Ok(xml.to_string());
@@ -267,11 +264,7 @@ pub fn adjust_nfe_contingency(
             &xml[re_end..]
         );
     } else if xml.contains("<NFref>") {
-        xml = xml.replacen(
-            "<NFref>",
-            &format!("<dhCont>{dth_cont}</dhCont><NFref>"),
-            1,
-        );
+        xml = xml.replacen("<NFref>", &format!("<dhCont>{dth_cont}</dhCont><NFref>"), 1);
     } else {
         xml = xml.replacen("</ide>", &format!("<dhCont>{dth_cont}</dhCont></ide>"), 1);
     }
@@ -287,11 +280,7 @@ pub fn adjust_nfe_contingency(
             &xml[re_end..]
         );
     } else if xml.contains("<NFref>") {
-        xml = xml.replacen(
-            "<NFref>",
-            &format!("<xJust>{reason}</xJust><NFref>"),
-            1,
-        );
+        xml = xml.replacen("<NFref>", &format!("<xJust>{reason}</xJust><NFref>"), 1);
     } else {
         xml = xml.replacen("</ide>", &format!("<xJust>{reason}</xJust></ide>"), 1);
     }
@@ -346,7 +335,9 @@ fn remove_signature(xml: &str) -> String {
     if let Some(start) = xml.find("<Signature") {
         if let Some(end) = xml.find("</Signature>") {
             let full_end = end + "</Signature>".len();
-            return format!("{}{}", xml[..start].trim_end(), &xml[full_end..]).trim().to_string();
+            return format!("{}{}", xml[..start].trim_end(), &xml[full_end..])
+                .trim()
+                .to_string();
         }
     }
     xml.to_string()
@@ -396,9 +387,7 @@ fn extract_tz_offset(dh_emi: &str) -> String {
     // Look for +HH:MM or -HH:MM at the end
     if dh_emi.len() >= 6 {
         let tail = &dh_emi[dh_emi.len() - 6..];
-        if (tail.starts_with('+') || tail.starts_with('-'))
-            && tail.as_bytes()[3] == b':'
-        {
+        if (tail.starts_with('+') || tail.starts_with('-')) && tail.as_bytes()[3] == b':' {
             return tail.to_string();
         }
     }
@@ -493,8 +482,11 @@ mod tests {
     #[test]
     fn activate_sets_fields() {
         let mut c = Contingency::new();
-        c.activate(ContingencyType::SvcAn, "A valid reason for contingency mode activation")
-            .unwrap();
+        c.activate(
+            ContingencyType::SvcAn,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
         assert_eq!(c.contingency_type, Some(ContingencyType::SvcAn));
         assert_eq!(c.emission_type(), 6);
         assert!(c.reason.is_some());
@@ -504,16 +496,22 @@ mod tests {
     #[test]
     fn activate_svc_rs() {
         let mut c = Contingency::new();
-        c.activate(ContingencyType::SvcRs, "A valid reason for contingency mode activation")
-            .unwrap();
+        c.activate(
+            ContingencyType::SvcRs,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
         assert_eq!(c.emission_type(), 7);
     }
 
     #[test]
     fn activate_offline() {
         let mut c = Contingency::new();
-        c.activate(ContingencyType::Offline, "A valid reason for contingency mode activation")
-            .unwrap();
+        c.activate(
+            ContingencyType::Offline,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
         assert_eq!(c.emission_type(), 9);
     }
 
@@ -527,8 +525,11 @@ mod tests {
     #[test]
     fn deactivate_clears_state() {
         let mut c = Contingency::new();
-        c.activate(ContingencyType::SvcAn, "A valid reason for contingency mode activation")
-            .unwrap();
+        c.activate(
+            ContingencyType::SvcAn,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
         c.deactivate();
         assert!(c.contingency_type.is_none());
         assert_eq!(c.emission_type(), 1);
@@ -536,7 +537,8 @@ mod tests {
 
     #[test]
     fn load_from_json() {
-        let json = r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
         let c = Contingency::load(json).unwrap();
         assert_eq!(c.contingency_type, Some(ContingencyType::SvcAn));
         assert_eq!(c.emission_type(), 6);
@@ -550,10 +552,7 @@ mod tests {
             extract_json_string(json, "motive"),
             Some("hello world".to_string())
         );
-        assert_eq!(
-            extract_json_string(json, "type"),
-            Some("SVCAN".to_string())
-        );
+        assert_eq!(extract_json_string(json, "type"), Some("SVCAN".to_string()));
     }
 
     #[test]

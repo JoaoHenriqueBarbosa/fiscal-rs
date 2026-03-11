@@ -3,7 +3,7 @@
 use crate::format_utils::format_cents;
 use crate::tax_icms::IcmsTotals;
 use crate::types::RetTribData;
-use crate::xml_utils::{tag, TagContent};
+use crate::xml_utils::{TagContent, tag};
 
 /// Accumulated non-ICMS totals.
 #[derive(Debug, Clone)]
@@ -23,30 +23,54 @@ pub fn build_total(
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
-    let icms_tot = tag("ICMSTot", &[], TagContent::Children(vec![
-        tag("vBC", &[], TagContent::Text(&fc2(icms.v_bc.0))),
-        tag("vICMS", &[], TagContent::Text(&fc2(icms.v_icms.0))),
-        tag("vICMSDeson", &[], TagContent::Text(&fc2(icms.v_icms_deson.0))),
-        tag("vFCPUFDest", &[], TagContent::Text(&fc2(icms.v_fcp_uf_dest.0))),
-        tag("vICMSUFDest", &[], TagContent::Text(&fc2(icms.v_icms_uf_dest.0))),
-        tag("vICMSUFRemet", &[], TagContent::Text(&fc2(icms.v_icms_uf_remet.0))),
-        tag("vFCP", &[], TagContent::Text(&fc2(icms.v_fcp.0))),
-        tag("vBCST", &[], TagContent::Text(&fc2(icms.v_bc_st.0))),
-        tag("vST", &[], TagContent::Text(&fc2(icms.v_st.0))),
-        tag("vFCPST", &[], TagContent::Text(&fc2(icms.v_fcp_st.0))),
-        tag("vFCPSTRet", &[], TagContent::Text(&fc2(icms.v_fcp_st_ret.0))),
-        tag("vProd", &[], TagContent::Text(&fc2(total_products))),
-        tag("vFrete", &[], TagContent::Text("0.00")),
-        tag("vSeg", &[], TagContent::Text("0.00")),
-        tag("vDesc", &[], TagContent::Text("0.00")),
-        tag("vII", &[], TagContent::Text(&fc2(other.v_ii))),
-        tag("vIPI", &[], TagContent::Text(&fc2(other.v_ipi))),
-        tag("vIPIDevol", &[], TagContent::Text("0.00")),
-        tag("vPIS", &[], TagContent::Text(&fc2(other.v_pis))),
-        tag("vCOFINS", &[], TagContent::Text(&fc2(other.v_cofins))),
-        tag("vOutro", &[], TagContent::Text("0.00")),
-        tag("vNF", &[], TagContent::Text(&fc2(total_products))),
-    ]));
+    let icms_tot = tag(
+        "ICMSTot",
+        &[],
+        TagContent::Children(vec![
+            tag("vBC", &[], TagContent::Text(&fc2(icms.v_bc.0))),
+            tag("vICMS", &[], TagContent::Text(&fc2(icms.v_icms.0))),
+            tag(
+                "vICMSDeson",
+                &[],
+                TagContent::Text(&fc2(icms.v_icms_deson.0)),
+            ),
+            tag(
+                "vFCPUFDest",
+                &[],
+                TagContent::Text(&fc2(icms.v_fcp_uf_dest.0)),
+            ),
+            tag(
+                "vICMSUFDest",
+                &[],
+                TagContent::Text(&fc2(icms.v_icms_uf_dest.0)),
+            ),
+            tag(
+                "vICMSUFRemet",
+                &[],
+                TagContent::Text(&fc2(icms.v_icms_uf_remet.0)),
+            ),
+            tag("vFCP", &[], TagContent::Text(&fc2(icms.v_fcp.0))),
+            tag("vBCST", &[], TagContent::Text(&fc2(icms.v_bc_st.0))),
+            tag("vST", &[], TagContent::Text(&fc2(icms.v_st.0))),
+            tag("vFCPST", &[], TagContent::Text(&fc2(icms.v_fcp_st.0))),
+            tag(
+                "vFCPSTRet",
+                &[],
+                TagContent::Text(&fc2(icms.v_fcp_st_ret.0)),
+            ),
+            tag("vProd", &[], TagContent::Text(&fc2(total_products))),
+            tag("vFrete", &[], TagContent::Text("0.00")),
+            tag("vSeg", &[], TagContent::Text("0.00")),
+            tag("vDesc", &[], TagContent::Text("0.00")),
+            tag("vII", &[], TagContent::Text(&fc2(other.v_ii))),
+            tag("vIPI", &[], TagContent::Text(&fc2(other.v_ipi))),
+            tag("vIPIDevol", &[], TagContent::Text("0.00")),
+            tag("vPIS", &[], TagContent::Text(&fc2(other.v_pis))),
+            tag("vCOFINS", &[], TagContent::Text(&fc2(other.v_cofins))),
+            tag("vOutro", &[], TagContent::Text("0.00")),
+            tag("vNF", &[], TagContent::Text(&fc2(total_products))),
+        ]),
+    );
 
     let mut total_children = vec![icms_tot];
 
@@ -62,7 +86,10 @@ pub fn build_total(
             opt_tag("vIRRF", rt.v_irrf),
             opt_tag("vBCRetPrev", rt.v_bc_ret_prev),
             opt_tag("vRetPrev", rt.v_ret_prev),
-        ].into_iter().flatten().collect();
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
 
         if !ret_children.is_empty() {
             total_children.push(tag("retTrib", &[], TagContent::Children(ret_children)));

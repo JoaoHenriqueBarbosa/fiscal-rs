@@ -1,13 +1,13 @@
 use fiscal::format_utils::{
     format_cents, format_cents_2, format_cents_10, format_cents_or_none, format_cents_or_zero,
-    format_decimal, format_rate, format_rate4, format_rate4_or_zero, format_rate_4,
+    format_decimal, format_rate, format_rate_4, format_rate4, format_rate4_or_zero,
 };
+use fiscal::newtypes::Cents;
 use fiscal::state_codes::{get_state_by_code, get_state_code};
-use fiscal::tax_element::{serialize_tax_element, TaxElement, TaxField};
-use fiscal::tax_icms::{create_icms_totals, merge_icms_totals, IcmsTotals};
+use fiscal::tax_element::{TaxElement, TaxField, serialize_tax_element};
+use fiscal::tax_icms::{IcmsTotals, create_icms_totals, merge_icms_totals};
 use fiscal::xml_utils::{escape_xml, extract_xml_tag_value, tag};
 use insta::{assert_debug_snapshot, assert_snapshot};
-use fiscal::newtypes::{Cents};
 
 // ── XML Utils ───────────────────────────────────────────────────────────────
 
@@ -31,17 +31,15 @@ fn snapshot_tag_with_attrs() {
     assert_snapshot!(tag(
         "det",
         &[("nItem", "1")],
-        vec![
-            tag(
-                "prod",
-                &[],
-                vec![
-                    tag("cProd", &[], "001".into()),
-                    tag("xProd", &[], "Widget".into()),
-                ]
-                .into(),
-            ),
-        ]
+        vec![tag(
+            "prod",
+            &[],
+            vec![
+                tag("cProd", &[], "001".into()),
+                tag("xProd", &[], "Widget".into()),
+            ]
+            .into(),
+        ),]
         .into(),
     ));
 }
@@ -322,8 +320,8 @@ fn snapshot_format_rate4_or_zero_none() {
 #[test]
 fn snapshot_all_state_codes() {
     let mut mappings: Vec<String> = vec![
-        "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
-        "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+        "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB",
+        "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
     ]
     .into_iter()
     .map(|uf| format!("{uf} -> {}", get_state_code(uf).unwrap()))
@@ -335,8 +333,8 @@ fn snapshot_all_state_codes() {
 #[test]
 fn snapshot_all_reverse_lookups() {
     let codes = vec![
-        "11", "12", "13", "14", "15", "16", "17", "21", "22", "23", "24", "25", "26", "27",
-        "28", "29", "31", "32", "33", "35", "41", "42", "43", "50", "51", "52", "53",
+        "11", "12", "13", "14", "15", "16", "17", "21", "22", "23", "24", "25", "26", "27", "28",
+        "29", "31", "32", "33", "35", "41", "42", "43", "50", "51", "52", "53",
     ];
     let mut mappings: Vec<String> = codes
         .into_iter()

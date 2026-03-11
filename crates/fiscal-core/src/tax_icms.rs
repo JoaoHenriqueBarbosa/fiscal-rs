@@ -1,9 +1,9 @@
+use crate::FiscalError;
 use crate::format_utils::format_cents_or_none;
 use crate::newtypes::{Cents, Rate};
 use crate::tax_element::{
-    filter_fields, optional_field, required_field, serialize_tax_element, TaxElement, TaxField,
+    TaxElement, TaxField, filter_fields, optional_field, required_field, serialize_tax_element,
 };
-use crate::FiscalError;
 
 /// Accumulate a value into a totals field.
 fn accum(current: Cents, value: Option<Cents>) -> Cents {
@@ -72,30 +72,79 @@ impl IcmsPartData {
     /// Create a new `IcmsPartData` with all required fields.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        orig: impl Into<String>, cst: impl Into<String>, mod_bc: impl Into<String>,
-        v_bc: Cents, p_icms: Rate, v_icms: Cents,
-        mod_bc_st: impl Into<String>, v_bc_st: Cents, p_icms_st: Rate, v_icms_st: Cents,
-        p_bc_op: Rate, uf_st: impl Into<String>,
+        orig: impl Into<String>,
+        cst: impl Into<String>,
+        mod_bc: impl Into<String>,
+        v_bc: Cents,
+        p_icms: Rate,
+        v_icms: Cents,
+        mod_bc_st: impl Into<String>,
+        v_bc_st: Cents,
+        p_icms_st: Rate,
+        v_icms_st: Cents,
+        p_bc_op: Rate,
+        uf_st: impl Into<String>,
     ) -> Self {
         Self {
-            orig: orig.into(), cst: cst.into(), mod_bc: mod_bc.into(),
-            v_bc, p_red_bc: None, p_icms, v_icms,
-            mod_bc_st: mod_bc_st.into(), p_mva_st: None, p_red_bc_st: None,
-            v_bc_st, p_icms_st, v_icms_st,
-            v_bc_fcp_st: None, p_fcp_st: None, v_fcp_st: None,
-            p_bc_op, uf_st: uf_st.into(),
-            v_icms_deson: None, mot_des_icms: None, ind_deduz_deson: None,
+            orig: orig.into(),
+            cst: cst.into(),
+            mod_bc: mod_bc.into(),
+            v_bc,
+            p_red_bc: None,
+            p_icms,
+            v_icms,
+            mod_bc_st: mod_bc_st.into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            p_bc_op,
+            uf_st: uf_st.into(),
+            v_icms_deson: None,
+            mot_des_icms: None,
+            ind_deduz_deson: None,
         }
     }
-    pub fn p_red_bc(mut self, v: Rate) -> Self { self.p_red_bc = Some(v); self }
-    pub fn p_mva_st(mut self, v: Rate) -> Self { self.p_mva_st = Some(v); self }
-    pub fn p_red_bc_st(mut self, v: Rate) -> Self { self.p_red_bc_st = Some(v); self }
-    pub fn v_bc_fcp_st(mut self, v: Cents) -> Self { self.v_bc_fcp_st = Some(v); self }
-    pub fn p_fcp_st(mut self, v: Rate) -> Self { self.p_fcp_st = Some(v); self }
-    pub fn v_fcp_st(mut self, v: Cents) -> Self { self.v_fcp_st = Some(v); self }
-    pub fn v_icms_deson(mut self, v: Cents) -> Self { self.v_icms_deson = Some(v); self }
-    pub fn mot_des_icms(mut self, v: impl Into<String>) -> Self { self.mot_des_icms = Some(v.into()); self }
-    pub fn ind_deduz_deson(mut self, v: impl Into<String>) -> Self { self.ind_deduz_deson = Some(v.into()); self }
+    pub fn p_red_bc(mut self, v: Rate) -> Self {
+        self.p_red_bc = Some(v);
+        self
+    }
+    pub fn p_mva_st(mut self, v: Rate) -> Self {
+        self.p_mva_st = Some(v);
+        self
+    }
+    pub fn p_red_bc_st(mut self, v: Rate) -> Self {
+        self.p_red_bc_st = Some(v);
+        self
+    }
+    pub fn v_bc_fcp_st(mut self, v: Cents) -> Self {
+        self.v_bc_fcp_st = Some(v);
+        self
+    }
+    pub fn p_fcp_st(mut self, v: Rate) -> Self {
+        self.p_fcp_st = Some(v);
+        self
+    }
+    pub fn v_fcp_st(mut self, v: Cents) -> Self {
+        self.v_fcp_st = Some(v);
+        self
+    }
+    pub fn v_icms_deson(mut self, v: Cents) -> Self {
+        self.v_icms_deson = Some(v);
+        self
+    }
+    pub fn mot_des_icms(mut self, v: impl Into<String>) -> Self {
+        self.mot_des_icms = Some(v.into());
+        self
+    }
+    pub fn ind_deduz_deson(mut self, v: impl Into<String>) -> Self {
+        self.ind_deduz_deson = Some(v.into());
+        self
+    }
 }
 
 /// Data for building the ICMSST XML group (ST repasse).
@@ -123,27 +172,67 @@ impl IcmsStData {
     /// Create a new `IcmsStData` with required fields.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        orig: impl Into<String>, cst: impl Into<String>,
-        v_bc_st_ret: Cents, v_icms_st_ret: Cents,
-        v_bc_st_dest: Cents, v_icms_st_dest: Cents,
+        orig: impl Into<String>,
+        cst: impl Into<String>,
+        v_bc_st_ret: Cents,
+        v_icms_st_ret: Cents,
+        v_bc_st_dest: Cents,
+        v_icms_st_dest: Cents,
     ) -> Self {
         Self {
-            orig: orig.into(), cst: cst.into(),
-            v_bc_st_ret, p_st: None, v_icms_substituto: None, v_icms_st_ret,
-            v_bc_fcp_st_ret: None, p_fcp_st_ret: None, v_fcp_st_ret: None,
-            v_bc_st_dest, v_icms_st_dest,
-            p_red_bc_efet: None, v_bc_efet: None, p_icms_efet: None, v_icms_efet: None,
+            orig: orig.into(),
+            cst: cst.into(),
+            v_bc_st_ret,
+            p_st: None,
+            v_icms_substituto: None,
+            v_icms_st_ret,
+            v_bc_fcp_st_ret: None,
+            p_fcp_st_ret: None,
+            v_fcp_st_ret: None,
+            v_bc_st_dest,
+            v_icms_st_dest,
+            p_red_bc_efet: None,
+            v_bc_efet: None,
+            p_icms_efet: None,
+            v_icms_efet: None,
         }
     }
-    pub fn p_st(mut self, v: Rate) -> Self { self.p_st = Some(v); self }
-    pub fn v_icms_substituto(mut self, v: Cents) -> Self { self.v_icms_substituto = Some(v); self }
-    pub fn v_bc_fcp_st_ret(mut self, v: Cents) -> Self { self.v_bc_fcp_st_ret = Some(v); self }
-    pub fn p_fcp_st_ret(mut self, v: Rate) -> Self { self.p_fcp_st_ret = Some(v); self }
-    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self { self.v_fcp_st_ret = Some(v); self }
-    pub fn p_red_bc_efet(mut self, v: Rate) -> Self { self.p_red_bc_efet = Some(v); self }
-    pub fn v_bc_efet(mut self, v: Cents) -> Self { self.v_bc_efet = Some(v); self }
-    pub fn p_icms_efet(mut self, v: Rate) -> Self { self.p_icms_efet = Some(v); self }
-    pub fn v_icms_efet(mut self, v: Cents) -> Self { self.v_icms_efet = Some(v); self }
+    pub fn p_st(mut self, v: Rate) -> Self {
+        self.p_st = Some(v);
+        self
+    }
+    pub fn v_icms_substituto(mut self, v: Cents) -> Self {
+        self.v_icms_substituto = Some(v);
+        self
+    }
+    pub fn v_bc_fcp_st_ret(mut self, v: Cents) -> Self {
+        self.v_bc_fcp_st_ret = Some(v);
+        self
+    }
+    pub fn p_fcp_st_ret(mut self, v: Rate) -> Self {
+        self.p_fcp_st_ret = Some(v);
+        self
+    }
+    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self {
+        self.v_fcp_st_ret = Some(v);
+        self
+    }
+    pub fn p_red_bc_efet(mut self, v: Rate) -> Self {
+        self.p_red_bc_efet = Some(v);
+        self
+    }
+    pub fn v_bc_efet(mut self, v: Cents) -> Self {
+        self.v_bc_efet = Some(v);
+        self
+    }
+    pub fn p_icms_efet(mut self, v: Rate) -> Self {
+        self.p_icms_efet = Some(v);
+        self
+    }
+    pub fn v_icms_efet(mut self, v: Cents) -> Self {
+        self.v_icms_efet = Some(v);
+        self
+    }
 }
 
 /// Data for building the ICMSUFDest XML group (interstate destination).
@@ -162,21 +251,43 @@ pub struct IcmsUfDestData {
 
 impl IcmsUfDestData {
     /// Create a new `IcmsUfDestData` with required fields.
-    pub fn new(v_bc_uf_dest: Cents, p_icms_uf_dest: Rate, p_icms_inter: Rate, v_icms_uf_dest: Cents) -> Self {
+    pub fn new(
+        v_bc_uf_dest: Cents,
+        p_icms_uf_dest: Rate,
+        p_icms_inter: Rate,
+        v_icms_uf_dest: Cents,
+    ) -> Self {
         Self {
-            v_bc_uf_dest, v_bc_fcp_uf_dest: None, p_fcp_uf_dest: None,
-            p_icms_uf_dest, p_icms_inter, v_fcp_uf_dest: None,
-            v_icms_uf_dest, v_icms_uf_remet: None,
+            v_bc_uf_dest,
+            v_bc_fcp_uf_dest: None,
+            p_fcp_uf_dest: None,
+            p_icms_uf_dest,
+            p_icms_inter,
+            v_fcp_uf_dest: None,
+            v_icms_uf_dest,
+            v_icms_uf_remet: None,
         }
     }
     /// Set the FCP base value for destination.
-    pub fn v_bc_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_bc_fcp_uf_dest = Some(v); self }
+    pub fn v_bc_fcp_uf_dest(mut self, v: Cents) -> Self {
+        self.v_bc_fcp_uf_dest = Some(v);
+        self
+    }
     /// Set the FCP rate for destination.
-    pub fn p_fcp_uf_dest(mut self, v: Rate) -> Self { self.p_fcp_uf_dest = Some(v); self }
+    pub fn p_fcp_uf_dest(mut self, v: Rate) -> Self {
+        self.p_fcp_uf_dest = Some(v);
+        self
+    }
     /// Set the FCP value for destination.
-    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_fcp_uf_dest = Some(v); self }
+    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self {
+        self.v_fcp_uf_dest = Some(v);
+        self
+    }
     /// Set the ICMS value for origin state.
-    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self { self.v_icms_uf_remet = Some(v); self }
+    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self {
+        self.v_icms_uf_remet = Some(v);
+        self
+    }
 }
 
 /// Accumulated ICMS totals across all items.
@@ -207,20 +318,62 @@ impl IcmsTotals {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = v; self }
-    pub fn v_icms(mut self, v: Cents) -> Self { self.v_icms = v; self }
-    pub fn v_icms_deson(mut self, v: Cents) -> Self { self.v_icms_deson = v; self }
-    pub fn v_bc_st(mut self, v: Cents) -> Self { self.v_bc_st = v; self }
-    pub fn v_st(mut self, v: Cents) -> Self { self.v_st = v; self }
-    pub fn v_fcp(mut self, v: Cents) -> Self { self.v_fcp = v; self }
-    pub fn v_fcp_st(mut self, v: Cents) -> Self { self.v_fcp_st = v; self }
-    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self { self.v_fcp_st_ret = v; self }
-    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_fcp_uf_dest = v; self }
-    pub fn v_icms_uf_dest(mut self, v: Cents) -> Self { self.v_icms_uf_dest = v; self }
-    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self { self.v_icms_uf_remet = v; self }
-    pub fn v_icms_mono(mut self, v: Cents) -> Self { self.v_icms_mono = v; self }
-    pub fn v_icms_mono_reten(mut self, v: Cents) -> Self { self.v_icms_mono_reten = v; self }
-    pub fn v_icms_mono_ret(mut self, v: Cents) -> Self { self.v_icms_mono_ret = v; self }
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = v;
+        self
+    }
+    pub fn v_icms(mut self, v: Cents) -> Self {
+        self.v_icms = v;
+        self
+    }
+    pub fn v_icms_deson(mut self, v: Cents) -> Self {
+        self.v_icms_deson = v;
+        self
+    }
+    pub fn v_bc_st(mut self, v: Cents) -> Self {
+        self.v_bc_st = v;
+        self
+    }
+    pub fn v_st(mut self, v: Cents) -> Self {
+        self.v_st = v;
+        self
+    }
+    pub fn v_fcp(mut self, v: Cents) -> Self {
+        self.v_fcp = v;
+        self
+    }
+    pub fn v_fcp_st(mut self, v: Cents) -> Self {
+        self.v_fcp_st = v;
+        self
+    }
+    pub fn v_fcp_st_ret(mut self, v: Cents) -> Self {
+        self.v_fcp_st_ret = v;
+        self
+    }
+    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self {
+        self.v_fcp_uf_dest = v;
+        self
+    }
+    pub fn v_icms_uf_dest(mut self, v: Cents) -> Self {
+        self.v_icms_uf_dest = v;
+        self
+    }
+    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self {
+        self.v_icms_uf_remet = v;
+        self
+    }
+    pub fn v_icms_mono(mut self, v: Cents) -> Self {
+        self.v_icms_mono = v;
+        self
+    }
+    pub fn v_icms_mono_reten(mut self, v: Cents) -> Self {
+        self.v_icms_mono_reten = v;
+        self
+    }
+    pub fn v_icms_mono_ret(mut self, v: Cents) -> Self {
+        self.v_icms_mono_ret = v;
+        self
+    }
 }
 
 /// Create a zeroed-out ICMS totals.
@@ -480,7 +633,6 @@ impl IcmsCst {
     }
 }
 
-
 /// Build the ICMS XML fragment and accumulate totals from a typed [`IcmsCst`]
 /// variant.
 ///
@@ -589,14 +741,23 @@ pub fn build_icms_cst_xml(
                 fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
             }
             fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new(
+                "pICMSST",
+                fc4(Some(*p_icms_st)).unwrap(),
+            )));
+            fields_opt.push(Some(TaxField::new(
+                "vICMSST",
+                fc2(Some(*v_icms_st)).unwrap(),
+            )));
             // FCP ST fields
             fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
             fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
             fields_opt.push(optional_field("vFCPST", fc2(*v_fcp_st).as_deref()));
             // ST desoneration
-            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field(
+                "vICMSSTDeson",
+                fc2(*v_icms_st_deson).as_deref(),
+            ));
             fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
             Ok(("ICMS10".to_string(), filter_fields(fields_opt)))
         }
@@ -623,8 +784,14 @@ pub fn build_icms_cst_xml(
                 Some(TaxField::new("adRemICMS", fc4(Some(*ad_rem_icms)).unwrap())),
                 Some(TaxField::new("vICMSMono", fc2(Some(*v_icms_mono)).unwrap())),
                 optional_field("qBCMonoReten", fc4_raw(*q_bc_mono_reten).as_deref()),
-                Some(TaxField::new("adRemICMSReten", fc4(Some(*ad_rem_icms_reten)).unwrap())),
-                Some(TaxField::new("vICMSMonoReten", fc2(Some(*v_icms_mono_reten)).unwrap())),
+                Some(TaxField::new(
+                    "adRemICMSReten",
+                    fc4(Some(*ad_rem_icms_reten)).unwrap(),
+                )),
+                Some(TaxField::new(
+                    "vICMSMonoReten",
+                    fc2(Some(*v_icms_mono_reten)).unwrap(),
+                )),
             ]);
             if p_red_ad_rem.is_some() {
                 fields.push(TaxField::new("pRedAdRem", fc4(*p_red_ad_rem).unwrap()));
@@ -703,8 +870,14 @@ pub fn build_icms_cst_xml(
                 fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
             }
             fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new(
+                "pICMSST",
+                fc4(Some(*p_icms_st)).unwrap(),
+            )));
+            fields_opt.push(Some(TaxField::new(
+                "vICMSST",
+                fc2(Some(*v_icms_st)).unwrap(),
+            )));
             // FCP ST
             fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
             fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
@@ -860,8 +1033,14 @@ pub fn build_icms_cst_xml(
                 Some(TaxField::new("orig", orig.as_str())),
                 Some(TaxField::new("CST", "61")),
                 optional_field("qBCMonoRet", fc4_raw(*q_bc_mono_ret).as_deref()),
-                Some(TaxField::new("adRemICMSRet", fc4(Some(*ad_rem_icms_ret)).unwrap())),
-                Some(TaxField::new("vICMSMonoRet", fc2(Some(*v_icms_mono_ret)).unwrap())),
+                Some(TaxField::new(
+                    "adRemICMSRet",
+                    fc4(Some(*ad_rem_icms_ret)).unwrap(),
+                )),
+                Some(TaxField::new(
+                    "vICMSMonoRet",
+                    fc2(Some(*v_icms_mono_ret)).unwrap(),
+                )),
             ]);
             Ok(("ICMS61".to_string(), fields))
         }
@@ -920,8 +1099,14 @@ pub fn build_icms_cst_xml(
                 fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
             }
             fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(*p_icms_st)).unwrap())));
-            fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(*v_icms_st)).unwrap())));
+            fields_opt.push(Some(TaxField::new(
+                "pICMSST",
+                fc4(Some(*p_icms_st)).unwrap(),
+            )));
+            fields_opt.push(Some(TaxField::new(
+                "vICMSST",
+                fc2(Some(*v_icms_st)).unwrap(),
+            )));
             // FCP ST
             fields_opt.push(optional_field("vBCFCPST", fc2(*v_bc_fcp_st).as_deref()));
             fields_opt.push(optional_field("pFCPST", fc4(*p_fcp_st).as_deref()));
@@ -931,7 +1116,10 @@ pub fn build_icms_cst_xml(
             fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
             fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
             // ST desoneration
-            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field(
+                "vICMSSTDeson",
+                fc2(*v_icms_st_deson).as_deref(),
+            ));
             fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
             Ok(("ICMS70".to_string(), filter_fields(fields_opt)))
         }
@@ -1012,7 +1200,10 @@ pub fn build_icms_cst_xml(
             fields_opt.push(optional_field("motDesICMS", mot_des_icms.as_deref()));
             fields_opt.push(optional_field("indDeduzDeson", ind_deduz_deson.as_deref()));
             // ST desoneration
-            fields_opt.push(optional_field("vICMSSTDeson", fc2(*v_icms_st_deson).as_deref()));
+            fields_opt.push(optional_field(
+                "vICMSSTDeson",
+                fc2(*v_icms_st_deson).as_deref(),
+            ));
             fields_opt.push(optional_field("motDesICMSST", mot_des_icms_st.as_deref()));
             Ok(("ICMS90".to_string(), filter_fields(fields_opt)))
         }
@@ -1040,10 +1231,7 @@ pub enum IcmsCsosn {
     },
     /// CSOSN 102/103/300/400 — Tributada sem permissao de credito / Imune /
     /// Nao tributada.
-    Csosn102 {
-        orig: String,
-        csosn: String,
-    },
+    Csosn102 { orig: String, csosn: String },
     /// CSOSN 201 — Tributada com permissao de credito e com cobranca do ICMS
     /// por ST.
     Csosn201 {
@@ -1129,7 +1317,6 @@ impl IcmsCsosn {
     }
 }
 
-
 /// Build the ICMS XML fragment and accumulate totals from a typed
 /// [`IcmsCsosn`] variant.
 ///
@@ -1208,10 +1395,7 @@ pub fn build_icms_csosn_xml(
             if let Some(v) = p_red_bc_st {
                 fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
             }
-            fields_opt.push(Some(TaxField::new(
-                "vBCST",
-                fc2(Some(*v_bc_st)).unwrap(),
-            )));
+            fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
             fields_opt.push(Some(TaxField::new(
                 "pICMSST",
                 fc4(Some(*p_icms_st)).unwrap(),
@@ -1261,10 +1445,7 @@ pub fn build_icms_csosn_xml(
             if let Some(v) = p_red_bc_st {
                 fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(*v)).unwrap())));
             }
-            fields_opt.push(Some(TaxField::new(
-                "vBCST",
-                fc2(Some(*v_bc_st)).unwrap(),
-            )));
+            fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(*v_bc_st)).unwrap())));
             fields_opt.push(Some(TaxField::new(
                 "pICMSST",
                 fc4(Some(*p_icms_st)).unwrap(),
@@ -1455,9 +1636,18 @@ pub fn build_icms_part_xml(data: &IcmsPartData) -> Result<(String, IcmsTotals), 
     if let Some(v) = data.p_red_bc_st {
         fields_opt.push(Some(TaxField::new("pRedBCST", fc4(Some(v)).unwrap())));
     }
-    fields_opt.push(Some(TaxField::new("vBCST", fc2(Some(data.v_bc_st)).unwrap())));
-    fields_opt.push(Some(TaxField::new("pICMSST", fc4(Some(data.p_icms_st)).unwrap())));
-    fields_opt.push(Some(TaxField::new("vICMSST", fc2(Some(data.v_icms_st)).unwrap())));
+    fields_opt.push(Some(TaxField::new(
+        "vBCST",
+        fc2(Some(data.v_bc_st)).unwrap(),
+    )));
+    fields_opt.push(Some(TaxField::new(
+        "pICMSST",
+        fc4(Some(data.p_icms_st)).unwrap(),
+    )));
+    fields_opt.push(Some(TaxField::new(
+        "vICMSST",
+        fc2(Some(data.v_icms_st)).unwrap(),
+    )));
 
     // FCP ST fields
     fields_opt.push(optional_field("vBCFCPST", fc2(data.v_bc_fcp_st).as_deref()));
@@ -1465,13 +1655,22 @@ pub fn build_icms_part_xml(data: &IcmsPartData) -> Result<(String, IcmsTotals), 
     fields_opt.push(optional_field("vFCPST", fc2(data.v_fcp_st).as_deref()));
 
     // pBCOp, UFST
-    fields_opt.push(Some(TaxField::new("pBCOp", fc4(Some(data.p_bc_op)).unwrap())));
+    fields_opt.push(Some(TaxField::new(
+        "pBCOp",
+        fc4(Some(data.p_bc_op)).unwrap(),
+    )));
     fields_opt.push(Some(TaxField::new("UFST", data.uf_st.as_str())));
 
     // Desoneration
-    fields_opt.push(optional_field("vICMSDeson", fc2(data.v_icms_deson).as_deref()));
+    fields_opt.push(optional_field(
+        "vICMSDeson",
+        fc2(data.v_icms_deson).as_deref(),
+    ));
     fields_opt.push(optional_field("motDesICMS", data.mot_des_icms.as_deref()));
-    fields_opt.push(optional_field("indDeduzDeson", data.ind_deduz_deson.as_deref()));
+    fields_opt.push(optional_field(
+        "indDeduzDeson",
+        data.ind_deduz_deson.as_deref(),
+    ));
 
     let fields = filter_fields(fields_opt);
 
@@ -1499,15 +1698,27 @@ pub fn build_icms_st_xml(data: &IcmsStData) -> Result<(String, IcmsTotals), Fisc
     let fields_opt: Vec<Option<TaxField>> = vec![
         Some(TaxField::new("orig", data.orig.as_str())),
         Some(TaxField::new("CST", data.cst.as_str())),
-        Some(TaxField::new("vBCSTRet", fc2(Some(data.v_bc_st_ret)).unwrap())),
+        Some(TaxField::new(
+            "vBCSTRet",
+            fc2(Some(data.v_bc_st_ret)).unwrap(),
+        )),
         optional_field("pST", fc4(data.p_st).as_deref()),
         optional_field("vICMSSubstituto", fc2(data.v_icms_substituto).as_deref()),
-        Some(TaxField::new("vICMSSTRet", fc2(Some(data.v_icms_st_ret)).unwrap())),
+        Some(TaxField::new(
+            "vICMSSTRet",
+            fc2(Some(data.v_icms_st_ret)).unwrap(),
+        )),
         optional_field("vBCFCPSTRet", fc2(data.v_bc_fcp_st_ret).as_deref()),
         optional_field("pFCPSTRet", fc4(data.p_fcp_st_ret).as_deref()),
         optional_field("vFCPSTRet", fc2(data.v_fcp_st_ret).as_deref()),
-        Some(TaxField::new("vBCSTDest", fc2(Some(data.v_bc_st_dest)).unwrap())),
-        Some(TaxField::new("vICMSSTDest", fc2(Some(data.v_icms_st_dest)).unwrap())),
+        Some(TaxField::new(
+            "vBCSTDest",
+            fc2(Some(data.v_bc_st_dest)).unwrap(),
+        )),
+        Some(TaxField::new(
+            "vICMSSTDest",
+            fc2(Some(data.v_icms_st_dest)).unwrap(),
+        )),
         optional_field("pRedBCEfet", fc4(data.p_red_bc_efet).as_deref()),
         optional_field("vBCEfet", fc2(data.v_bc_efet).as_deref()),
         optional_field("pICMSEfet", fc4(data.p_icms_efet).as_deref()),
@@ -1540,15 +1751,30 @@ pub fn build_icms_uf_dest_xml(data: &IcmsUfDestData) -> Result<(String, IcmsTota
     totals.v_icms_uf_remet = accum(totals.v_icms_uf_remet, data.v_icms_uf_remet);
 
     let fields_opt: Vec<Option<TaxField>> = vec![
-        Some(TaxField::new("vBCUFDest", fc2(Some(data.v_bc_uf_dest)).unwrap())),
+        Some(TaxField::new(
+            "vBCUFDest",
+            fc2(Some(data.v_bc_uf_dest)).unwrap(),
+        )),
         optional_field("vBCFCPUFDest", fc2(data.v_bc_fcp_uf_dest).as_deref()),
         optional_field("pFCPUFDest", fc4(data.p_fcp_uf_dest).as_deref()),
-        Some(TaxField::new("pICMSUFDest", fc4(Some(data.p_icms_uf_dest)).unwrap())),
-        Some(TaxField::new("pICMSInter", fc4(Some(data.p_icms_inter)).unwrap())),
+        Some(TaxField::new(
+            "pICMSUFDest",
+            fc4(Some(data.p_icms_uf_dest)).unwrap(),
+        )),
+        Some(TaxField::new(
+            "pICMSInter",
+            fc4(Some(data.p_icms_inter)).unwrap(),
+        )),
         Some(TaxField::new("pICMSInterPart", "100.0000")),
         optional_field("vFCPUFDest", fc2(data.v_fcp_uf_dest).as_deref()),
-        Some(TaxField::new("vICMSUFDest", fc2(Some(data.v_icms_uf_dest)).unwrap())),
-        Some(TaxField::new("vICMSUFRemet", fc2(Some(data.v_icms_uf_remet.unwrap_or(Cents(0)))).unwrap())),
+        Some(TaxField::new(
+            "vICMSUFDest",
+            fc2(Some(data.v_icms_uf_dest)).unwrap(),
+        )),
+        Some(TaxField::new(
+            "vICMSUFRemet",
+            fc2(Some(data.v_icms_uf_remet.unwrap_or(Cents(0)))).unwrap(),
+        )),
     ];
 
     let fields = filter_fields(fields_opt);
@@ -1583,4 +1809,3 @@ pub fn merge_icms_totals(target: &mut IcmsTotals, source: &IcmsTotals) {
     target.q_bc_mono_ret += source.q_bc_mono_ret;
     target.v_icms_mono_ret += source.v_icms_mono_ret;
 }
-

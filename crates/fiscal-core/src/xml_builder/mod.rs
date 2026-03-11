@@ -15,27 +15,27 @@
 //! ```
 
 pub mod access_key;
-pub mod tax_id;
-pub mod ide;
-pub mod emit;
+mod builder;
 pub mod dest;
 pub mod det;
+pub mod emit;
+pub mod ide;
+pub mod optional;
+pub mod pag;
+pub mod tax_id;
 pub mod total;
 pub mod transp;
-pub mod pag;
-pub mod optional;
-mod builder;
 
-pub use builder::{Draft, Built, InvoiceBuilder};
 pub use access_key::build_access_key;
+pub use builder::{Built, Draft, InvoiceBuilder};
 
+use crate::FiscalError;
 use crate::constants::{NFE_NAMESPACE, NFE_VERSION};
 use crate::newtypes::IbgeCode;
 use crate::state_codes::STATE_IBGE_CODES;
 use crate::tax_icms::{create_icms_totals, merge_icms_totals};
 use crate::types::{AccessKeyParams, InvoiceBuildData, InvoiceXmlResult};
-use crate::xml_utils::{tag, TagContent};
-use crate::FiscalError;
+use crate::xml_utils::{TagContent, tag};
 
 /// Internal XML generation from a fully populated [`InvoiceBuildData`].
 ///
@@ -152,13 +152,21 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
 
     let inf_nfe = tag(
         "infNFe",
-        &[("xmlns", NFE_NAMESPACE), ("versao", NFE_VERSION), ("Id", &inf_nfe_id)],
+        &[
+            ("xmlns", NFE_NAMESPACE),
+            ("versao", NFE_VERSION),
+            ("Id", &inf_nfe_id),
+        ],
         TagContent::Children(inf_children),
     );
 
     let xml = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>{}",
-        tag("NFe", &[("xmlns", NFE_NAMESPACE)], TagContent::Children(vec![inf_nfe])),
+        tag(
+            "NFe",
+            &[("xmlns", NFE_NAMESPACE)],
+            TagContent::Children(vec![inf_nfe])
+        ),
     );
 
     Ok(InvoiceXmlResult { xml, access_key })

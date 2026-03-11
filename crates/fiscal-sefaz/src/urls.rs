@@ -405,16 +405,14 @@ pub fn get_sefaz_url(
     environment: SefazEnvironment,
     service: &str,
 ) -> Result<String, FiscalError> {
-    let authorizer = get_state_authorizer(uf)
-        .ok_or_else(|| FiscalError::InvalidStateCode(uf.to_string()))?;
+    let authorizer =
+        get_state_authorizer(uf).ok_or_else(|| FiscalError::InvalidStateCode(uf.to_string()))?;
 
     authorizer
         .get_url(service, environment)
         .map(|s| s.to_string())
         .ok_or_else(|| {
-            FiscalError::XmlGeneration(format!(
-                "Service '{service}' not found for state {uf}"
-            ))
+            FiscalError::XmlGeneration(format!("Service '{service}' not found for state {uf}"))
         })
 }
 
@@ -506,9 +504,6 @@ pub fn get_nfce_consult_url(
 ///
 /// Returns [`FiscalError::InvalidStateCode`] if `uf` is not a valid Brazilian
 /// state abbreviation.
-pub fn get_nfce_qr_url(
-    uf: &str,
-    environment: SefazEnvironment,
-) -> Result<String, FiscalError> {
+pub fn get_nfce_qr_url(uf: &str, environment: SefazEnvironment) -> Result<String, FiscalError> {
     get_nfce_consult_url(uf, environment)
 }

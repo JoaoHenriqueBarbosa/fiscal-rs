@@ -5,8 +5,8 @@
 
 #![allow(dead_code)]
 
+use fiscal::newtypes::{Cents, IbgeCode, Rate};
 use fiscal::types::*;
-use fiscal::newtypes::{Cents, Rate, IbgeCode};
 use fiscal::xml_builder::InvoiceBuilder;
 
 // ── XML assertion helpers ───────────────────────────────────────────────────
@@ -46,8 +46,14 @@ pub fn expect_xml_not_contains(xml: &str, substrings: &[&str]) {
 pub fn expect_wrapped_in(xml: &str, wrapper: &str) {
     let open = format!("<{wrapper}>");
     let close = format!("</{wrapper}>");
-    assert!(xml.contains(&open), "Expected XML to contain {open}\n\nXML:\n{xml}");
-    assert!(xml.contains(&close), "Expected XML to contain {close}\n\nXML:\n{xml}");
+    assert!(
+        xml.contains(&open),
+        "Expected XML to contain {open}\n\nXML:\n{xml}"
+    );
+    assert!(
+        xml.contains(&close),
+        "Expected XML to contain {close}\n\nXML:\n{xml}"
+    );
 }
 
 // ── Sample data factories ───────────────────────────────────────────────────
@@ -60,20 +66,35 @@ pub fn br_offset() -> chrono::FixedOffset {
 /// Sample issuer with Simples Nacional tax regime.
 pub fn sample_issuer() -> IssuerData {
     IssuerData::new(
-        "12345678000199", "123456789", "Test Company",
-        TaxRegime::SimplesNacional, "SP",
-        IbgeCode("3550308".to_string()), "Sao Paulo",
-        "Av Paulista", "1000", "Bela Vista", "01310100",
-    ).trade_name("Test")
+        "12345678000199",
+        "123456789",
+        "Test Company",
+        TaxRegime::SimplesNacional,
+        "SP",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "Av Paulista",
+        "1000",
+        "Bela Vista",
+        "01310100",
+    )
+    .trade_name("Test")
 }
 
 /// Sample issuer with Regime Normal tax regime.
 pub fn sample_issuer_normal() -> IssuerData {
     IssuerData::new(
-        "58716523000119", "111222333444", "Empresa Teste",
-        TaxRegime::Normal, "SP",
-        IbgeCode("3550308".to_string()), "Sao Paulo",
-        "Rua Teste", "100", "Centro", "01001000",
+        "58716523000119",
+        "111222333444",
+        "Empresa Teste",
+        TaxRegime::Normal,
+        "SP",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "Rua Teste",
+        "100",
+        "Centro",
+        "01001000",
     )
 }
 
@@ -85,9 +106,20 @@ pub fn sample_recipient() -> RecipientData {
 /// Sample invoice item with minimal ICMS/PIS/COFINS configuration.
 pub fn sample_item() -> InvoiceItemData {
     InvoiceItemData::new(
-        1, "1", "Product A", "84715010", "5102", "UN",
-        2.0, Cents(1000), Cents(2000),
-        "102", Rate(0), Cents(0), "99", "99",
+        1,
+        "1",
+        "Product A",
+        "84715010",
+        "5102",
+        "UN",
+        2.0,
+        Cents(1000),
+        Cents(2000),
+        "102",
+        Rate(0),
+        Cents(0),
+        "99",
+        "99",
     )
 }
 
@@ -108,12 +140,16 @@ pub fn sample_invoice_builder() -> InvoiceBuilder {
         .and_local_timezone(offset)
         .unwrap();
 
-    InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfce)
-        .series(1)
-        .invoice_number(1)
-        .issued_at(issued_at)
-        .add_item(sample_item())
-        .payments(vec![sample_payment()])
+    InvoiceBuilder::new(
+        sample_issuer(),
+        SefazEnvironment::Homologation,
+        InvoiceModel::Nfce,
+    )
+    .series(1)
+    .invoice_number(1)
+    .issued_at(issued_at)
+    .add_item(sample_item())
+    .payments(vec![sample_payment()])
 }
 
 /// Fixtures directory path for sped-nfe PHP reference files.

@@ -11,11 +11,19 @@ fn generate_test_pfx() -> (Vec<u8>, String) {
     // Generate private key and self-signed certificate
     let _ = Command::new("openssl")
         .args([
-            "req", "-x509", "-newkey", "rsa:2048",
-            "-keyout", "/tmp/fiscal-rs-test-key.pem",
-            "-out", "/tmp/fiscal-rs-test-cert.pem",
-            "-days", "365", "-nodes",
-            "-subj", "/CN=Test NFe Company/O=FinOpenPOS Test",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            "/tmp/fiscal-rs-test-key.pem",
+            "-out",
+            "/tmp/fiscal-rs-test-cert.pem",
+            "-days",
+            "365",
+            "-nodes",
+            "-subj",
+            "/CN=Test NFe Company/O=FinOpenPOS Test",
         ])
         .stderr(std::process::Stdio::null())
         .output()
@@ -24,18 +32,22 @@ fn generate_test_pfx() -> (Vec<u8>, String) {
     // Export to PFX
     let _ = Command::new("openssl")
         .args([
-            "pkcs12", "-export",
-            "-out", "/tmp/fiscal-rs-test-cert.pfx",
-            "-inkey", "/tmp/fiscal-rs-test-key.pem",
-            "-in", "/tmp/fiscal-rs-test-cert.pem",
-            "-passout", &format!("pass:{passphrase}"),
+            "pkcs12",
+            "-export",
+            "-out",
+            "/tmp/fiscal-rs-test-cert.pfx",
+            "-inkey",
+            "/tmp/fiscal-rs-test-key.pem",
+            "-in",
+            "/tmp/fiscal-rs-test-cert.pem",
+            "-passout",
+            &format!("pass:{passphrase}"),
         ])
         .stderr(std::process::Stdio::null())
         .output()
         .expect("openssl pkcs12 failed");
 
-    let pfx_bytes = std::fs::read("/tmp/fiscal-rs-test-cert.pfx")
-        .expect("Failed to read PFX file");
+    let pfx_bytes = std::fs::read("/tmp/fiscal-rs-test-cert.pfx").expect("Failed to read PFX file");
     (pfx_bytes, passphrase)
 }
 
@@ -126,8 +138,9 @@ mod sign_xml {
     fn produces_signed_xml_with_signature_element() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
-            .expect("sign_xml failed");
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .expect("sign_xml failed");
 
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("<SignedInfo"));
@@ -140,7 +153,9 @@ mod sign_xml {
     fn signature_is_inside_nfe_element() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         let nfe_end = signed.find("</NFe>").expect("</NFe> not found");
         let sig_start = signed.find("<Signature").expect("<Signature not found");
@@ -152,7 +167,9 @@ mod sign_xml {
     fn references_the_correct_inf_nfe_id() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         assert!(signed.contains(r##"URI="#NFe35260112345678000199650010000000011123456780""##));
     }
@@ -161,7 +178,9 @@ mod sign_xml {
     fn uses_rsa_sha1_signature_algorithm() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         assert!(signed.contains("rsa-sha1"));
     }
@@ -170,7 +189,9 @@ mod sign_xml {
     fn uses_c14n_canonicalization() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         assert!(signed.contains("xml-c14n-20010315"));
     }
@@ -179,7 +200,9 @@ mod sign_xml {
     fn includes_enveloped_signature_transform() {
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         assert!(signed.contains("enveloped-signature"));
     }
@@ -190,7 +213,9 @@ mod sign_xml {
         // In Rust we verify the signed XML has the expected structure for verification.
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
-        let signed = fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
 
         // Verify the signature block exists and is well-formed
         assert!(signed.contains("<Signature"));
@@ -223,8 +248,10 @@ mod sign_xml {
         let xml1 = sample_xml();
         let xml2 = xml1.replace("<vNF>10.00</vNF>", "<vNF>99.99</vNF>");
 
-        let signed1 = fiscal::certificate::sign_xml(&xml1, &cert.private_key, &cert.certificate).unwrap();
-        let signed2 = fiscal::certificate::sign_xml(&xml2, &cert.private_key, &cert.certificate).unwrap();
+        let signed1 =
+            fiscal::certificate::sign_xml(&xml1, &cert.private_key, &cert.certificate).unwrap();
+        let signed2 =
+            fiscal::certificate::sign_xml(&xml2, &cert.private_key, &cert.certificate).unwrap();
 
         fn extract_sig_value(xml: &str) -> Option<String> {
             let start = xml.find("<SignatureValue>")? + "<SignatureValue>".len();

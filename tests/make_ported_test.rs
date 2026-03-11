@@ -5,21 +5,20 @@
 
 mod common;
 
-use fiscal::newtypes::{Cents, Rate, Rate4, IbgeCode};
+use fiscal::newtypes::{Cents, IbgeCode, Rate, Rate4};
 use fiscal::tax_icms::{
-    build_icms_xml, build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml,
-    IcmsCst, IcmsCsosn, IcmsVariant, IcmsTotals,
-    IcmsPartData, IcmsStData, IcmsUfDestData,
+    IcmsCsosn, IcmsCst, IcmsPartData, IcmsStData, IcmsTotals, IcmsUfDestData, IcmsVariant,
+    build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml, build_icms_xml,
 };
 use fiscal::tax_pis_cofins_ipi::{
-    build_pis_xml, build_cofins_xml, build_ipi_xml, build_ii_xml,
-    PisData, CofinsData, IpiData, IiData,
+    CofinsData, IiData, IpiData, PisData, build_cofins_xml, build_ii_xml, build_ipi_xml,
+    build_pis_xml,
 };
-use fiscal::xml_utils::{tag, TagContent};
+use fiscal::types::{AccessKeyParams, EmissionType, InvoiceModel};
 use fiscal::xml_builder::build_access_key;
-use fiscal::types::{AccessKeyParams, InvoiceModel, EmissionType};
+use fiscal::xml_utils::{TagContent, tag};
 
-use common::{expect_xml_tag_values as expect_xml_contains, expect_wrapped_in};
+use common::{expect_wrapped_in, expect_xml_tag_values as expect_xml_contains};
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  tag() utility tests (equivalent to taginfNFe, tagide basic structure)
@@ -103,26 +102,29 @@ mod tagide_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cUF", "50"),
-            ("cNF", "80070008"),
-            ("natOp", "VENDA"),
-            ("mod", "55"),
-            ("serie", "1"),
-            ("nNF", "1"),
-            ("dhEmi", "2018-06-23T17:45:49-03:00"),
-            ("dhSaiEnt", "2018-06-23T17:45:49-03:00"),
-            ("tpNF", "1"),
-            ("idDest", "1"),
-            ("cMunFG", "5002704"),
-            ("cDV", "2"),
-            ("tpAmb", "2"),
-            ("finNFe", "1"),
-            ("indFinal", "0"),
-            ("indPres", "1"),
-            ("procEmi", "0"),
-            ("verProc", "5.0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "50"),
+                ("cNF", "80070008"),
+                ("natOp", "VENDA"),
+                ("mod", "55"),
+                ("serie", "1"),
+                ("nNF", "1"),
+                ("dhEmi", "2018-06-23T17:45:49-03:00"),
+                ("dhSaiEnt", "2018-06-23T17:45:49-03:00"),
+                ("tpNF", "1"),
+                ("idDest", "1"),
+                ("cMunFG", "5002704"),
+                ("cDV", "2"),
+                ("tpAmb", "2"),
+                ("finNFe", "1"),
+                ("indFinal", "0"),
+                ("indPres", "1"),
+                ("procEmi", "0"),
+                ("verProc", "5.0"),
+            ],
+        );
         // indPag should NOT be present (version 4.00)
         assert!(!xml.contains("<indPag>"));
         // dhCont and xJust should NOT be present
@@ -141,10 +143,13 @@ mod tagide_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("dhCont", "2018-06-26T17:45:49-03:00"),
-            ("xJust", "SEFAZ INDISPONIVEL"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("dhCont", "2018-06-26T17:45:49-03:00"),
+                ("xJust", "SEFAZ INDISPONIVEL"),
+            ],
+        );
     }
 
     #[test]
@@ -175,11 +180,7 @@ mod tagide_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("mod", "65"),
-            ("tpImp", "4"),
-            ("indPres", "4"),
-        ]);
+        expect_xml_contains(&xml, &[("mod", "65"), ("tpImp", "4"), ("indPres", "4")]);
         assert!(!xml.contains("<indPag>"));
         assert!(!xml.contains("<dhSaiEnt>"));
         assert!(!xml.contains("<dhCont>"));
@@ -216,14 +217,17 @@ mod reference_document_tags {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cUF", "35"),
-            ("AAMM", "1412"),
-            ("CNPJ", "52297850000105"),
-            ("mod", "01"),
-            ("serie", "3"),
-            ("nNF", "587878"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "35"),
+                ("AAMM", "1412"),
+                ("CNPJ", "52297850000105"),
+                ("mod", "01"),
+                ("serie", "3"),
+                ("nNF", "587878"),
+            ],
+        );
     }
 
     #[test]
@@ -242,12 +246,15 @@ mod reference_document_tags {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cUF", "35"),
-            ("CNPJ", "00940734000150"),
-            ("IE", "ISENTO"),
-            ("mod", "04"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cUF", "35"),
+                ("CNPJ", "00940734000150"),
+                ("IE", "ISENTO"),
+                ("mod", "04"),
+            ],
+        );
     }
 
     #[test]
@@ -328,23 +335,26 @@ mod retirada_entrega_tags {
         let xml = tag("retirada", &[], TagContent::Children(children));
 
         expect_wrapped_in(&xml, "retirada");
-        expect_xml_contains(&xml, &[
-            ("CNPJ", "12345678901234"),
-            ("IE", "12345678901"),
-            ("xNome", "Beltrano e Cia Ltda"),
-            ("xLgr", "Rua Um"),
-            ("nro", "123"),
-            ("xCpl", "sobreloja"),
-            ("xBairro", "centro"),
-            ("cMun", "3550308"),
-            ("xMun", "Sao Paulo"),
-            ("UF", "SP"),
-            ("CEP", "01023000"),
-            ("cPais", "1058"),
-            ("xPais", "BRASIL"),
-            ("fone", "1122225544"),
-            ("email", "contato@beltrano.com.br"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJ", "12345678901234"),
+                ("IE", "12345678901"),
+                ("xNome", "Beltrano e Cia Ltda"),
+                ("xLgr", "Rua Um"),
+                ("nro", "123"),
+                ("xCpl", "sobreloja"),
+                ("xBairro", "centro"),
+                ("cMun", "3550308"),
+                ("xMun", "Sao Paulo"),
+                ("UF", "SP"),
+                ("CEP", "01023000"),
+                ("cPais", "1058"),
+                ("xPais", "BRASIL"),
+                ("fone", "1122225544"),
+                ("email", "contato@beltrano.com.br"),
+            ],
+        );
     }
 
     #[test]
@@ -367,21 +377,24 @@ mod retirada_entrega_tags {
         let xml = tag("entrega", &[], TagContent::Children(children));
 
         expect_wrapped_in(&xml, "entrega");
-        expect_xml_contains(&xml, &[
-            ("CNPJ", "12345678901234"),
-            ("xLgr", "Rua Um"),
-            ("nro", "123"),
-            ("xCpl", "sobreloja"),
-            ("xBairro", "centro"),
-            ("cMun", "3550308"),
-            ("xMun", "Sao Paulo"),
-            ("UF", "SP"),
-            ("CEP", "01023000"),
-            ("cPais", "1058"),
-            ("xPais", "BRASIL"),
-            ("fone", "1122225544"),
-            ("email", "contato@beltrano.com.br"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJ", "12345678901234"),
+                ("xLgr", "Rua Um"),
+                ("nro", "123"),
+                ("xCpl", "sobreloja"),
+                ("xBairro", "centro"),
+                ("cMun", "3550308"),
+                ("xMun", "Sao Paulo"),
+                ("UF", "SP"),
+                ("CEP", "01023000"),
+                ("cPais", "1058"),
+                ("xPais", "BRASIL"),
+                ("fone", "1122225544"),
+                ("email", "contato@beltrano.com.br"),
+            ],
+        );
     }
 
     #[test]
@@ -456,11 +469,14 @@ mod gcred_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cCredPresumido", "2222211234"),
-            ("pCredPresumido", "4.0000"),
-            ("vCredPresumido", "4.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cCredPresumido", "2222211234"),
+                ("pCredPresumido", "4.0000"),
+                ("vCredPresumido", "4.00"),
+            ],
+        );
     }
 }
 
@@ -547,30 +563,33 @@ mod veic_prod_ported {
         );
 
         expect_wrapped_in(&xml, "veicProd");
-        expect_xml_contains(&xml, &[
-            ("tpOp", "1"),
-            ("chassi", "9BGRX4470AG745440"),
-            ("cCor", "121"),
-            ("xCor", "PRATA"),
-            ("pot", "0078"),
-            ("cilin", "1000"),
-            ("nSerie", "AAA123456"),
-            ("tpComb", "16"),
-            ("nMotor", "BBB123456"),
-            ("CMT", "460.0000"),
-            ("dist", "2443"),
-            ("anoMod", "2010"),
-            ("anoFab", "2011"),
-            ("tpPint", "M"),
-            ("tpVeic", "06"),
-            ("espVeic", "1"),
-            ("VIN", "N"),
-            ("condVeic", "1"),
-            ("cMod", "123456"),
-            ("cCorDENATRAN", "10"),
-            ("lota", "5"),
-            ("tpRest", "0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("tpOp", "1"),
+                ("chassi", "9BGRX4470AG745440"),
+                ("cCor", "121"),
+                ("xCor", "PRATA"),
+                ("pot", "0078"),
+                ("cilin", "1000"),
+                ("nSerie", "AAA123456"),
+                ("tpComb", "16"),
+                ("nMotor", "BBB123456"),
+                ("CMT", "460.0000"),
+                ("dist", "2443"),
+                ("anoMod", "2010"),
+                ("anoFab", "2011"),
+                ("tpPint", "M"),
+                ("tpVeic", "06"),
+                ("espVeic", "1"),
+                ("VIN", "N"),
+                ("condVeic", "1"),
+                ("cMod", "123456"),
+                ("cCorDENATRAN", "10"),
+                ("lota", "5"),
+                ("tpRest", "0"),
+            ],
+        );
     }
 }
 
@@ -593,11 +612,14 @@ mod med_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cProdANVISA", "1234567890123"),
-            ("xMotivoIsencao", "RDC 238"),
-            ("vPMC", "102.22"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cProdANVISA", "1234567890123"),
+                ("xMotivoIsencao", "RDC 238"),
+                ("vPMC", "102.22"),
+            ],
+        );
     }
 }
 
@@ -621,12 +643,15 @@ mod arma_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("tpArma", "0"),
-            ("nSerie", "1234567890"),
-            ("nCano", "987654321"),
-            ("descr", "Fuzil AK-47"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("tpArma", "0"),
+                ("nSerie", "1234567890"),
+                ("nCano", "987654321"),
+                ("descr", "Fuzil AK-47"),
+            ],
+        );
     }
 }
 
@@ -664,17 +689,20 @@ mod comb_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("cProdANP", "012345678"),
-            ("descANP", "Gasolina C Comum"),
-            ("pGLP", "90.0000"),
-            ("pGNn", "10.0000"),
-            ("pGNi", "25.0000"),
-            ("vPart", "12.50"),
-            ("CODIF", "45346546"),
-            ("qTemp", "123.0000"),
-            ("UFCons", "RS"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cProdANP", "012345678"),
+                ("descANP", "Gasolina C Comum"),
+                ("pGLP", "90.0000"),
+                ("pGNn", "10.0000"),
+                ("pGNi", "25.0000"),
+                ("vPart", "12.50"),
+                ("CODIF", "45346546"),
+                ("qTemp", "123.0000"),
+                ("UFCons", "RS"),
+            ],
+        );
         assert!(xml.contains("<CIDE>"));
         assert!(xml.contains("<qBCProd>12.5000</qBCProd>"));
         assert!(xml.contains("<vAliqProd>1.0000</vAliqProd>"));
@@ -703,13 +731,16 @@ mod encerrante_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("nBico", "1"),
-            ("nBomba", "2"),
-            ("nTanque", "3"),
-            ("vEncIni", "100.000"),
-            ("vEncFin", "200.000"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nBico", "1"),
+                ("nBomba", "2"),
+                ("nTanque", "3"),
+                ("vEncIni", "100.000"),
+                ("vEncFin", "200.000"),
+            ],
+        );
     }
 }
 
@@ -732,11 +763,10 @@ mod orig_comb_ported {
             ]),
         );
 
-        expect_xml_contains(&xml, &[
-            ("indImport", "1"),
-            ("cUFOrig", "11"),
-            ("pOrig", "200.0000"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[("indImport", "1"), ("cUFOrig", "11"), ("pOrig", "200.0000")],
+        );
     }
 }
 
@@ -750,20 +780,32 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_00_fully_taxed() {
         let v = IcmsVariant::from(IcmsCst::Cst00 {
-            orig: "0".into(), mod_bc: "3".into(),
-            v_bc: Cents(20000), p_icms: Rate(1800), v_icms: Cents(3600),
-            p_fcp: Some(Rate(100)), v_fcp: Some(Cents(200)),
+            orig: "0".into(),
+            mod_bc: "3".into(),
+            v_bc: Cents(20000),
+            p_icms: Rate(1800),
+            v_icms: Cents(3600),
+            p_fcp: Some(Rate(100)),
+            v_fcp: Some(Cents(200)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMS00");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "00"), ("modBC", "3"),
-            ("vBC", "200.00"), ("pICMS", "18.0000"), ("vICMS", "36.00"),
-            ("pFCP", "1.0000"), ("vFCP", "2.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "00"),
+                ("modBC", "3"),
+                ("vBC", "200.00"),
+                ("pICMS", "18.0000"),
+                ("vICMS", "36.00"),
+                ("pFCP", "1.0000"),
+                ("vFCP", "2.00"),
+            ],
+        );
         assert_eq!(totals.v_bc, Cents(20000));
         assert_eq!(totals.v_icms, Cents(3600));
         assert_eq!(totals.v_fcp, Cents(200));
@@ -772,17 +814,25 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_02_monofasico() {
         let v = IcmsVariant::from(IcmsCst::Cst02 {
-            orig: "0".into(), q_bc_mono: Some(20000),
-            ad_rem_icms: Rate(2500), v_icms_mono: Cents(5000),
+            orig: "0".into(),
+            q_bc_mono: Some(20000),
+            ad_rem_icms: Rate(2500),
+            v_icms_mono: Cents(5000),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS02");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "02"), ("qBCMono", "200.0000"),
-            ("adRemICMS", "25.0000"), ("vICMSMono", "50.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "02"),
+                ("qBCMono", "200.0000"),
+                ("adRemICMS", "25.0000"),
+                ("vICMSMono", "50.00"),
+            ],
+        );
         assert_eq!(totals.q_bc_mono, 20000);
         assert_eq!(totals.v_icms_mono, Cents(5000));
     }
@@ -790,22 +840,35 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_15_monofasico_with_retention() {
         let v = IcmsVariant::from(IcmsCst::Cst15 {
-            orig: "0".into(), q_bc_mono: Some(20000),
-            ad_rem_icms: Rate(2500), v_icms_mono: Cents(5000),
-            q_bc_mono_reten: Some(10000), ad_rem_icms_reten: Rate(2000),
+            orig: "0".into(),
+            q_bc_mono: Some(20000),
+            ad_rem_icms: Rate(2500),
+            v_icms_mono: Cents(5000),
+            q_bc_mono_reten: Some(10000),
+            ad_rem_icms_reten: Rate(2000),
             v_icms_mono_reten: Cents(2000),
-            p_red_ad_rem: Some(Rate(100)), mot_red_ad_rem: Some("1".into()),
+            p_red_ad_rem: Some(Rate(100)),
+            mot_red_ad_rem: Some("1".into()),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS15");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "15"), ("qBCMono", "200.0000"),
-            ("adRemICMS", "25.0000"), ("vICMSMono", "50.00"),
-            ("qBCMonoReten", "100.0000"), ("adRemICMSReten", "20.0000"),
-            ("vICMSMonoReten", "20.00"), ("pRedAdRem", "1.0000"), ("motRedAdRem", "1"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "15"),
+                ("qBCMono", "200.0000"),
+                ("adRemICMS", "25.0000"),
+                ("vICMSMono", "50.00"),
+                ("qBCMonoReten", "100.0000"),
+                ("adRemICMSReten", "20.0000"),
+                ("vICMSMonoReten", "20.00"),
+                ("pRedAdRem", "1.0000"),
+                ("motRedAdRem", "1"),
+            ],
+        );
         assert_eq!(totals.q_bc_mono, 20000);
         assert_eq!(totals.v_icms_mono, Cents(5000));
         assert_eq!(totals.q_bc_mono_reten, 10000);
@@ -815,22 +878,40 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_20_with_base_reduction() {
         let v = IcmsVariant::from(IcmsCst::Cst20 {
-            orig: "0".into(), mod_bc: "3".into(), p_red_bc: Rate(500),
-            v_bc: Cents(18000), p_icms: Rate(1800), v_icms: Cents(3240),
-            v_bc_fcp: Some(Cents(20000)), p_fcp: Some(Rate(100)), v_fcp: Some(Cents(200)),
-            v_icms_deson: Some(Cents(360)), mot_des_icms: Some("9".into()),
+            orig: "0".into(),
+            mod_bc: "3".into(),
+            p_red_bc: Rate(500),
+            v_bc: Cents(18000),
+            p_icms: Rate(1800),
+            v_icms: Cents(3240),
+            v_bc_fcp: Some(Cents(20000)),
+            p_fcp: Some(Rate(100)),
+            v_fcp: Some(Cents(200)),
+            v_icms_deson: Some(Cents(360)),
+            mot_des_icms: Some("9".into()),
             ind_deduz_deson: None,
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS20");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "20"), ("modBC", "3"), ("pRedBC", "5.0000"),
-            ("vBC", "180.00"), ("pICMS", "18.0000"), ("vICMS", "32.40"),
-            ("vBCFCP", "200.00"), ("pFCP", "1.0000"), ("vFCP", "2.00"),
-            ("vICMSDeson", "3.60"), ("motDesICMS", "9"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "20"),
+                ("modBC", "3"),
+                ("pRedBC", "5.0000"),
+                ("vBC", "180.00"),
+                ("pICMS", "18.0000"),
+                ("vICMS", "32.40"),
+                ("vBCFCP", "200.00"),
+                ("pFCP", "1.0000"),
+                ("vFCP", "2.00"),
+                ("vICMSDeson", "3.60"),
+                ("motDesICMS", "9"),
+            ],
+        );
         assert_eq!(totals.v_icms_deson, Cents(360));
         assert_eq!(totals.v_bc, Cents(18000));
         assert_eq!(totals.v_icms, Cents(3240));
@@ -840,24 +921,43 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_30_exempt_with_st() {
         let v = IcmsVariant::from(IcmsCst::Cst30 {
-            orig: "0".into(), mod_bc_st: "4".into(),
-            p_mva_st: Some(Rate(3000)), p_red_bc_st: Some(Rate(100)),
-            v_bc_st: Cents(100), p_icms_st: Rate(100), v_icms_st: Cents(100),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
-            v_icms_deson: Some(Cents(360)), mot_des_icms: Some("9".into()),
+            orig: "0".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: Some(Rate(3000)),
+            p_red_bc_st: Some(Rate(100)),
+            v_bc_st: Cents(100),
+            p_icms_st: Rate(100),
+            v_icms_st: Cents(100),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
+            v_icms_deson: Some(Cents(360)),
+            mot_des_icms: Some("9".into()),
             ind_deduz_deson: Some("0".into()),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS30");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "30"), ("modBCST", "4"),
-            ("pMVAST", "30.0000"), ("pRedBCST", "1.0000"),
-            ("vBCST", "1.00"), ("pICMSST", "1.0000"), ("vICMSST", "1.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-            ("vICMSDeson", "3.60"), ("motDesICMS", "9"), ("indDeduzDeson", "0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "30"),
+                ("modBCST", "4"),
+                ("pMVAST", "30.0000"),
+                ("pRedBCST", "1.0000"),
+                ("vBCST", "1.00"),
+                ("pICMSST", "1.0000"),
+                ("vICMSST", "1.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+                ("vICMSDeson", "3.60"),
+                ("motDesICMS", "9"),
+                ("indDeduzDeson", "0"),
+            ],
+        );
         assert_eq!(totals.v_icms_deson, Cents(360));
         assert_eq!(totals.v_bc_st, Cents(100));
         assert_eq!(totals.v_st, Cents(100));
@@ -868,17 +968,24 @@ mod tag_icms_cst_ported {
     fn test_tagicms_cst_40_exempt() {
         let v = IcmsVariant::from(IcmsCst::Cst40 {
             orig: "0".into(),
-            v_icms_deson: Some(Cents(360)), mot_des_icms: Some("9".into()),
+            v_icms_deson: Some(Cents(360)),
+            mot_des_icms: Some("9".into()),
             ind_deduz_deson: Some("0".into()),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS40");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "40"), ("vICMSDeson", "3.60"),
-            ("motDesICMS", "9"), ("indDeduzDeson", "0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "40"),
+                ("vICMSDeson", "3.60"),
+                ("motDesICMS", "9"),
+                ("indDeduzDeson", "0"),
+            ],
+        );
         assert_eq!(totals.v_icms_deson, Cents(360));
     }
 
@@ -886,56 +993,86 @@ mod tag_icms_cst_ported {
     fn test_tagicms_cst_41_non_taxed() {
         let v = IcmsVariant::from(IcmsCst::Cst41 {
             orig: "0".into(),
-            v_icms_deson: Some(Cents(360)), mot_des_icms: Some("9".into()),
+            v_icms_deson: Some(Cents(360)),
+            mot_des_icms: Some("9".into()),
             ind_deduz_deson: Some("0".into()),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS40");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "41"), ("vICMSDeson", "3.60"),
-            ("motDesICMS", "9"), ("indDeduzDeson", "0"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "41"),
+                ("vICMSDeson", "3.60"),
+                ("motDesICMS", "9"),
+                ("indDeduzDeson", "0"),
+            ],
+        );
     }
 
     #[test]
     fn test_tagicms_cst_50_suspended() {
         let v = IcmsVariant::from(IcmsCst::Cst50 {
             orig: "0".into(),
-            v_icms_deson: Some(Cents(360)), mot_des_icms: Some("9".into()),
+            v_icms_deson: Some(Cents(360)),
+            mot_des_icms: Some("9".into()),
             ind_deduz_deson: Some("0".into()),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS40");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "50"), ("vICMSDeson", "3.60"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[("orig", "0"), ("CST", "50"), ("vICMSDeson", "3.60")],
+        );
     }
 
     #[test]
     fn test_tagicms_cst_51_deferral() {
         let v = IcmsVariant::from(IcmsCst::Cst51 {
-            orig: "0".into(), mod_bc: Some("3".into()), p_red_bc: Some(Rate(1000)),
+            orig: "0".into(),
+            mod_bc: Some("3".into()),
+            p_red_bc: Some(Rate(1000)),
             c_benef_rbc: None,
-            v_bc: Some(Cents(10000)), p_icms: Some(Rate(1700)),
-            v_icms_op: Some(Cents(1700)), p_dif: Some(Rate(100)),
-            v_icms_dif: Some(Cents(100)), v_icms: Some(Cents(1700)),
-            v_bc_fcp: Some(Cents(10000)), p_fcp: Some(Rate(200)), v_fcp: Some(Cents(200)),
-            p_fcp_dif: None, v_fcp_dif: None, v_fcp_efet: None,
+            v_bc: Some(Cents(10000)),
+            p_icms: Some(Rate(1700)),
+            v_icms_op: Some(Cents(1700)),
+            p_dif: Some(Rate(100)),
+            v_icms_dif: Some(Cents(100)),
+            v_icms: Some(Cents(1700)),
+            v_bc_fcp: Some(Cents(10000)),
+            p_fcp: Some(Rate(200)),
+            v_fcp: Some(Cents(200)),
+            p_fcp_dif: None,
+            v_fcp_dif: None,
+            v_fcp_efet: None,
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS51");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "51"), ("modBC", "3"), ("pRedBC", "10.0000"),
-            ("vBC", "100.00"), ("pICMS", "17.0000"), ("vICMSOp", "17.00"),
-            ("pDif", "1.0000"), ("vICMSDif", "1.00"), ("vICMS", "17.00"),
-            ("vBCFCP", "100.00"), ("pFCP", "2.0000"), ("vFCP", "2.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "51"),
+                ("modBC", "3"),
+                ("pRedBC", "10.0000"),
+                ("vBC", "100.00"),
+                ("pICMS", "17.0000"),
+                ("vICMSOp", "17.00"),
+                ("pDif", "1.0000"),
+                ("vICMSDif", "1.00"),
+                ("vICMS", "17.00"),
+                ("vBCFCP", "100.00"),
+                ("pFCP", "2.0000"),
+                ("vFCP", "2.00"),
+            ],
+        );
         assert_eq!(totals.v_bc, Cents(10000));
         assert_eq!(totals.v_icms, Cents(1700));
         assert_eq!(totals.v_fcp, Cents(200));
@@ -944,20 +1081,31 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_53_monofasico_deferred() {
         let v = IcmsVariant::from(IcmsCst::Cst53 {
-            orig: "0".into(), q_bc_mono: Some(20000),
-            ad_rem_icms: Some(Rate(1700)), v_icms_mono_op: Some(Cents(3400)),
-            p_dif: Some(Rate(100)), v_icms_mono_dif: Some(Cents(200)),
+            orig: "0".into(),
+            q_bc_mono: Some(20000),
+            ad_rem_icms: Some(Rate(1700)),
+            v_icms_mono_op: Some(Cents(3400)),
+            p_dif: Some(Rate(100)),
+            v_icms_mono_dif: Some(Cents(200)),
             v_icms_mono: Some(Cents(200)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS53");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "53"), ("qBCMono", "200.0000"),
-            ("adRemICMS", "17.0000"), ("vICMSMonoOp", "34.00"),
-            ("pDif", "1.0000"), ("vICMSMonoDif", "2.00"), ("vICMSMono", "2.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "53"),
+                ("qBCMono", "200.0000"),
+                ("adRemICMS", "17.0000"),
+                ("vICMSMonoOp", "34.00"),
+                ("pDif", "1.0000"),
+                ("vICMSMonoDif", "2.00"),
+                ("vICMSMono", "2.00"),
+            ],
+        );
         assert_eq!(totals.q_bc_mono, 20000);
         assert_eq!(totals.v_icms_mono, Cents(200));
     }
@@ -966,42 +1114,65 @@ mod tag_icms_cst_ported {
     fn test_tagicms_cst_60_previously_charged_st() {
         let v = IcmsVariant::from(IcmsCst::Cst60 {
             orig: "0".into(),
-            v_bc_st_ret: Some(Cents(10000)), p_st: Some(Rate(1200)),
-            v_icms_substituto: Some(Cents(1200)), v_icms_st_ret: Some(Cents(4000)),
-            v_bc_fcp_st_ret: Some(Cents(5000)), p_fcp_st_ret: Some(Rate(1000)),
+            v_bc_st_ret: Some(Cents(10000)),
+            p_st: Some(Rate(1200)),
+            v_icms_substituto: Some(Cents(1200)),
+            v_icms_st_ret: Some(Cents(4000)),
+            v_bc_fcp_st_ret: Some(Cents(5000)),
+            p_fcp_st_ret: Some(Rate(1000)),
             v_fcp_st_ret: Some(Cents(1500)),
-            p_red_bc_efet: Some(Rate(1400)), v_bc_efet: Some(Cents(10000)),
-            p_icms_efet: Some(Rate(1000)), v_icms_efet: Some(Cents(1000)),
+            p_red_bc_efet: Some(Rate(1400)),
+            v_bc_efet: Some(Cents(10000)),
+            p_icms_efet: Some(Rate(1000)),
+            v_icms_efet: Some(Cents(1000)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS60");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "60"), ("vBCSTRet", "100.00"),
-            ("pST", "12.0000"), ("vICMSSubstituto", "12.00"),
-            ("vICMSSTRet", "40.00"), ("vBCFCPSTRet", "50.00"),
-            ("pFCPSTRet", "10.0000"), ("vFCPSTRet", "15.00"),
-            ("pRedBCEfet", "14.0000"), ("vBCEfet", "100.00"),
-            ("pICMSEfet", "10.0000"), ("vICMSEfet", "10.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "60"),
+                ("vBCSTRet", "100.00"),
+                ("pST", "12.0000"),
+                ("vICMSSubstituto", "12.00"),
+                ("vICMSSTRet", "40.00"),
+                ("vBCFCPSTRet", "50.00"),
+                ("pFCPSTRet", "10.0000"),
+                ("vFCPSTRet", "15.00"),
+                ("pRedBCEfet", "14.0000"),
+                ("vBCEfet", "100.00"),
+                ("pICMSEfet", "10.0000"),
+                ("vICMSEfet", "10.00"),
+            ],
+        );
         assert_eq!(totals.v_fcp_st_ret, Cents(1500));
     }
 
     #[test]
     fn test_tagicms_cst_61_monofasico_previously_charged() {
         let v = IcmsVariant::from(IcmsCst::Cst61 {
-            orig: "0".into(), q_bc_mono_ret: Some(30000),
-            ad_rem_icms_ret: Rate(200), v_icms_mono_ret: Cents(600),
+            orig: "0".into(),
+            q_bc_mono_ret: Some(30000),
+            ad_rem_icms_ret: Rate(200),
+            v_icms_mono_ret: Cents(600),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS61");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "61"), ("qBCMonoRet", "300.0000"),
-            ("adRemICMSRet", "2.0000"), ("vICMSMonoRet", "6.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "61"),
+                ("qBCMonoRet", "300.0000"),
+                ("adRemICMSRet", "2.0000"),
+                ("vICMSMonoRet", "6.00"),
+            ],
+        );
         assert_eq!(totals.q_bc_mono_ret, 30000);
         assert_eq!(totals.v_icms_mono_ret, Cents(600));
     }
@@ -1009,28 +1180,60 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_70_reduction_with_st() {
         let v = IcmsVariant::from(IcmsCst::Cst70 {
-            orig: "0".into(), mod_bc: "3".into(), p_red_bc: Rate(1000),
-            v_bc: Cents(20000), p_icms: Rate(1000), v_icms: Cents(2000),
-            v_bc_fcp: Some(Cents(20000)), p_fcp: Some(Rate(200)), v_fcp: Some(Cents(400)),
-            mod_bc_st: "4".into(), p_mva_st: Some(Rate(3000)), p_red_bc_st: Some(Rate(0)),
-            v_bc_st: Cents(6000), p_icms_st: Rate(1000), v_icms_st: Cents(2000),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
-            v_icms_deson: Some(Cents(1000)), mot_des_icms: Some("9".into()),
-            ind_deduz_deson: None, v_icms_st_deson: None, mot_des_icms_st: None,
+            orig: "0".into(),
+            mod_bc: "3".into(),
+            p_red_bc: Rate(1000),
+            v_bc: Cents(20000),
+            p_icms: Rate(1000),
+            v_icms: Cents(2000),
+            v_bc_fcp: Some(Cents(20000)),
+            p_fcp: Some(Rate(200)),
+            v_fcp: Some(Cents(400)),
+            mod_bc_st: "4".into(),
+            p_mva_st: Some(Rate(3000)),
+            p_red_bc_st: Some(Rate(0)),
+            v_bc_st: Cents(6000),
+            p_icms_st: Rate(1000),
+            v_icms_st: Cents(2000),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
+            v_icms_deson: Some(Cents(1000)),
+            mot_des_icms: Some("9".into()),
+            ind_deduz_deson: None,
+            v_icms_st_deson: None,
+            mot_des_icms_st: None,
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS70");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "70"), ("modBC", "3"), ("pRedBC", "10.0000"),
-            ("vBC", "200.00"), ("pICMS", "10.0000"), ("vICMS", "20.00"),
-            ("vBCFCP", "200.00"), ("pFCP", "2.0000"), ("vFCP", "4.00"),
-            ("modBCST", "4"), ("pMVAST", "30.0000"), ("pRedBCST", "0.0000"),
-            ("vBCST", "60.00"), ("pICMSST", "10.0000"), ("vICMSST", "20.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-            ("vICMSDeson", "10.00"), ("motDesICMS", "9"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "70"),
+                ("modBC", "3"),
+                ("pRedBC", "10.0000"),
+                ("vBC", "200.00"),
+                ("pICMS", "10.0000"),
+                ("vICMS", "20.00"),
+                ("vBCFCP", "200.00"),
+                ("pFCP", "2.0000"),
+                ("vFCP", "4.00"),
+                ("modBCST", "4"),
+                ("pMVAST", "30.0000"),
+                ("pRedBCST", "0.0000"),
+                ("vBCST", "60.00"),
+                ("pICMSST", "10.0000"),
+                ("vICMSST", "20.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+                ("vICMSDeson", "10.00"),
+                ("motDesICMS", "9"),
+            ],
+        );
         assert_eq!(totals.v_icms_deson, Cents(1000));
         assert_eq!(totals.v_bc, Cents(20000));
         assert_eq!(totals.v_icms, Cents(2000));
@@ -1043,32 +1246,67 @@ mod tag_icms_cst_ported {
     #[test]
     fn test_tagicms_cst_90_others() {
         let v = IcmsVariant::from(IcmsCst::Cst90 {
-            orig: "0".into(), mod_bc: Some("3".into()),
-            v_bc: Some(Cents(20000)), p_red_bc: Some(Rate(1000)),
+            orig: "0".into(),
+            mod_bc: Some("3".into()),
+            v_bc: Some(Cents(20000)),
+            p_red_bc: Some(Rate(1000)),
             c_benef_rbc: None,
-            p_icms: Some(Rate(1000)), v_icms_op: None, p_dif: None,
-            v_icms_dif: None, v_icms: Some(Cents(2000)),
-            v_bc_fcp: Some(Cents(20000)), p_fcp: Some(Rate(200)), v_fcp: Some(Cents(400)),
-            p_fcp_dif: None, v_fcp_dif: None, v_fcp_efet: None,
-            mod_bc_st: Some("4".into()), p_mva_st: Some(Rate(3000)), p_red_bc_st: Some(Rate(0)),
-            v_bc_st: Some(Cents(6000)), p_icms_st: Some(Rate(1000)), v_icms_st: Some(Cents(2000)),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
-            v_icms_deson: Some(Cents(1000)), mot_des_icms: Some("9".into()),
-            ind_deduz_deson: None, v_icms_st_deson: None, mot_des_icms_st: None,
+            p_icms: Some(Rate(1000)),
+            v_icms_op: None,
+            p_dif: None,
+            v_icms_dif: None,
+            v_icms: Some(Cents(2000)),
+            v_bc_fcp: Some(Cents(20000)),
+            p_fcp: Some(Rate(200)),
+            v_fcp: Some(Cents(400)),
+            p_fcp_dif: None,
+            v_fcp_dif: None,
+            v_fcp_efet: None,
+            mod_bc_st: Some("4".into()),
+            p_mva_st: Some(Rate(3000)),
+            p_red_bc_st: Some(Rate(0)),
+            v_bc_st: Some(Cents(6000)),
+            p_icms_st: Some(Rate(1000)),
+            v_icms_st: Some(Cents(2000)),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
+            v_icms_deson: Some(Cents(1000)),
+            mot_des_icms: Some("9".into()),
+            ind_deduz_deson: None,
+            v_icms_st_deson: None,
+            mot_des_icms_st: None,
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
 
         expect_wrapped_in(&xml, "ICMS90");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CST", "90"), ("modBC", "3"), ("pRedBC", "10.0000"),
-            ("vBC", "200.00"), ("pICMS", "10.0000"), ("vICMS", "20.00"),
-            ("vBCFCP", "200.00"), ("pFCP", "2.0000"), ("vFCP", "4.00"),
-            ("modBCST", "4"), ("pMVAST", "30.0000"), ("pRedBCST", "0.0000"),
-            ("vBCST", "60.00"), ("pICMSST", "10.0000"), ("vICMSST", "20.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-            ("vICMSDeson", "10.00"), ("motDesICMS", "9"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "90"),
+                ("modBC", "3"),
+                ("pRedBC", "10.0000"),
+                ("vBC", "200.00"),
+                ("pICMS", "10.0000"),
+                ("vICMS", "20.00"),
+                ("vBCFCP", "200.00"),
+                ("pFCP", "2.0000"),
+                ("vFCP", "4.00"),
+                ("modBCST", "4"),
+                ("pMVAST", "30.0000"),
+                ("pRedBCST", "0.0000"),
+                ("vBCST", "60.00"),
+                ("pICMSST", "10.0000"),
+                ("vICMSST", "20.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+                ("vICMSDeson", "10.00"),
+                ("motDesICMS", "9"),
+            ],
+        );
         assert_eq!(totals.v_icms_deson, Cents(1000));
         assert_eq!(totals.v_bc, Cents(20000));
         assert_eq!(totals.v_icms, Cents(2000));
@@ -1107,19 +1345,22 @@ mod di_adi_det_export_rastro_ported {
         );
 
         expect_wrapped_in(&xml, "DI");
-        expect_xml_contains(&xml, &[
-            ("nDI", "456"),
-            ("dDI", "2024-03-01"),
-            ("xLocDesemb", "Porto"),
-            ("UFDesemb", "SP"),
-            ("dDesemb", "2024-03-02"),
-            ("tpViaTransp", "1"),
-            ("vAFRMM", "150.45"),
-            ("tpIntermedio", "1"),
-            ("CNPJ", "08489068000198"),
-            ("UFTerceiro", "RS"),
-            ("cExportador", "123"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nDI", "456"),
+                ("dDI", "2024-03-01"),
+                ("xLocDesemb", "Porto"),
+                ("UFDesemb", "SP"),
+                ("dDesemb", "2024-03-02"),
+                ("tpViaTransp", "1"),
+                ("vAFRMM", "150.45"),
+                ("tpIntermedio", "1"),
+                ("CNPJ", "08489068000198"),
+                ("UFTerceiro", "RS"),
+                ("cExportador", "123"),
+            ],
+        );
     }
 
     #[test]
@@ -1161,13 +1402,16 @@ mod di_adi_det_export_rastro_ported {
         );
 
         expect_wrapped_in(&xml, "adi");
-        expect_xml_contains(&xml, &[
-            ("nAdicao", "1"),
-            ("nSeqAdic", "1"),
-            ("cFabricante", "abc123"),
-            ("vDescDI", "12.48"),
-            ("nDraw", "11111111111"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nAdicao", "1"),
+                ("nSeqAdic", "1"),
+                ("cFabricante", "abc123"),
+                ("vDescDI", "12.48"),
+                ("nDraw", "11111111111"),
+            ],
+        );
     }
 
     #[test]
@@ -1199,14 +1443,14 @@ mod di_adi_det_export_rastro_ported {
         );
 
         expect_wrapped_in(&xml, "exportInd");
-        expect_xml_contains(&xml, &[
-            ("nRE", "123"),
-            (
-                "chNFe",
-                "12345678901234567890123456789012345678901234",
-            ),
-            ("qExport", "45.1"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nRE", "123"),
+                ("chNFe", "12345678901234567890123456789012345678901234"),
+                ("qExport", "45.1"),
+            ],
+        );
     }
 
     #[test]
@@ -1224,13 +1468,16 @@ mod di_adi_det_export_rastro_ported {
         );
 
         expect_wrapped_in(&xml, "rastro");
-        expect_xml_contains(&xml, &[
-            ("nLote", "1"),
-            ("qLote", "1"),
-            ("dFab", "2024-01-01"),
-            ("dVal", "2024-01-01"),
-            ("cAgreg", "1234"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nLote", "1"),
+                ("qLote", "1"),
+                ("dFab", "2024-01-01"),
+                ("dVal", "2024-01-01"),
+                ("cAgreg", "1234"),
+            ],
+        );
     }
 }
 
@@ -1245,23 +1492,28 @@ mod tag_icms_uf_dest_ported {
     fn test_tagicmsufdest_builds_icms_uf_dest_group() {
         let (xml, totals) = build_icms_uf_dest_xml(
             &IcmsUfDestData::new(Cents(100), Rate(100), Rate(100), Cents(100))
-                .v_bc_fcp_uf_dest(Cents(100)).p_fcp_uf_dest(Rate(100))
-                .v_fcp_uf_dest(Cents(100)).v_icms_uf_remet(Cents(100))
+                .v_bc_fcp_uf_dest(Cents(100))
+                .p_fcp_uf_dest(Rate(100))
+                .v_fcp_uf_dest(Cents(100))
+                .v_icms_uf_remet(Cents(100)),
         )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMSUFDest");
-        expect_xml_contains(&xml, &[
-            ("vBCUFDest", "1.00"),
-            ("vBCFCPUFDest", "1.00"),
-            ("pFCPUFDest", "1.0000"),
-            ("pICMSUFDest", "1.0000"),
-            ("pICMSInter", "1.0000"),
-            ("pICMSInterPart", "100.0000"),
-            ("vFCPUFDest", "1.00"),
-            ("vICMSUFDest", "1.00"),
-            ("vICMSUFRemet", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBCUFDest", "1.00"),
+                ("vBCFCPUFDest", "1.00"),
+                ("pFCPUFDest", "1.0000"),
+                ("pICMSUFDest", "1.0000"),
+                ("pICMSInter", "1.0000"),
+                ("pICMSInterPart", "100.0000"),
+                ("vFCPUFDest", "1.00"),
+                ("vICMSUFDest", "1.00"),
+                ("vICMSUFRemet", "1.00"),
+            ],
+        );
         assert_eq!(totals.v_icms_uf_dest, Cents(100));
         assert_eq!(totals.v_fcp_uf_dest, Cents(100));
         assert_eq!(totals.v_icms_uf_remet, Cents(100));
@@ -1277,15 +1529,23 @@ mod tag_ii_ported {
 
     #[test]
     fn test_tagii_builds_ii_group() {
-        let xml = build_ii_xml(&IiData::new(Cents(10000), Cents(100), Cents(100), Cents(100)));
+        let xml = build_ii_xml(&IiData::new(
+            Cents(10000),
+            Cents(100),
+            Cents(100),
+            Cents(100),
+        ));
 
         expect_wrapped_in(&xml, "II");
-        expect_xml_contains(&xml, &[
-            ("vBC", "100.00"),
-            ("vDespAdu", "1.00"),
-            ("vII", "1.00"),
-            ("vIOF", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "100.00"),
+                ("vDespAdu", "1.00"),
+                ("vII", "1.00"),
+                ("vIOF", "1.00"),
+            ],
+        );
     }
 }
 
@@ -1322,24 +1582,27 @@ mod tag_issqn_ported {
         );
 
         expect_wrapped_in(&xml, "ISSQN");
-        expect_xml_contains(&xml, &[
-            ("vBC", "1"),
-            ("vAliq", "1"),
-            ("vISSQN", "1"),
-            ("cMunFG", "1234567"),
-            ("cListServ", "10.10"),
-            ("vDeducao", "1"),
-            ("vOutro", "1"),
-            ("vDescIncond", "1"),
-            ("vDescCond", "1"),
-            ("vISSRet", "1"),
-            ("indISS", "1"),
-            ("cServico", "1"),
-            ("cMun", "123456"),
-            ("cPais", "55"),
-            ("nProcesso", "123"),
-            ("indIncentivo", "12"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "1"),
+                ("vAliq", "1"),
+                ("vISSQN", "1"),
+                ("cMunFG", "1234567"),
+                ("cListServ", "10.10"),
+                ("vDeducao", "1"),
+                ("vOutro", "1"),
+                ("vDescIncond", "1"),
+                ("vDescCond", "1"),
+                ("vISSRet", "1"),
+                ("indISS", "1"),
+                ("cServico", "1"),
+                ("cMun", "123456"),
+                ("cPais", "55"),
+                ("nProcesso", "123"),
+                ("indIncentivo", "12"),
+            ],
+        );
     }
 }
 
@@ -1365,13 +1628,16 @@ mod inf_resp_tec_ported {
         );
 
         expect_wrapped_in(&xml, "infRespTec");
-        expect_xml_contains(&xml, &[
-            ("CNPJ", "76038276000120"),
-            ("xContato", "Fulano de Tal"),
-            ("email", "fulano@email.com"),
-            ("fone", "51999999999"),
-            ("idCSRT", "123"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJ", "76038276000120"),
+                ("xContato", "Fulano de Tal"),
+                ("email", "fulano@email.com"),
+                ("fone", "51999999999"),
+                ("idCSRT", "123"),
+            ],
+        );
         // CSRT is not included in the tag
         assert!(!xml.contains("<CSRT>"));
     }
@@ -1396,10 +1662,13 @@ mod agropecuario_ported {
         );
 
         expect_wrapped_in(&xml, "defensivo");
-        expect_xml_contains(&xml, &[
-            ("nReceituario", "1234567890ABCDEFGHIJ"),
-            ("CPFRespTec", "12345678901"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("nReceituario", "1234567890ABCDEFGHIJ"),
+                ("CPFRespTec", "12345678901"),
+            ],
+        );
     }
 
     #[test]
@@ -1416,11 +1685,14 @@ mod agropecuario_ported {
         );
 
         expect_wrapped_in(&xml, "guiaTransito");
-        expect_xml_contains(&xml, &[
-            ("UFGuia", "MG"),
-            ("serieGuia", "A12345678"),
-            ("nGuia", "123456789"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("UFGuia", "MG"),
+                ("serieGuia", "A12345678"),
+                ("nGuia", "123456789"),
+            ],
+        );
     }
 }
 
@@ -1434,34 +1706,54 @@ mod tag_icms_part_ported {
     #[test]
     fn test_tagicmspart_builds_icms_part_group() {
         let (xml, totals) = build_icms_part_xml(
-            &IcmsPartData::new("0", "90", "1", Cents(20000), Rate(1000), Cents(2000), "4", Cents(6000), Rate(100), Cents(100), Rate(100), "EX")
-                .p_red_bc(Rate(500)).p_mva_st(Rate(3000)).p_red_bc_st(Rate(0))
-                .v_bc_fcp_st(Cents(100)).p_fcp_st(Rate(100)).v_fcp_st(Cents(100))
+            &IcmsPartData::new(
+                "0",
+                "90",
+                "1",
+                Cents(20000),
+                Rate(1000),
+                Cents(2000),
+                "4",
+                Cents(6000),
+                Rate(100),
+                Cents(100),
+                Rate(100),
+                "EX",
+            )
+            .p_red_bc(Rate(500))
+            .p_mva_st(Rate(3000))
+            .p_red_bc_st(Rate(0))
+            .v_bc_fcp_st(Cents(100))
+            .p_fcp_st(Rate(100))
+            .v_fcp_st(Cents(100)),
         )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSPart");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"),
-            ("CST", "90"),
-            ("modBC", "1"),
-            ("vBC", "200.00"),
-            ("pRedBC", "5.0000"),
-            ("pICMS", "10.0000"),
-            ("vICMS", "20.00"),
-            ("modBCST", "4"),
-            ("pMVAST", "30.0000"),
-            ("pRedBCST", "0.0000"),
-            ("vBCST", "60.00"),
-            ("pICMSST", "1.0000"),
-            ("vICMSST", "1.00"),
-            ("vBCFCPST", "1.00"),
-            ("pFCPST", "1.0000"),
-            ("vFCPST", "1.00"),
-            ("pBCOp", "1.0000"),
-            ("UFST", "EX"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "90"),
+                ("modBC", "1"),
+                ("vBC", "200.00"),
+                ("pRedBC", "5.0000"),
+                ("pICMS", "10.0000"),
+                ("vICMS", "20.00"),
+                ("modBCST", "4"),
+                ("pMVAST", "30.0000"),
+                ("pRedBCST", "0.0000"),
+                ("vBCST", "60.00"),
+                ("pICMSST", "1.0000"),
+                ("vICMSST", "1.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+                ("pBCOp", "1.0000"),
+                ("UFST", "EX"),
+            ],
+        );
         assert_eq!(totals.v_bc, Cents(20000));
         assert_eq!(totals.v_icms, Cents(2000));
         assert_eq!(totals.v_bc_st, Cents(6000));
@@ -1479,33 +1771,48 @@ mod tag_icms_st_ported {
     #[test]
     fn test_tagicmsst_builds_icmsst_repasse_group() {
         let (xml, totals) = build_icms_st_xml(
-            &IcmsStData::new("0", "41", Cents(20000), Cents(2000), Cents(3000), Cents(200))
-                .v_bc_fcp_st_ret(Cents(200)).p_fcp_st_ret(Rate(200)).v_fcp_st_ret(Cents(200))
-                .p_st(Rate(200)).v_icms_substituto(Cents(200))
-                .p_red_bc_efet(Rate(200)).v_bc_efet(Cents(200))
-                .p_icms_efet(Rate(200)).v_icms_efet(Cents(200))
+            &IcmsStData::new(
+                "0",
+                "41",
+                Cents(20000),
+                Cents(2000),
+                Cents(3000),
+                Cents(200),
+            )
+            .v_bc_fcp_st_ret(Cents(200))
+            .p_fcp_st_ret(Rate(200))
+            .v_fcp_st_ret(Cents(200))
+            .p_st(Rate(200))
+            .v_icms_substituto(Cents(200))
+            .p_red_bc_efet(Rate(200))
+            .v_bc_efet(Cents(200))
+            .p_icms_efet(Rate(200))
+            .v_icms_efet(Cents(200)),
         )
         .unwrap();
 
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSST");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"),
-            ("CST", "41"),
-            ("vBCSTRet", "200.00"),
-            ("vICMSSTRet", "20.00"),
-            ("vBCSTDest", "30.00"),
-            ("vICMSSTDest", "2.00"),
-            ("vBCFCPSTRet", "2.00"),
-            ("pFCPSTRet", "2.0000"),
-            ("vFCPSTRet", "2.00"),
-            ("pST", "2.0000"),
-            ("vICMSSubstituto", "2.00"),
-            ("pRedBCEfet", "2.0000"),
-            ("vBCEfet", "2.00"),
-            ("pICMSEfet", "2.0000"),
-            ("vICMSEfet", "2.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CST", "41"),
+                ("vBCSTRet", "200.00"),
+                ("vICMSSTRet", "20.00"),
+                ("vBCSTDest", "30.00"),
+                ("vICMSSTDest", "2.00"),
+                ("vBCFCPSTRet", "2.00"),
+                ("pFCPSTRet", "2.0000"),
+                ("vFCPSTRet", "2.00"),
+                ("pST", "2.0000"),
+                ("vICMSSubstituto", "2.00"),
+                ("pRedBCEfet", "2.0000"),
+                ("vBCEfet", "2.00"),
+                ("pICMSEfet", "2.0000"),
+                ("vICMSEfet", "2.00"),
+            ],
+        );
         assert_eq!(totals.v_fcp_st_ret, Cents(200));
     }
 }
@@ -1520,21 +1827,32 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_101_with_credit() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn101 {
-            orig: "0".into(), csosn: "101".into(),
-            p_cred_sn: Rate(300), v_cred_icms_sn: Cents(400),
+            orig: "0".into(),
+            csosn: "101".into(),
+            p_cred_sn: Rate(300),
+            v_cred_icms_sn: Cents(400),
         });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSSN101");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CSOSN", "101"), ("pCredSN", "3.0000"), ("vCredICMSSN", "4.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CSOSN", "101"),
+                ("pCredSN", "3.0000"),
+                ("vCredICMSSN", "4.00"),
+            ],
+        );
     }
 
     #[test]
     fn test_tagicmssn_102_without_credit() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 { orig: "0".into(), csosn: "102".into() });
+        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+            orig: "0".into(),
+            csosn: "102".into(),
+        });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
@@ -1544,7 +1862,10 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_103_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 { orig: "0".into(), csosn: "103".into() });
+        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+            orig: "0".into(),
+            csosn: "103".into(),
+        });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
@@ -1554,7 +1875,10 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_300_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 { orig: "0".into(), csosn: "300".into() });
+        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+            orig: "0".into(),
+            csosn: "300".into(),
+        });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
@@ -1564,7 +1888,10 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_400_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 { orig: "0".into(), csosn: "400".into() });
+        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+            orig: "0".into(),
+            csosn: "400".into(),
+        });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
@@ -1575,23 +1902,42 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_201_with_credit_and_st() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn201 {
-            orig: "0".into(), csosn: "201".into(), mod_bc_st: "4".into(),
-            p_mva_st: Some(Rate(1000)), p_red_bc_st: Some(Rate(2000)),
-            v_bc_st: Cents(30000), p_icms_st: Rate(100), v_icms_st: Cents(100),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
-            p_cred_sn: Some(Rate(100)), v_cred_icms_sn: Some(Cents(100)),
+            orig: "0".into(),
+            csosn: "201".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: Some(Rate(1000)),
+            p_red_bc_st: Some(Rate(2000)),
+            v_bc_st: Cents(30000),
+            p_icms_st: Rate(100),
+            v_icms_st: Cents(100),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
+            p_cred_sn: Some(Rate(100)),
+            v_cred_icms_sn: Some(Cents(100)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSSN201");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CSOSN", "201"), ("modBCST", "4"),
-            ("pMVAST", "10.0000"), ("pRedBCST", "20.0000"),
-            ("vBCST", "300.00"), ("pICMSST", "1.0000"), ("vICMSST", "1.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-            ("pCredSN", "1.0000"), ("vCredICMSSN", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CSOSN", "201"),
+                ("modBCST", "4"),
+                ("pMVAST", "10.0000"),
+                ("pRedBCST", "20.0000"),
+                ("vBCST", "300.00"),
+                ("pICMSST", "1.0000"),
+                ("vICMSST", "1.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+                ("pCredSN", "1.0000"),
+                ("vCredICMSSN", "1.00"),
+            ],
+        );
         assert_eq!(totals.v_bc_st, Cents(30000));
         assert_eq!(totals.v_st, Cents(100));
     }
@@ -1599,21 +1945,38 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_202_without_credit_with_st() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn202 {
-            orig: "0".into(), csosn: "202".into(), mod_bc_st: "4".into(),
-            p_mva_st: Some(Rate(1000)), p_red_bc_st: Some(Rate(2000)),
-            v_bc_st: Cents(30000), p_icms_st: Rate(100), v_icms_st: Cents(100),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
+            orig: "0".into(),
+            csosn: "202".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: Some(Rate(1000)),
+            p_red_bc_st: Some(Rate(2000)),
+            v_bc_st: Cents(30000),
+            p_icms_st: Rate(100),
+            v_icms_st: Cents(100),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSSN202");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CSOSN", "202"), ("modBCST", "4"),
-            ("pMVAST", "10.0000"), ("pRedBCST", "20.0000"),
-            ("vBCST", "300.00"), ("pICMSST", "1.0000"), ("vICMSST", "1.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CSOSN", "202"),
+                ("modBCST", "4"),
+                ("pMVAST", "10.0000"),
+                ("pRedBCST", "20.0000"),
+                ("vBCST", "300.00"),
+                ("pICMSST", "1.0000"),
+                ("vICMSST", "1.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+            ],
+        );
         assert_eq!(totals.v_bc_st, Cents(30000));
         assert_eq!(totals.v_st, Cents(100));
     }
@@ -1621,10 +1984,17 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_203_uses_same_wrapper() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn202 {
-            orig: "0".into(), csosn: "203".into(), mod_bc_st: "4".into(),
-            p_mva_st: Some(Rate(1000)), p_red_bc_st: Some(Rate(2000)),
-            v_bc_st: Cents(30000), p_icms_st: Rate(100), v_icms_st: Cents(100),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
+            orig: "0".into(),
+            csosn: "203".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: Some(Rate(1000)),
+            p_red_bc_st: Some(Rate(2000)),
+            v_bc_st: Cents(30000),
+            p_icms_st: Rate(100),
+            v_icms_st: Cents(100),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
         });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
@@ -1636,52 +2006,92 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_500_previously_charged() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn500 {
-            orig: "0".into(), csosn: "500".into(),
-            v_bc_st_ret: Some(Cents(100)), p_st: Some(Rate(100)),
-            v_icms_substituto: Some(Cents(100)), v_icms_st_ret: Some(Cents(100)),
-            v_bc_fcp_st_ret: Some(Cents(100)), p_fcp_st_ret: Some(Rate(100)),
+            orig: "0".into(),
+            csosn: "500".into(),
+            v_bc_st_ret: Some(Cents(100)),
+            p_st: Some(Rate(100)),
+            v_icms_substituto: Some(Cents(100)),
+            v_icms_st_ret: Some(Cents(100)),
+            v_bc_fcp_st_ret: Some(Cents(100)),
+            p_fcp_st_ret: Some(Rate(100)),
             v_fcp_st_ret: Some(Cents(100)),
-            p_red_bc_efet: Some(Rate(100)), v_bc_efet: Some(Cents(100)),
-            p_icms_efet: Some(Rate(100)), v_icms_efet: Some(Cents(100)),
+            p_red_bc_efet: Some(Rate(100)),
+            v_bc_efet: Some(Cents(100)),
+            p_icms_efet: Some(Rate(100)),
+            v_icms_efet: Some(Cents(100)),
         });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSSN500");
-        expect_xml_contains(&xml, &[
-            ("orig", "0"), ("CSOSN", "500"),
-            ("vBCSTRet", "1.00"), ("pST", "1.0000"),
-            ("vICMSSubstituto", "1.00"), ("vICMSSTRet", "1.00"),
-            ("vBCFCPSTRet", "1.00"), ("pFCPSTRet", "1.0000"), ("vFCPSTRet", "1.00"),
-            ("pRedBCEfet", "1.0000"), ("vBCEfet", "1.00"),
-            ("pICMSEfet", "1.0000"), ("vICMSEfet", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("orig", "0"),
+                ("CSOSN", "500"),
+                ("vBCSTRet", "1.00"),
+                ("pST", "1.0000"),
+                ("vICMSSubstituto", "1.00"),
+                ("vICMSSTRet", "1.00"),
+                ("vBCFCPSTRet", "1.00"),
+                ("pFCPSTRet", "1.0000"),
+                ("vFCPSTRet", "1.00"),
+                ("pRedBCEfet", "1.0000"),
+                ("vBCEfet", "1.00"),
+                ("pICMSEfet", "1.0000"),
+                ("vICMSEfet", "1.00"),
+            ],
+        );
     }
 
     #[test]
     fn test_tagicmssn_900_others() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn900 {
-            orig: "0".into(), csosn: "900".into(),
-            mod_bc: Some("3".into()), v_bc: Some(Cents(10000)),
-            p_red_bc: Some(Rate(100)), p_icms: Some(Rate(100)), v_icms: Some(Cents(100)),
-            p_cred_sn: Some(Rate(300)), v_cred_icms_sn: Some(Cents(400)),
-            mod_bc_st: Some("3".into()), p_mva_st: Some(Rate(100)),
+            orig: "0".into(),
+            csosn: "900".into(),
+            mod_bc: Some("3".into()),
+            v_bc: Some(Cents(10000)),
+            p_red_bc: Some(Rate(100)),
+            p_icms: Some(Rate(100)),
+            v_icms: Some(Cents(100)),
+            p_cred_sn: Some(Rate(300)),
+            v_cred_icms_sn: Some(Cents(400)),
+            mod_bc_st: Some("3".into()),
+            p_mva_st: Some(Rate(100)),
             p_red_bc_st: Some(Rate(100)),
-            v_bc_st: Some(Cents(100)), p_icms_st: Some(Rate(100)), v_icms_st: Some(Cents(100)),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
+            v_bc_st: Some(Cents(100)),
+            p_icms_st: Some(Rate(100)),
+            v_icms_st: Some(Cents(100)),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut totals).unwrap();
         expect_wrapped_in(&xml, "ICMS");
         expect_wrapped_in(&xml, "ICMSSN900");
-        expect_xml_contains(&xml, &[
-            ("CSOSN", "900"), ("modBC", "3"), ("vBC", "100.00"),
-            ("pRedBC", "1.0000"), ("pICMS", "1.0000"), ("vICMS", "1.00"),
-            ("pCredSN", "3.0000"), ("vCredICMSSN", "4.00"),
-            ("modBCST", "3"), ("pMVAST", "1.0000"), ("pRedBCST", "1.0000"),
-            ("vBCST", "1.00"), ("pICMSST", "1.0000"), ("vICMSST", "1.00"),
-            ("vBCFCPST", "1.00"), ("pFCPST", "1.0000"), ("vFCPST", "1.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CSOSN", "900"),
+                ("modBC", "3"),
+                ("vBC", "100.00"),
+                ("pRedBC", "1.0000"),
+                ("pICMS", "1.0000"),
+                ("vICMS", "1.00"),
+                ("pCredSN", "3.0000"),
+                ("vCredICMSSN", "4.00"),
+                ("modBCST", "3"),
+                ("pMVAST", "1.0000"),
+                ("pRedBCST", "1.0000"),
+                ("vBCST", "1.00"),
+                ("pICMSST", "1.0000"),
+                ("vICMSST", "1.00"),
+                ("vBCFCPST", "1.00"),
+                ("pFCPST", "1.0000"),
+                ("vFCPST", "1.00"),
+            ],
+        );
         assert_eq!(totals.v_bc, Cents(10000));
         assert_eq!(totals.v_icms, Cents(100));
         assert_eq!(totals.v_bc_st, Cents(100));
@@ -1691,14 +2101,24 @@ mod tag_icmssn_ported {
     #[test]
     fn test_tagicmssn_should_accept_empty_orig_when_crt_is_4() {
         let v = IcmsVariant::from(IcmsCsosn::Csosn900 {
-            orig: String::new(), csosn: "900".into(),
-            mod_bc: Some("3".into()), v_bc: Some(Cents(10000)),
-            p_red_bc: Some(Rate(100)), p_icms: Some(Rate(100)), v_icms: Some(Cents(100)),
-            p_cred_sn: Some(Rate(300)), v_cred_icms_sn: Some(Cents(400)),
-            mod_bc_st: Some("3".into()), p_mva_st: Some(Rate(100)),
+            orig: String::new(),
+            csosn: "900".into(),
+            mod_bc: Some("3".into()),
+            v_bc: Some(Cents(10000)),
+            p_red_bc: Some(Rate(100)),
+            p_icms: Some(Rate(100)),
+            v_icms: Some(Cents(100)),
+            p_cred_sn: Some(Rate(300)),
+            v_cred_icms_sn: Some(Cents(400)),
+            mod_bc_st: Some("3".into()),
+            p_mva_st: Some(Rate(100)),
             p_red_bc_st: Some(Rate(100)),
-            v_bc_st: Some(Cents(100)), p_icms_st: Some(Rate(100)), v_icms_st: Some(Cents(100)),
-            v_bc_fcp_st: Some(Cents(100)), p_fcp_st: Some(Rate(100)), v_fcp_st: Some(Cents(100)),
+            v_bc_st: Some(Cents(100)),
+            p_icms_st: Some(Rate(100)),
+            v_icms_st: Some(Cents(100)),
+            v_bc_fcp_st: Some(Cents(100)),
+            p_fcp_st: Some(Rate(100)),
+            v_fcp_st: Some(Cents(100)),
         });
         let mut t = IcmsTotals::default();
         let xml = build_icms_xml(&v, &mut t).unwrap();
@@ -1719,9 +2139,16 @@ mod build_access_key_ported {
     #[test]
     fn builds_a_44_digit_access_key_with_valid_check_digit() {
         let key = build_access_key(&AccessKeyParams::new(
-            IbgeCode("35".to_string()), "1703", "58716523000119",
-            InvoiceModel::Nfe, 1, 30, EmissionType::Normal, "00000030",
-        )).unwrap();
+            IbgeCode("35".to_string()),
+            "1703",
+            "58716523000119",
+            InvoiceModel::Nfe,
+            1,
+            30,
+            EmissionType::Normal,
+            "00000030",
+        ))
+        .unwrap();
 
         assert_eq!(key.len(), 44);
         // Starts with state code
@@ -1750,27 +2177,34 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_aliq_cst_01_with_percentage() {
-        let xml = build_pis_xml(&PisData::new("01")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("01")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
 
         expect_wrapped_in(&xml, "PIS");
         expect_wrapped_in(&xml, "PISAliq");
-        expect_xml_contains(&xml, &[
-            ("CST", "01"),
-            ("vBC", "100.00"),
-            ("pPIS", "1.6500"),
-            ("vPIS", "1.65"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "01"),
+                ("vBC", "100.00"),
+                ("pPIS", "1.6500"),
+                ("vPIS", "1.65"),
+            ],
+        );
     }
 
     #[test]
     fn pis_aliq_cst_02() {
-        let xml = build_pis_xml(&PisData::new("02")
-            .v_bc(Cents(20000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(330)));
+        let xml = build_pis_xml(
+            &PisData::new("02")
+                .v_bc(Cents(20000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(330)),
+        );
 
         expect_wrapped_in(&xml, "PISAliq");
         expect_xml_contains(&xml, &[("CST", "02")]);
@@ -1778,18 +2212,23 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_qtde_cst_03_with_quantity() {
-        let xml = build_pis_xml(&PisData::new("03")
-            .q_bc_prod(10000)
-            .v_aliq_prod(50000)
-            .v_pis(Cents(500)));
+        let xml = build_pis_xml(
+            &PisData::new("03")
+                .q_bc_prod(10000)
+                .v_aliq_prod(50000)
+                .v_pis(Cents(500)),
+        );
 
         expect_wrapped_in(&xml, "PISQtde");
-        expect_xml_contains(&xml, &[
-            ("CST", "03"),
-            ("qBCProd", "1.0000"),
-            ("vAliqProd", "5.0000"),
-            ("vPIS", "5.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "03"),
+                ("qBCProd", "1.0000"),
+                ("vAliqProd", "5.0000"),
+                ("vPIS", "5.00"),
+            ],
+        );
     }
 
     #[test]
@@ -1813,34 +2252,44 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_outr_cst_49_with_percentage() {
-        let xml = build_pis_xml(&PisData::new("49")
-            .v_bc(Cents(10000))
-            .p_pis(Rate4(16500))
-            .v_pis(Cents(165)));
+        let xml = build_pis_xml(
+            &PisData::new("49")
+                .v_bc(Cents(10000))
+                .p_pis(Rate4(16500))
+                .v_pis(Cents(165)),
+        );
 
         expect_wrapped_in(&xml, "PISOutr");
-        expect_xml_contains(&xml, &[
-            ("CST", "49"),
-            ("vBC", "100.00"),
-            ("pPIS", "1.6500"),
-            ("vPIS", "1.65"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "49"),
+                ("vBC", "100.00"),
+                ("pPIS", "1.6500"),
+                ("vPIS", "1.65"),
+            ],
+        );
     }
 
     #[test]
     fn pis_outr_cst_99_with_quantity() {
-        let xml = build_pis_xml(&PisData::new("99")
-            .q_bc_prod(10000)
-            .v_aliq_prod(50000)
-            .v_pis(Cents(500)));
+        let xml = build_pis_xml(
+            &PisData::new("99")
+                .q_bc_prod(10000)
+                .v_aliq_prod(50000)
+                .v_pis(Cents(500)),
+        );
 
         expect_wrapped_in(&xml, "PISOutr");
-        expect_xml_contains(&xml, &[
-            ("CST", "99"),
-            ("qBCProd", "1.0000"),
-            ("vAliqProd", "5.0000"),
-            ("vPIS", "5.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "99"),
+                ("qBCProd", "1.0000"),
+                ("vAliqProd", "5.0000"),
+                ("vPIS", "5.00"),
+            ],
+        );
     }
 }
 
@@ -1853,35 +2302,45 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_aliq_cst_01_with_percentage() {
-        let xml = build_cofins_xml(&CofinsData::new("01")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("01")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
 
         expect_wrapped_in(&xml, "COFINS");
         expect_wrapped_in(&xml, "COFINSAliq");
-        expect_xml_contains(&xml, &[
-            ("CST", "01"),
-            ("vBC", "100.00"),
-            ("pCOFINS", "7.6000"),
-            ("vCOFINS", "7.60"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "01"),
+                ("vBC", "100.00"),
+                ("pCOFINS", "7.6000"),
+                ("vCOFINS", "7.60"),
+            ],
+        );
     }
 
     #[test]
     fn cofins_qtde_cst_03_with_quantity() {
-        let xml = build_cofins_xml(&CofinsData::new("03")
-            .q_bc_prod(10000)
-            .v_aliq_prod(50000)
-            .v_cofins(Cents(500)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("03")
+                .q_bc_prod(10000)
+                .v_aliq_prod(50000)
+                .v_cofins(Cents(500)),
+        );
 
         expect_wrapped_in(&xml, "COFINSQtde");
-        expect_xml_contains(&xml, &[
-            ("CST", "03"),
-            ("qBCProd", "1.0000"),
-            ("vAliqProd", "5.0000"),
-            ("vCOFINS", "5.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "03"),
+                ("qBCProd", "1.0000"),
+                ("vAliqProd", "5.0000"),
+                ("vCOFINS", "5.00"),
+            ],
+        );
     }
 
     #[test]
@@ -1903,34 +2362,44 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_outr_cst_99_with_percentage() {
-        let xml = build_cofins_xml(&CofinsData::new("99")
-            .v_bc(Cents(10000))
-            .p_cofins(Rate4(76000))
-            .v_cofins(Cents(760)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("99")
+                .v_bc(Cents(10000))
+                .p_cofins(Rate4(76000))
+                .v_cofins(Cents(760)),
+        );
 
         expect_wrapped_in(&xml, "COFINSOutr");
-        expect_xml_contains(&xml, &[
-            ("CST", "99"),
-            ("vBC", "100.00"),
-            ("pCOFINS", "7.6000"),
-            ("vCOFINS", "7.60"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "99"),
+                ("vBC", "100.00"),
+                ("pCOFINS", "7.6000"),
+                ("vCOFINS", "7.60"),
+            ],
+        );
     }
 
     #[test]
     fn cofins_outr_cst_49_with_quantity() {
-        let xml = build_cofins_xml(&CofinsData::new("49")
-            .q_bc_prod(20000)
-            .v_aliq_prod(30000)
-            .v_cofins(Cents(600)));
+        let xml = build_cofins_xml(
+            &CofinsData::new("49")
+                .q_bc_prod(20000)
+                .v_aliq_prod(30000)
+                .v_cofins(Cents(600)),
+        );
 
         expect_wrapped_in(&xml, "COFINSOutr");
-        expect_xml_contains(&xml, &[
-            ("CST", "49"),
-            ("qBCProd", "2.0000"),
-            ("vAliqProd", "3.0000"),
-            ("vCOFINS", "6.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "49"),
+                ("qBCProd", "2.0000"),
+                ("vAliqProd", "3.0000"),
+                ("vCOFINS", "6.00"),
+            ],
+        );
     }
 }
 
@@ -1943,28 +2412,35 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_50_with_percentage() {
-        let xml = build_ipi_xml(&IpiData::new("50", "999")
-            .v_bc(Cents(10000))
-            .p_ipi(Rate(50000))
-            .v_ipi(Cents(500)));
+        let xml = build_ipi_xml(
+            &IpiData::new("50", "999")
+                .v_bc(Cents(10000))
+                .p_ipi(Rate(50000))
+                .v_ipi(Cents(500)),
+        );
 
         expect_wrapped_in(&xml, "IPI");
         expect_wrapped_in(&xml, "IPITrib");
-        expect_xml_contains(&xml, &[
-            ("cEnq", "999"),
-            ("CST", "50"),
-            ("vBC", "100.00"),
-            ("pIPI", "5.0000"),
-            ("vIPI", "5.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cEnq", "999"),
+                ("CST", "50"),
+                ("vBC", "100.00"),
+                ("pIPI", "5.0000"),
+                ("vIPI", "5.00"),
+            ],
+        );
     }
 
     #[test]
     fn ipi_trib_cst_00_with_percentage() {
-        let xml = build_ipi_xml(&IpiData::new("00", "999")
-            .v_bc(Cents(20000))
-            .p_ipi(Rate(100000))
-            .v_ipi(Cents(2000)));
+        let xml = build_ipi_xml(
+            &IpiData::new("00", "999")
+                .v_bc(Cents(20000))
+                .p_ipi(Rate(100000))
+                .v_ipi(Cents(2000)),
+        );
 
         expect_wrapped_in(&xml, "IPITrib");
         expect_xml_contains(&xml, &[("CST", "00"), ("pIPI", "10.0000")]);
@@ -1972,35 +2448,45 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_49_with_unit_based() {
-        let xml = build_ipi_xml(&IpiData::new("49", "999")
-            .q_unid(10000)
-            .v_unid(50000)
-            .v_ipi(Cents(500)));
+        let xml = build_ipi_xml(
+            &IpiData::new("49", "999")
+                .q_unid(10000)
+                .v_unid(50000)
+                .v_ipi(Cents(500)),
+        );
 
         expect_wrapped_in(&xml, "IPITrib");
-        expect_xml_contains(&xml, &[
-            ("CST", "49"),
-            ("qUnid", "1.0000"),
-            ("vUnid", "5.0000"),
-            ("vIPI", "5.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CST", "49"),
+                ("qUnid", "1.0000"),
+                ("vUnid", "5.0000"),
+                ("vIPI", "5.00"),
+            ],
+        );
     }
 
     #[test]
     fn ipi_trib_cst_99_with_percentage() {
-        let xml = build_ipi_xml(&IpiData::new("99", "311")
-            .v_bc(Cents(50000))
-            .p_ipi(Rate(150000))
-            .v_ipi(Cents(7500)));
+        let xml = build_ipi_xml(
+            &IpiData::new("99", "311")
+                .v_bc(Cents(50000))
+                .p_ipi(Rate(150000))
+                .v_ipi(Cents(7500)),
+        );
 
         expect_wrapped_in(&xml, "IPITrib");
-        expect_xml_contains(&xml, &[
-            ("cEnq", "311"),
-            ("CST", "99"),
-            ("vBC", "500.00"),
-            ("pIPI", "15.0000"),
-            ("vIPI", "75.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("cEnq", "311"),
+                ("CST", "99"),
+                ("vBC", "500.00"),
+                ("pIPI", "15.0000"),
+                ("vIPI", "75.00"),
+            ],
+        );
     }
 
     #[test]
@@ -2025,19 +2511,24 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_with_optional_header_fields_cnpj_prod_cselo_qselo() {
-        let xml = build_ipi_xml(&IpiData::new("50", "999")
-            .cnpj_prod("12345678901234")
-            .c_selo("SELO123")
-            .q_selo(10)
-            .v_bc(Cents(10000))
-            .p_ipi(Rate(50000))
-            .v_ipi(Cents(500)));
+        let xml = build_ipi_xml(
+            &IpiData::new("50", "999")
+                .cnpj_prod("12345678901234")
+                .c_selo("SELO123")
+                .q_selo(10)
+                .v_bc(Cents(10000))
+                .p_ipi(Rate(50000))
+                .v_ipi(Cents(500)),
+        );
 
-        expect_xml_contains(&xml, &[
-            ("CNPJProd", "12345678901234"),
-            ("cSelo", "SELO123"),
-            ("qSelo", "10"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("CNPJProd", "12345678901234"),
+                ("cSelo", "SELO123"),
+                ("qSelo", "10"),
+            ],
+        );
     }
 }
 
@@ -2052,23 +2543,34 @@ mod ii_builders_additional {
     fn builds_ii_with_all_zero_values() {
         let xml = build_ii_xml(&IiData::new(Cents(0), Cents(0), Cents(0), Cents(0)));
 
-        expect_xml_contains(&xml, &[
-            ("vBC", "0.00"),
-            ("vDespAdu", "0.00"),
-            ("vII", "0.00"),
-            ("vIOF", "0.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "0.00"),
+                ("vDespAdu", "0.00"),
+                ("vII", "0.00"),
+                ("vIOF", "0.00"),
+            ],
+        );
     }
 
     #[test]
     fn builds_ii_with_large_values() {
-        let xml = build_ii_xml(&IiData::new(Cents(1000000), Cents(50000), Cents(150000), Cents(25000)));
+        let xml = build_ii_xml(&IiData::new(
+            Cents(1000000),
+            Cents(50000),
+            Cents(150000),
+            Cents(25000),
+        ));
 
-        expect_xml_contains(&xml, &[
-            ("vBC", "10000.00"),
-            ("vDespAdu", "500.00"),
-            ("vII", "1500.00"),
-            ("vIOF", "250.00"),
-        ]);
+        expect_xml_contains(
+            &xml,
+            &[
+                ("vBC", "10000.00"),
+                ("vDespAdu", "500.00"),
+                ("vII", "1500.00"),
+                ("vIOF", "250.00"),
+            ],
+        );
     }
 }

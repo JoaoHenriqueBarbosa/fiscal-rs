@@ -3,20 +3,32 @@
 
 mod common;
 
-use fiscal::newtypes::{Cents, Rate, IbgeCode};
+use fiscal::newtypes::{Cents, IbgeCode, Rate};
 use fiscal::types::*;
 use fiscal::xml_builder::InvoiceBuilder;
-use fiscal::xml_utils::{tag, TagContent};
+use fiscal::xml_utils::{TagContent, tag};
 
 use common::expect_xml_tag_values as expect_xml_contains;
 
 /// Standard minimal item for NF-e 55 tests.
 fn minimal_nfe55_item() -> InvoiceItemData {
     InvoiceItemData::new(
-        1, "001", "Produto Teste", "61091000", "5102", "UN",
-        10.0, Cents(1000), Cents(10000),
-        "00", Rate(1800), Cents(1800), "07", "07",
-    ).icms_mod_bc(0)
+        1,
+        "001",
+        "Produto Teste",
+        "61091000",
+        "5102",
+        "UN",
+        10.0,
+        Cents(1000),
+        Cents(10000),
+        "00",
+        Rate(1800),
+        Cents(1800),
+        "07",
+        "07",
+    )
+    .icms_mod_bc(0)
 }
 
 /// Helper to build a minimal NF-e 55 InvoiceBuilder for tests that just need valid XML output.
@@ -32,11 +44,19 @@ fn minimal_nfe55(number: u32) -> InvoiceBuilder {
 
     InvoiceBuilder::new(
         IssuerData::new(
-            "58716523000119", "123456789012", "EMPRESA TESTE LTDA",
-            TaxRegime::Normal, "SP",
-            IbgeCode("3550308".to_string()), "Sao Paulo",
-            "Rua Teste", "100", "Centro", "01001000",
-        ).trade_name("EMPRESA TESTE"),
+            "58716523000119",
+            "123456789012",
+            "EMPRESA TESTE LTDA",
+            TaxRegime::Normal,
+            "SP",
+            IbgeCode("3550308".to_string()),
+            "Sao Paulo",
+            "Rua Teste",
+            "100",
+            "Centro",
+            "01001000",
+        )
+        .trade_name("EMPRESA TESTE"),
         SefazEnvironment::Homologation,
         InvoiceModel::Nfe,
     )
@@ -92,71 +112,102 @@ mod deep_coverage_test {
 
         #[test]
         fn render_with_cobr_fat_dup() {
-            let xml = tag("cobr", &[], TagContent::Children(vec![
-                tag("fat", &[], TagContent::Children(vec![
-                    tag("nFat", &[], TagContent::Text("001")),
-                    tag("vOrig", &[], TagContent::Text("500.00")),
-                    tag("vDesc", &[], TagContent::Text("10.00")),
-                    tag("vLiq", &[], TagContent::Text("490.00")),
-                ])),
-                tag("dup", &[], TagContent::Children(vec![
-                    tag("nDup", &[], TagContent::Text("001")),
-                    tag("dVenc", &[], TagContent::Text("2025-03-01")),
-                    tag("vDup", &[], TagContent::Text("245.00")),
-                ])),
-                tag("dup", &[], TagContent::Children(vec![
-                    tag("nDup", &[], TagContent::Text("002")),
-                    tag("dVenc", &[], TagContent::Text("2025-04-01")),
-                    tag("vDup", &[], TagContent::Text("245.00")),
-                ])),
-            ]));
+            let xml = tag(
+                "cobr",
+                &[],
+                TagContent::Children(vec![
+                    tag(
+                        "fat",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("nFat", &[], TagContent::Text("001")),
+                            tag("vOrig", &[], TagContent::Text("500.00")),
+                            tag("vDesc", &[], TagContent::Text("10.00")),
+                            tag("vLiq", &[], TagContent::Text("490.00")),
+                        ]),
+                    ),
+                    tag(
+                        "dup",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("nDup", &[], TagContent::Text("001")),
+                            tag("dVenc", &[], TagContent::Text("2025-03-01")),
+                            tag("vDup", &[], TagContent::Text("245.00")),
+                        ]),
+                    ),
+                    tag(
+                        "dup",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("nDup", &[], TagContent::Text("002")),
+                            tag("dVenc", &[], TagContent::Text("2025-04-01")),
+                            tag("vDup", &[], TagContent::Text("245.00")),
+                        ]),
+                    ),
+                ]),
+            );
 
             assert!(xml.contains("<cobr>"));
             assert!(xml.contains("<fat>"));
-            expect_xml_contains(&xml, &[("nFat", "001"), ("vOrig", "500.00"), ("vLiq", "490.00")]);
+            expect_xml_contains(
+                &xml,
+                &[("nFat", "001"), ("vOrig", "500.00"), ("vLiq", "490.00")],
+            );
             let dup_count = xml.matches("<dup>").count();
             assert_eq!(dup_count, 2);
         }
 
         #[test]
         fn render_with_retirada() {
-            let xml = tag("retirada", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("99887766000100")),
-                tag("xNome", &[], TagContent::Text("Empresa Origem")),
-                tag("xLgr", &[], TagContent::Text("Rua Retirada")),
-                tag("nro", &[], TagContent::Text("50")),
-                tag("xBairro", &[], TagContent::Text("Industrial")),
-                tag("cMun", &[], TagContent::Text("4106902")),
-                tag("xMun", &[], TagContent::Text("Curitiba")),
-                tag("UF", &[], TagContent::Text("PR")),
-            ]));
+            let xml = tag(
+                "retirada",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("99887766000100")),
+                    tag("xNome", &[], TagContent::Text("Empresa Origem")),
+                    tag("xLgr", &[], TagContent::Text("Rua Retirada")),
+                    tag("nro", &[], TagContent::Text("50")),
+                    tag("xBairro", &[], TagContent::Text("Industrial")),
+                    tag("cMun", &[], TagContent::Text("4106902")),
+                    tag("xMun", &[], TagContent::Text("Curitiba")),
+                    tag("UF", &[], TagContent::Text("PR")),
+                ]),
+            );
             assert!(xml.contains("<retirada>"));
             expect_xml_contains(&xml, &[("xLgr", "Rua Retirada")]);
         }
 
         #[test]
         fn render_with_entrega() {
-            let xml = tag("entrega", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("11222333000181")),
-                tag("xLgr", &[], TagContent::Text("Rua Entrega")),
-                tag("nro", &[], TagContent::Text("200")),
-                tag("xBairro", &[], TagContent::Text("Centro")),
-                tag("cMun", &[], TagContent::Text("3550308")),
-                tag("xMun", &[], TagContent::Text("Sao Paulo")),
-                tag("UF", &[], TagContent::Text("SP")),
-            ]));
+            let xml = tag(
+                "entrega",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("11222333000181")),
+                    tag("xLgr", &[], TagContent::Text("Rua Entrega")),
+                    tag("nro", &[], TagContent::Text("200")),
+                    tag("xBairro", &[], TagContent::Text("Centro")),
+                    tag("cMun", &[], TagContent::Text("3550308")),
+                    tag("xMun", &[], TagContent::Text("Sao Paulo")),
+                    tag("UF", &[], TagContent::Text("SP")),
+                ]),
+            );
             assert!(xml.contains("<entrega>"));
             expect_xml_contains(&xml, &[("xLgr", "Rua Entrega")]);
         }
 
         #[test]
         fn render_with_aut_xml() {
-            let cnpj_xml = tag("autXML", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("12345678000195")),
-            ]));
-            let cpf_xml = tag("autXML", &[], TagContent::Children(vec![
-                tag("CPF", &[], TagContent::Text("12345678901")),
-            ]));
+            let cnpj_xml = tag(
+                "autXML",
+                &[],
+                TagContent::Children(vec![tag("CNPJ", &[], TagContent::Text("12345678000195"))]),
+            );
+            let cpf_xml = tag(
+                "autXML",
+                &[],
+                TagContent::Children(vec![tag("CPF", &[], TagContent::Text("12345678901"))]),
+            );
             assert!(cnpj_xml.contains("<autXML>"));
             assert!(cnpj_xml.contains("<CNPJ>12345678000195</CNPJ>"));
             assert!(cpf_xml.contains("<autXML>"));
@@ -165,62 +216,111 @@ mod deep_coverage_test {
 
         #[test]
         fn render_with_inf_intermed() {
-            let xml = tag("infIntermed", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("55667788000199")),
-                tag("idCadIntTran", &[], TagContent::Text("CADASTRO123")),
-            ]));
+            let xml = tag(
+                "infIntermed",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("55667788000199")),
+                    tag("idCadIntTran", &[], TagContent::Text("CADASTRO123")),
+                ]),
+            );
             assert!(xml.contains("<infIntermed>"));
-            expect_xml_contains(&xml, &[("CNPJ", "55667788000199"), ("idCadIntTran", "CADASTRO123")]);
+            expect_xml_contains(
+                &xml,
+                &[("CNPJ", "55667788000199"), ("idCadIntTran", "CADASTRO123")],
+            );
         }
 
         #[test]
         fn render_with_exporta() {
-            let xml = tag("exporta", &[], TagContent::Children(vec![
-                tag("UFSaidaPais", &[], TagContent::Text("SP")),
-                tag("xLocExporta", &[], TagContent::Text("Porto de Santos")),
-                tag("xLocDespacho", &[], TagContent::Text("Aeroporto de Guarulhos")),
-            ]));
+            let xml = tag(
+                "exporta",
+                &[],
+                TagContent::Children(vec![
+                    tag("UFSaidaPais", &[], TagContent::Text("SP")),
+                    tag("xLocExporta", &[], TagContent::Text("Porto de Santos")),
+                    tag(
+                        "xLocDespacho",
+                        &[],
+                        TagContent::Text("Aeroporto de Guarulhos"),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<exporta>"));
-            expect_xml_contains(&xml, &[
-                ("UFSaidaPais", "SP"),
-                ("xLocExporta", "Porto de Santos"),
-                ("xLocDespacho", "Aeroporto de Guarulhos"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("UFSaidaPais", "SP"),
+                    ("xLocExporta", "Porto de Santos"),
+                    ("xLocDespacho", "Aeroporto de Guarulhos"),
+                ],
+            );
         }
 
         #[test]
         fn render_with_compra() {
-            let xml = tag("compra", &[], TagContent::Children(vec![
-                tag("xNEmp", &[], TagContent::Text("NE-001")),
-                tag("xPed", &[], TagContent::Text("PED-001")),
-                tag("xCont", &[], TagContent::Text("CONT-001")),
-            ]));
+            let xml = tag(
+                "compra",
+                &[],
+                TagContent::Children(vec![
+                    tag("xNEmp", &[], TagContent::Text("NE-001")),
+                    tag("xPed", &[], TagContent::Text("PED-001")),
+                    tag("xCont", &[], TagContent::Text("CONT-001")),
+                ]),
+            );
             assert!(xml.contains("<compra>"));
-            expect_xml_contains(&xml, &[("xNEmp", "NE-001"), ("xPed", "PED-001"), ("xCont", "CONT-001")]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("xNEmp", "NE-001"),
+                    ("xPed", "PED-001"),
+                    ("xCont", "CONT-001"),
+                ],
+            );
         }
 
         #[test]
         fn render_with_cana() {
-            let xml = tag("cana", &[], TagContent::Children(vec![
-                tag("safra", &[], TagContent::Text("2017/2018")),
-                tag("ref", &[], TagContent::Text("03/2017")),
-                tag("forDia", &[("dia", "1")], TagContent::Children(vec![
-                    tag("qtde", &[], TagContent::Text("100.0000000000")),
-                ])),
-                tag("forDia", &[("dia", "2")], TagContent::Children(vec![
-                    tag("qtde", &[], TagContent::Text("200.0000000000")),
-                ])),
-                tag("qTotMes", &[], TagContent::Text("1000.0000000000")),
-                tag("qTotAnt", &[], TagContent::Text("500.0000000000")),
-                tag("qTotGer", &[], TagContent::Text("1500.0000000000")),
-                tag("deduc", &[], TagContent::Children(vec![
-                    tag("xDed", &[], TagContent::Text("DEDUCAO TESTE")),
-                    tag("vDed", &[], TagContent::Text("500.00")),
-                ])),
-                tag("vFor", &[], TagContent::Text("15000.00")),
-                tag("vTotDed", &[], TagContent::Text("500.00")),
-                tag("vLiqFor", &[], TagContent::Text("14500.00")),
-            ]));
+            let xml = tag(
+                "cana",
+                &[],
+                TagContent::Children(vec![
+                    tag("safra", &[], TagContent::Text("2017/2018")),
+                    tag("ref", &[], TagContent::Text("03/2017")),
+                    tag(
+                        "forDia",
+                        &[("dia", "1")],
+                        TagContent::Children(vec![tag(
+                            "qtde",
+                            &[],
+                            TagContent::Text("100.0000000000"),
+                        )]),
+                    ),
+                    tag(
+                        "forDia",
+                        &[("dia", "2")],
+                        TagContent::Children(vec![tag(
+                            "qtde",
+                            &[],
+                            TagContent::Text("200.0000000000"),
+                        )]),
+                    ),
+                    tag("qTotMes", &[], TagContent::Text("1000.0000000000")),
+                    tag("qTotAnt", &[], TagContent::Text("500.0000000000")),
+                    tag("qTotGer", &[], TagContent::Text("1500.0000000000")),
+                    tag(
+                        "deduc",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("xDed", &[], TagContent::Text("DEDUCAO TESTE")),
+                            tag("vDed", &[], TagContent::Text("500.00")),
+                        ]),
+                    ),
+                    tag("vFor", &[], TagContent::Text("15000.00")),
+                    tag("vTotDed", &[], TagContent::Text("500.00")),
+                    tag("vLiqFor", &[], TagContent::Text("14500.00")),
+                ]),
+            );
             assert!(xml.contains("<cana>"));
             assert!(xml.contains("<safra>2017/2018</safra>"));
             assert!(xml.contains("<forDia"));
@@ -230,33 +330,49 @@ mod deep_coverage_test {
 
         #[test]
         fn render_with_inf_resp_tec() {
-            let xml = tag("infRespTec", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("11223344000155")),
-                tag("xContato", &[], TagContent::Text("Suporte Tecnico")),
-                tag("email", &[], TagContent::Text("suporte@teste.com")),
-                tag("fone", &[], TagContent::Text("1133334444")),
-            ]));
+            let xml = tag(
+                "infRespTec",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("11223344000155")),
+                    tag("xContato", &[], TagContent::Text("Suporte Tecnico")),
+                    tag("email", &[], TagContent::Text("suporte@teste.com")),
+                    tag("fone", &[], TagContent::Text("1133334444")),
+                ]),
+            );
             assert!(xml.contains("<infRespTec>"));
-            expect_xml_contains(&xml, &[
-                ("CNPJ", "11223344000155"),
-                ("xContato", "Suporte Tecnico"),
-                ("email", "suporte@teste.com"),
-                ("fone", "1133334444"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("CNPJ", "11223344000155"),
+                    ("xContato", "Suporte Tecnico"),
+                    ("email", "suporte@teste.com"),
+                    ("fone", "1133334444"),
+                ],
+            );
         }
 
         #[test]
         fn render_error_handling_stores_errors() {
             let issuer = IssuerData::new(
-                "58716523000119", "123456789012", "EMPRESA TESTE LTDA",
-                TaxRegime::Normal, "XX", // Invalid state
-                IbgeCode("3550308".to_string()), "Sao Paulo",
-                "Rua Teste", "100", "Centro", "01001000",
-            ).trade_name("EMPRESA TESTE");
-            let result = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
-                .series(1)
-                .invoice_number(30)
-                .build();
+                "58716523000119",
+                "123456789012",
+                "EMPRESA TESTE LTDA",
+                TaxRegime::Normal,
+                "XX", // Invalid state
+                IbgeCode("3550308".to_string()),
+                "Sao Paulo",
+                "Rua Teste",
+                "100",
+                "Centro",
+                "01001000",
+            )
+            .trade_name("EMPRESA TESTE");
+            let result =
+                InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
+                    .series(1)
+                    .invoice_number(30)
+                    .build();
             assert!(result.is_err());
         }
 
@@ -300,16 +416,30 @@ mod deep_coverage_test {
             item.description = "Produto NFC-e".to_string();
             item.icms_cst = "102".to_string();
 
-            let issuer = IssuerData::new("58716523000119", "123456789012", "EMPRESA TESTE LTDA", TaxRegime::SimplesNacional, "SP", IbgeCode("3550308".to_string()), "Sao Paulo", "Rua Teste", "100", "Centro", "01001000").trade_name("EMPRESA TESTE");
+            let issuer = IssuerData::new(
+                "58716523000119",
+                "123456789012",
+                "EMPRESA TESTE LTDA",
+                TaxRegime::SimplesNacional,
+                "SP",
+                IbgeCode("3550308".to_string()),
+                "Sao Paulo",
+                "Rua Teste",
+                "100",
+                "Centro",
+                "01001000",
+            )
+            .trade_name("EMPRESA TESTE");
 
-            let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
-                .series(1)
-                .invoice_number(1)
-                .issued_at(dt)
-                .items(vec![item])
-                .payments(vec![PaymentData::new("01", Cents(5000))])
-                .build()
-                .expect("build failed");
+            let built =
+                InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
+                    .series(1)
+                    .invoice_number(1)
+                    .issued_at(dt)
+                    .items(vec![item])
+                    .payments(vec![PaymentData::new("01", Cents(5000))])
+                    .build()
+                    .expect("build failed");
             let modelo = &built.access_key()[20..22];
             assert_eq!(modelo, "65");
             assert!(built.xml().contains("<mod>65</mod>"));
@@ -326,28 +456,39 @@ mod deep_coverage_test {
             let built = minimal_nfe55(42)
                 .items(vec![item])
                 .withdrawal(LocationData::new(
-                    "99887766000100", "Rua R", "1", "D",
-                    IbgeCode("4106902".to_string()), "Curitiba", "PR",
+                    "99887766000100",
+                    "Rua R",
+                    "1",
+                    "D",
+                    IbgeCode("4106902".to_string()),
+                    "Curitiba",
+                    "PR",
                 ))
                 .delivery(LocationData::new(
-                    "11222333000181", "Rua E", "2", "D",
-                    IbgeCode("3550308".to_string()), "Sao Paulo", "SP",
+                    "11222333000181",
+                    "Rua E",
+                    "2",
+                    "D",
+                    IbgeCode("3550308".to_string()),
+                    "Sao Paulo",
+                    "SP",
                 ))
                 .authorized_xml(vec![AuthorizedXml::new("12345678000195")])
-                .billing(BillingData::new()
-                    .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
-                    .installments(vec![Installment::new("001", "2025-04-01", Cents(10000))])
+                .billing(
+                    BillingData::new()
+                        .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
+                        .installments(vec![Installment::new("001", "2025-04-01", Cents(10000))]),
                 )
-                .intermediary(IntermediaryData::new("55667788000199")
-                    .id_cad_int_tran("CAD001")
-                )
+                .intermediary(IntermediaryData::new("55667788000199").id_cad_int_tran("CAD001"))
                 .export(ExportData::new("SP", "Porto de Santos"))
-                .purchase(PurchaseData::new()
-                    .order_number("PED-001")
-                    .contract_number("CONT-001")
+                .purchase(
+                    PurchaseData::new()
+                        .order_number("PED-001")
+                        .contract_number("CONT-001"),
                 )
-                .tech_responsible(TechResponsibleData::new("11223344000155", "Suporte", "suporte@teste.com")
-                    .phone("1133334444")
+                .tech_responsible(
+                    TechResponsibleData::new("11223344000155", "Suporte", "suporte@teste.com")
+                        .phone("1133334444"),
                 )
                 .build()
                 .expect("build failed");
@@ -521,7 +662,11 @@ mod deep_coverage_test {
         fn builds_dist_dfe_with_ch_nfe() {
             let chave = "35220605730928000145550010000048661583302923";
             let xml = fiscal::sefaz::request_builders::build_dist_dfe_request(
-                "SP", "93623057000128", None, Some(chave), SefazEnvironment::Homologation,
+                "SP",
+                "93623057000128",
+                None,
+                Some(chave),
+                SefazEnvironment::Homologation,
             );
             assert!(xml.contains(&format!("<chNFe>{chave}</chNFe>")));
             assert!(xml.contains("distDFeInt"));
@@ -566,11 +711,15 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_total_sets_v_nf_tot() {
-            let xml = tag("total", &[], TagContent::Children(vec![
-                tag("ICMSTot", &[], TagContent::Children(vec![
-                    tag("vNF", &[], TagContent::Text("1234.56")),
-                ])),
-            ]));
+            let xml = tag(
+                "total",
+                &[],
+                TagContent::Children(vec![tag(
+                    "ICMSTot",
+                    &[],
+                    TagContent::Children(vec![tag("vNF", &[], TagContent::Text("1234.56"))]),
+                )]),
+            );
             assert!(xml.contains("<vNF>1234.56</vNF>"));
         }
 
@@ -582,44 +731,60 @@ mod deep_coverage_test {
 
         #[test]
         fn build_tag_icms_tot_with_all_optional_fields() {
-            let xml = tag("ICMSTot", &[], TagContent::Children(vec![
-                tag("vBC", &[], TagContent::Text("1000.00")),
-                tag("vICMS", &[], TagContent::Text("180.00")),
-                tag("vICMSDeson", &[], TagContent::Text("10.00")),
-                tag("vFCPUFDest", &[], TagContent::Text("15.00")),
-                tag("vICMSUFDest", &[], TagContent::Text("90.00")),
-                tag("vICMSUFRemet", &[], TagContent::Text("45.00")),
-                tag("vFCP", &[], TagContent::Text("20.00")),
-                tag("vBCST", &[], TagContent::Text("200.00")),
-                tag("vST", &[], TagContent::Text("36.00")),
-                tag("vFCPST", &[], TagContent::Text("4.00")),
-                tag("vFCPSTRet", &[], TagContent::Text("2.00")),
-                tag("qBCMono", &[], TagContent::Text("500.00")),
-                tag("vICMSMono", &[], TagContent::Text("50.00")),
-                tag("qBCMonoReten", &[], TagContent::Text("300.00")),
-                tag("vICMSMonoReten", &[], TagContent::Text("30.00")),
-                tag("qBCMonoRet", &[], TagContent::Text("200.00")),
-                tag("vICMSMonoRet", &[], TagContent::Text("20.00")),
-                tag("vProd", &[], TagContent::Text("1000.00")),
-                tag("vFrete", &[], TagContent::Text("50.00")),
-                tag("vSeg", &[], TagContent::Text("25.00")),
-                tag("vDesc", &[], TagContent::Text("15.00")),
-                tag("vII", &[], TagContent::Text("30.00")),
-                tag("vIPI", &[], TagContent::Text("45.00")),
-                tag("vIPIDevol", &[], TagContent::Text("12.00")),
-                tag("vPIS", &[], TagContent::Text("16.50")),
-                tag("vCOFINS", &[], TagContent::Text("76.00")),
-                tag("vOutro", &[], TagContent::Text("5.00")),
-                tag("vNF", &[], TagContent::Text("1196.50")),
-                tag("vTotTrib", &[], TagContent::Text("383.50")),
-            ]));
-            expect_xml_contains(&xml, &[
-                ("vFCPUFDest", "15.00"), ("vICMSUFDest", "90.00"), ("vICMSUFRemet", "45.00"),
-                ("qBCMono", "500.00"), ("vICMSMono", "50.00"), ("qBCMonoReten", "300.00"),
-                ("vICMSMonoReten", "30.00"), ("qBCMonoRet", "200.00"), ("vICMSMonoRet", "20.00"),
-                ("vIPIDevol", "12.00"), ("vTotTrib", "383.50"), ("vFCP", "20.00"),
-                ("vFCPST", "4.00"), ("vFCPSTRet", "2.00"),
-            ]);
+            let xml = tag(
+                "ICMSTot",
+                &[],
+                TagContent::Children(vec![
+                    tag("vBC", &[], TagContent::Text("1000.00")),
+                    tag("vICMS", &[], TagContent::Text("180.00")),
+                    tag("vICMSDeson", &[], TagContent::Text("10.00")),
+                    tag("vFCPUFDest", &[], TagContent::Text("15.00")),
+                    tag("vICMSUFDest", &[], TagContent::Text("90.00")),
+                    tag("vICMSUFRemet", &[], TagContent::Text("45.00")),
+                    tag("vFCP", &[], TagContent::Text("20.00")),
+                    tag("vBCST", &[], TagContent::Text("200.00")),
+                    tag("vST", &[], TagContent::Text("36.00")),
+                    tag("vFCPST", &[], TagContent::Text("4.00")),
+                    tag("vFCPSTRet", &[], TagContent::Text("2.00")),
+                    tag("qBCMono", &[], TagContent::Text("500.00")),
+                    tag("vICMSMono", &[], TagContent::Text("50.00")),
+                    tag("qBCMonoReten", &[], TagContent::Text("300.00")),
+                    tag("vICMSMonoReten", &[], TagContent::Text("30.00")),
+                    tag("qBCMonoRet", &[], TagContent::Text("200.00")),
+                    tag("vICMSMonoRet", &[], TagContent::Text("20.00")),
+                    tag("vProd", &[], TagContent::Text("1000.00")),
+                    tag("vFrete", &[], TagContent::Text("50.00")),
+                    tag("vSeg", &[], TagContent::Text("25.00")),
+                    tag("vDesc", &[], TagContent::Text("15.00")),
+                    tag("vII", &[], TagContent::Text("30.00")),
+                    tag("vIPI", &[], TagContent::Text("45.00")),
+                    tag("vIPIDevol", &[], TagContent::Text("12.00")),
+                    tag("vPIS", &[], TagContent::Text("16.50")),
+                    tag("vCOFINS", &[], TagContent::Text("76.00")),
+                    tag("vOutro", &[], TagContent::Text("5.00")),
+                    tag("vNF", &[], TagContent::Text("1196.50")),
+                    tag("vTotTrib", &[], TagContent::Text("383.50")),
+                ]),
+            );
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("vFCPUFDest", "15.00"),
+                    ("vICMSUFDest", "90.00"),
+                    ("vICMSUFRemet", "45.00"),
+                    ("qBCMono", "500.00"),
+                    ("vICMSMono", "50.00"),
+                    ("qBCMonoReten", "300.00"),
+                    ("vICMSMonoReten", "30.00"),
+                    ("qBCMonoRet", "200.00"),
+                    ("vICMSMonoRet", "20.00"),
+                    ("vIPIDevol", "12.00"),
+                    ("vTotTrib", "383.50"),
+                    ("vFCP", "20.00"),
+                    ("vFCPST", "4.00"),
+                    ("vFCPSTRet", "2.00"),
+                ],
+            );
         }
 
         #[test]
@@ -631,61 +796,86 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_is_tot_with_value() {
-            let xml = tag("ISTot", &[], TagContent::Children(vec![
-                tag("vIS", &[], TagContent::Text("50.00")),
-            ]));
+            let xml = tag(
+                "ISTot",
+                &[],
+                TagContent::Children(vec![tag("vIS", &[], TagContent::Text("50.00"))]),
+            );
             assert!(xml.contains("<ISTot>"));
             assert!(xml.contains("<vIS>50.00</vIS>"));
         }
 
         #[test]
         fn tag_is_tot_returns_null_when_empty() {
-            let xml = tag("ISTot", &[], TagContent::Children(vec![
-                tag("vIS", &[], TagContent::Text("0.00")),
-            ]));
+            let xml = tag(
+                "ISTot",
+                &[],
+                TagContent::Children(vec![tag("vIS", &[], TagContent::Text("0.00"))]),
+            );
             assert!(xml.contains("0.00"));
         }
 
         #[test]
         fn tag_issqn_tot_with_all_fields() {
-            let xml = tag("ISSQNtot", &[], TagContent::Children(vec![
-                tag("vServ", &[], TagContent::Text("500.00")),
-                tag("vBC", &[], TagContent::Text("500.00")),
-                tag("vISS", &[], TagContent::Text("25.00")),
-                tag("vPIS", &[], TagContent::Text("8.25")),
-                tag("vCOFINS", &[], TagContent::Text("38.00")),
-                tag("dCompet", &[], TagContent::Text("2017-03-03")),
-                tag("vDeducao", &[], TagContent::Text("10.00")),
-                tag("vOutro", &[], TagContent::Text("5.00")),
-                tag("vDescIncond", &[], TagContent::Text("3.00")),
-                tag("vDescCond", &[], TagContent::Text("2.00")),
-                tag("vISSRet", &[], TagContent::Text("12.50")),
-                tag("cRegTrib", &[], TagContent::Text("5")),
-            ]));
+            let xml = tag(
+                "ISSQNtot",
+                &[],
+                TagContent::Children(vec![
+                    tag("vServ", &[], TagContent::Text("500.00")),
+                    tag("vBC", &[], TagContent::Text("500.00")),
+                    tag("vISS", &[], TagContent::Text("25.00")),
+                    tag("vPIS", &[], TagContent::Text("8.25")),
+                    tag("vCOFINS", &[], TagContent::Text("38.00")),
+                    tag("dCompet", &[], TagContent::Text("2017-03-03")),
+                    tag("vDeducao", &[], TagContent::Text("10.00")),
+                    tag("vOutro", &[], TagContent::Text("5.00")),
+                    tag("vDescIncond", &[], TagContent::Text("3.00")),
+                    tag("vDescCond", &[], TagContent::Text("2.00")),
+                    tag("vISSRet", &[], TagContent::Text("12.50")),
+                    tag("cRegTrib", &[], TagContent::Text("5")),
+                ]),
+            );
             assert!(xml.contains("<ISSQNtot>"));
-            expect_xml_contains(&xml, &[
-                ("vServ", "500.00"), ("vDeducao", "10.00"), ("vDescIncond", "3.00"),
-                ("vDescCond", "2.00"), ("vISSRet", "12.50"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("vServ", "500.00"),
+                    ("vDeducao", "10.00"),
+                    ("vDescIncond", "3.00"),
+                    ("vDescCond", "2.00"),
+                    ("vISSRet", "12.50"),
+                ],
+            );
         }
 
         #[test]
         fn tag_ret_trib_with_all_fields() {
-            let xml = tag("retTrib", &[], TagContent::Children(vec![
-                tag("vRetPIS", &[], TagContent::Text("10.00")),
-                tag("vRetCOFINS", &[], TagContent::Text("46.00")),
-                tag("vRetCSLL", &[], TagContent::Text("5.00")),
-                tag("vBCIRRF", &[], TagContent::Text("100.00")),
-                tag("vIRRF", &[], TagContent::Text("15.00")),
-                tag("vBCRetPrev", &[], TagContent::Text("200.00")),
-                tag("vRetPrev", &[], TagContent::Text("22.00")),
-            ]));
+            let xml = tag(
+                "retTrib",
+                &[],
+                TagContent::Children(vec![
+                    tag("vRetPIS", &[], TagContent::Text("10.00")),
+                    tag("vRetCOFINS", &[], TagContent::Text("46.00")),
+                    tag("vRetCSLL", &[], TagContent::Text("5.00")),
+                    tag("vBCIRRF", &[], TagContent::Text("100.00")),
+                    tag("vIRRF", &[], TagContent::Text("15.00")),
+                    tag("vBCRetPrev", &[], TagContent::Text("200.00")),
+                    tag("vRetPrev", &[], TagContent::Text("22.00")),
+                ]),
+            );
             assert!(xml.contains("<retTrib>"));
-            expect_xml_contains(&xml, &[
-                ("vRetPIS", "10.00"), ("vRetCOFINS", "46.00"), ("vRetCSLL", "5.00"),
-                ("vBCIRRF", "100.00"), ("vIRRF", "15.00"), ("vBCRetPrev", "200.00"),
-                ("vRetPrev", "22.00"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("vRetPIS", "10.00"),
+                    ("vRetCOFINS", "46.00"),
+                    ("vRetCSLL", "5.00"),
+                    ("vBCIRRF", "100.00"),
+                    ("vIRRF", "15.00"),
+                    ("vBCRetPrev", "200.00"),
+                    ("vRetPrev", "22.00"),
+                ],
+            );
         }
     }
 
@@ -698,56 +888,89 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_prod_with_di_adi() {
-            let xml = tag("prod", &[], TagContent::Children(vec![
-                tag("DI", &[], TagContent::Children(vec![
-                    tag("nDI", &[], TagContent::Text("12345678901")),
-                    tag("dDI", &[], TagContent::Text("2017-01-15")),
-                    tag("xLocDesemb", &[], TagContent::Text("Porto Santos")),
-                    tag("UFDesemb", &[], TagContent::Text("SP")),
-                    tag("dDesemb", &[], TagContent::Text("2017-01-20")),
-                    tag("tpViaTransp", &[], TagContent::Text("1")),
-                    tag("vAFRMM", &[], TagContent::Text("100.00")),
-                    tag("tpIntermedio", &[], TagContent::Text("1")),
-                    tag("CNPJ", &[], TagContent::Text("12345678000195")),
-                    tag("UFTerceiro", &[], TagContent::Text("RJ")),
-                    tag("cExportador", &[], TagContent::Text("EXP001")),
-                    tag("adi", &[], TagContent::Children(vec![
-                        tag("nAdicao", &[], TagContent::Text("001")),
-                        tag("nSeqAdic", &[], TagContent::Text("1")),
-                        tag("cFabricante", &[], TagContent::Text("FAB001")),
-                        tag("vDescDI", &[], TagContent::Text("10.00")),
-                        tag("nDraw", &[], TagContent::Text("123456")),
-                    ])),
-                ])),
-            ]));
+            let xml = tag(
+                "prod",
+                &[],
+                TagContent::Children(vec![tag(
+                    "DI",
+                    &[],
+                    TagContent::Children(vec![
+                        tag("nDI", &[], TagContent::Text("12345678901")),
+                        tag("dDI", &[], TagContent::Text("2017-01-15")),
+                        tag("xLocDesemb", &[], TagContent::Text("Porto Santos")),
+                        tag("UFDesemb", &[], TagContent::Text("SP")),
+                        tag("dDesemb", &[], TagContent::Text("2017-01-20")),
+                        tag("tpViaTransp", &[], TagContent::Text("1")),
+                        tag("vAFRMM", &[], TagContent::Text("100.00")),
+                        tag("tpIntermedio", &[], TagContent::Text("1")),
+                        tag("CNPJ", &[], TagContent::Text("12345678000195")),
+                        tag("UFTerceiro", &[], TagContent::Text("RJ")),
+                        tag("cExportador", &[], TagContent::Text("EXP001")),
+                        tag(
+                            "adi",
+                            &[],
+                            TagContent::Children(vec![
+                                tag("nAdicao", &[], TagContent::Text("001")),
+                                tag("nSeqAdic", &[], TagContent::Text("1")),
+                                tag("cFabricante", &[], TagContent::Text("FAB001")),
+                                tag("vDescDI", &[], TagContent::Text("10.00")),
+                                tag("nDraw", &[], TagContent::Text("123456")),
+                            ]),
+                        ),
+                    ]),
+                )]),
+            );
             assert!(xml.contains("<DI>"));
-            expect_xml_contains(&xml, &[
-                ("nDI", "12345678901"), ("xLocDesemb", "Porto Santos"),
-                ("tpViaTransp", "1"), ("vAFRMM", "100.00"), ("cExportador", "EXP001"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("nDI", "12345678901"),
+                    ("xLocDesemb", "Porto Santos"),
+                    ("tpViaTransp", "1"),
+                    ("vAFRMM", "100.00"),
+                    ("cExportador", "EXP001"),
+                ],
+            );
             assert!(xml.contains("<adi>"));
-            expect_xml_contains(&xml, &[("nAdicao", "001"), ("cFabricante", "FAB001"), ("vDescDI", "10.00")]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("nAdicao", "001"),
+                    ("cFabricante", "FAB001"),
+                    ("vDescDI", "10.00"),
+                ],
+            );
         }
 
         #[test]
         fn tag_prod_with_di_using_cpf() {
-            let xml = tag("prod", &[], TagContent::Children(vec![
-                tag("DI", &[], TagContent::Children(vec![
-                    tag("nDI", &[], TagContent::Text("99887766554")),
-                    tag("dDI", &[], TagContent::Text("2017-02-10")),
-                    tag("xLocDesemb", &[], TagContent::Text("Aeroporto GRU")),
-                    tag("UFDesemb", &[], TagContent::Text("SP")),
-                    tag("dDesemb", &[], TagContent::Text("2017-02-15")),
-                    tag("tpViaTransp", &[], TagContent::Text("4")),
-                    tag("tpIntermedio", &[], TagContent::Text("2")),
-                    tag("CPF", &[], TagContent::Text("12345678901")),
-                    tag("cExportador", &[], TagContent::Text("EXP002")),
-                    tag("adi", &[], TagContent::Children(vec![
-                        tag("nSeqAdic", &[], TagContent::Text("1")),
-                        tag("cFabricante", &[], TagContent::Text("FAB002")),
-                    ])),
-                ])),
-            ]));
+            let xml = tag(
+                "prod",
+                &[],
+                TagContent::Children(vec![tag(
+                    "DI",
+                    &[],
+                    TagContent::Children(vec![
+                        tag("nDI", &[], TagContent::Text("99887766554")),
+                        tag("dDI", &[], TagContent::Text("2017-02-10")),
+                        tag("xLocDesemb", &[], TagContent::Text("Aeroporto GRU")),
+                        tag("UFDesemb", &[], TagContent::Text("SP")),
+                        tag("dDesemb", &[], TagContent::Text("2017-02-15")),
+                        tag("tpViaTransp", &[], TagContent::Text("4")),
+                        tag("tpIntermedio", &[], TagContent::Text("2")),
+                        tag("CPF", &[], TagContent::Text("12345678901")),
+                        tag("cExportador", &[], TagContent::Text("EXP002")),
+                        tag(
+                            "adi",
+                            &[],
+                            TagContent::Children(vec![
+                                tag("nSeqAdic", &[], TagContent::Text("1")),
+                                tag("cFabricante", &[], TagContent::Text("FAB002")),
+                            ]),
+                        ),
+                    ]),
+                )]),
+            );
             assert!(xml.contains("<DI>"));
             assert!(xml.contains("<CPF>12345678901</CPF>"));
             assert!(xml.contains("<tpViaTransp>4</tpViaTransp>"));
@@ -755,14 +978,26 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_det_export() {
-            let xml = tag("detExport", &[], TagContent::Children(vec![
-                tag("nDraw", &[], TagContent::Text("20170001")),
-                tag("exportInd", &[], TagContent::Children(vec![
-                    tag("nRE", &[], TagContent::Text("123456789012")),
-                    tag("chNFe", &[], TagContent::Text("35170358716523000119550010000000301000000300")),
-                    tag("qExport", &[], TagContent::Text("10.0000")),
-                ])),
-            ]));
+            let xml = tag(
+                "detExport",
+                &[],
+                TagContent::Children(vec![
+                    tag("nDraw", &[], TagContent::Text("20170001")),
+                    tag(
+                        "exportInd",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("nRE", &[], TagContent::Text("123456789012")),
+                            tag(
+                                "chNFe",
+                                &[],
+                                TagContent::Text("35170358716523000119550010000000301000000300"),
+                            ),
+                            tag("qExport", &[], TagContent::Text("10.0000")),
+                        ]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<detExport>"));
             assert!(xml.contains("<nDraw>20170001</nDraw>"));
             assert!(xml.contains("<exportInd>"));
@@ -772,9 +1007,11 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_det_export_without_export_ind() {
-            let xml = tag("detExport", &[], TagContent::Children(vec![
-                tag("nDraw", &[], TagContent::Text("20170002")),
-            ]));
+            let xml = tag(
+                "detExport",
+                &[],
+                TagContent::Children(vec![tag("nDraw", &[], TagContent::Text("20170002"))]),
+            );
             assert!(xml.contains("<detExport>"));
             assert!(xml.contains("<nDraw>20170002</nDraw>"));
             assert!(!xml.contains("<exportInd>"));
@@ -782,10 +1019,14 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_nve_multiple() {
-            let xml = tag("prod", &[], TagContent::Children(vec![
-                tag("NVE", &[], TagContent::Text("AA0001")),
-                tag("NVE", &[], TagContent::Text("BB0002")),
-            ]));
+            let xml = tag(
+                "prod",
+                &[],
+                TagContent::Children(vec![
+                    tag("NVE", &[], TagContent::Text("AA0001")),
+                    tag("NVE", &[], TagContent::Text("BB0002")),
+                ]),
+            );
             assert!(xml.contains("<NVE>AA0001</NVE>"));
             assert!(xml.contains("<NVE>BB0002</NVE>"));
         }
@@ -798,18 +1039,30 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_g_cred() {
-            let xml = tag("imposto", &[], TagContent::Children(vec![
-                tag("gCred", &[], TagContent::Children(vec![
-                    tag("cCredPresumido", &[], TagContent::Text("SP000001")),
-                    tag("pCredPresumido", &[], TagContent::Text("3.0000")),
-                    tag("vCredPresumido", &[], TagContent::Text("3.00")),
-                ])),
-                tag("gCred", &[], TagContent::Children(vec![
-                    tag("cCredPresumido", &[], TagContent::Text("SP000002")),
-                    tag("pCredPresumido", &[], TagContent::Text("2.0000")),
-                    tag("vCredPresumido", &[], TagContent::Text("2.00")),
-                ])),
-            ]));
+            let xml = tag(
+                "imposto",
+                &[],
+                TagContent::Children(vec![
+                    tag(
+                        "gCred",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("cCredPresumido", &[], TagContent::Text("SP000001")),
+                            tag("pCredPresumido", &[], TagContent::Text("3.0000")),
+                            tag("vCredPresumido", &[], TagContent::Text("3.00")),
+                        ]),
+                    ),
+                    tag(
+                        "gCred",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("cCredPresumido", &[], TagContent::Text("SP000002")),
+                            tag("pCredPresumido", &[], TagContent::Text("2.0000")),
+                            tag("vCredPresumido", &[], TagContent::Text("2.00")),
+                        ]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<gCred>"));
             assert!(xml.contains("<cCredPresumido>SP000001</cCredPresumido>"));
             assert!(xml.contains("<cCredPresumido>SP000002</cCredPresumido>"));
@@ -818,12 +1071,22 @@ mod deep_coverage_test {
         #[test]
         fn tag_imposto_devol() {
             // Build impostoDevol manually since we don't have a dedicated function in Rust yet
-            let xml = tag("impostoDevol", &[], TagContent::Children(vec![
-                tag("pDevol", &[], TagContent::Text("100.00")),
-                tag("IPI", &[], TagContent::Children(vec![
-                    tag("vIPIDevol", &[], TagContent::Text("15.00")),
-                ])),
-            ]));
+            let xml = tag(
+                "impostoDevol",
+                &[],
+                TagContent::Children(vec![
+                    tag("pDevol", &[], TagContent::Text("100.00")),
+                    tag(
+                        "IPI",
+                        &[],
+                        TagContent::Children(vec![tag(
+                            "vIPIDevol",
+                            &[],
+                            TagContent::Text("15.00"),
+                        )]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<impostoDevol>"));
             assert!(xml.contains("<pDevol>100.00</pDevol>"));
             assert!(xml.contains("<vIPIDevol>15.00</vIPIDevol>"));
@@ -859,29 +1122,43 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_cest_separate_method() {
-            let xml = tag("prod", &[], TagContent::Children(vec![
-                tag("CEST", &[], TagContent::Text("2806300")),
-                tag("indEscala", &[], TagContent::Text("S")),
-                tag("CNPJFab", &[], TagContent::Text("12345678000195")),
-            ]));
+            let xml = tag(
+                "prod",
+                &[],
+                TagContent::Children(vec![
+                    tag("CEST", &[], TagContent::Text("2806300")),
+                    tag("indEscala", &[], TagContent::Text("S")),
+                    tag("CNPJFab", &[], TagContent::Text("12345678000195")),
+                ]),
+            );
             assert!(xml.contains("<CEST>2806300</CEST>"));
         }
 
         #[test]
         fn tag_inf_ad_prod() {
-            let xml = tag("det", &[("nItem", "1")], TagContent::Children(vec![
-                tag("infAdProd", &[], TagContent::Text("Informacao adicional do produto")),
-            ]));
+            let xml = tag(
+                "det",
+                &[("nItem", "1")],
+                TagContent::Children(vec![tag(
+                    "infAdProd",
+                    &[],
+                    TagContent::Text("Informacao adicional do produto"),
+                )]),
+            );
             assert!(xml.contains("<infAdProd>Informacao adicional do produto</infAdProd>"));
         }
 
         #[test]
         fn tag_obs_item_with_fisco() {
-            let xml = tag("obsItem", &[], TagContent::Children(vec![
-                tag("obsFisco", &[("xCampo", "CampoFisco")], TagContent::Children(vec![
-                    tag("xTexto", &[], TagContent::Text("ValorFisco")),
-                ])),
-            ]));
+            let xml = tag(
+                "obsItem",
+                &[],
+                TagContent::Children(vec![tag(
+                    "obsFisco",
+                    &[("xCampo", "CampoFisco")],
+                    TagContent::Children(vec![tag("xTexto", &[], TagContent::Text("ValorFisco"))]),
+                )]),
+            );
             assert!(xml.contains("<obsItem>"));
             assert!(xml.contains("<obsFisco"));
             assert!(xml.contains("ValorFisco"));
@@ -903,10 +1180,14 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_vagao() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("vagao", &[], TagContent::Text("VAG12345")),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag("vagao", &[], TagContent::Text("VAG12345")),
+                ]),
+            );
             assert!(xml.contains("<vagao>VAG12345</vagao>"));
         }
 
@@ -918,10 +1199,14 @@ mod deep_coverage_test {
 
         #[test]
         fn tag_balsa() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("balsa", &[], TagContent::Text("BALSA-001")),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag("balsa", &[], TagContent::Text("BALSA-001")),
+                ]),
+            );
             assert!(xml.contains("<balsa>BALSA-001</balsa>"));
         }
 
@@ -933,44 +1218,72 @@ mod deep_coverage_test {
 
         #[test]
         fn vagao_not_included_when_veic_transp_exists() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("veicTransp", &[], TagContent::Children(vec![
-                    tag("placa", &[], TagContent::Text("ABC1D23")),
-                    tag("UF", &[], TagContent::Text("SP")),
-                ])),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag(
+                        "veicTransp",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("placa", &[], TagContent::Text("ABC1D23")),
+                            tag("UF", &[], TagContent::Text("SP")),
+                        ]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<veicTransp>"));
             assert!(!xml.contains("<vagao>"));
         }
 
         #[test]
         fn balsa_not_included_when_vagao_exists() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("vagao", &[], TagContent::Text("VAG11111")),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag("vagao", &[], TagContent::Text("VAG11111")),
+                ]),
+            );
             assert!(xml.contains("<vagao>VAG11111</vagao>"));
             assert!(!xml.contains("<balsa>"));
         }
 
         #[test]
         fn multiple_reboques() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("reboque", &[], TagContent::Children(vec![
-                    tag("placa", &[], TagContent::Text("REB1X00")),
-                    tag("UF", &[], TagContent::Text("SP")),
-                ])),
-                tag("reboque", &[], TagContent::Children(vec![
-                    tag("placa", &[], TagContent::Text("REB2X00")),
-                    tag("UF", &[], TagContent::Text("SP")),
-                ])),
-                tag("reboque", &[], TagContent::Children(vec![
-                    tag("placa", &[], TagContent::Text("REB3X00")),
-                    tag("UF", &[], TagContent::Text("SP")),
-                ])),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag(
+                        "reboque",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("placa", &[], TagContent::Text("REB1X00")),
+                            tag("UF", &[], TagContent::Text("SP")),
+                        ]),
+                    ),
+                    tag(
+                        "reboque",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("placa", &[], TagContent::Text("REB2X00")),
+                            tag("UF", &[], TagContent::Text("SP")),
+                        ]),
+                    ),
+                    tag(
+                        "reboque",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("placa", &[], TagContent::Text("REB3X00")),
+                            tag("UF", &[], TagContent::Text("SP")),
+                        ]),
+                    ),
+                ]),
+            );
             let reboque_count = xml.matches("<reboque>").count();
             assert_eq!(reboque_count, 3);
             assert!(xml.contains("<placa>REB1X00</placa>"));
@@ -980,54 +1293,116 @@ mod deep_coverage_test {
 
         #[test]
         fn ret_transp() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("retTransp", &[], TagContent::Children(vec![
-                    tag("vServ", &[], TagContent::Text("100.00")),
-                    tag("vBCRet", &[], TagContent::Text("100.00")),
-                    tag("pICMSRet", &[], TagContent::Text("12.0000")),
-                    tag("vICMSRet", &[], TagContent::Text("12.00")),
-                    tag("CFOP", &[], TagContent::Text("5352")),
-                    tag("cMunFG", &[], TagContent::Text("3550308")),
-                ])),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag(
+                        "retTransp",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("vServ", &[], TagContent::Text("100.00")),
+                            tag("vBCRet", &[], TagContent::Text("100.00")),
+                            tag("pICMSRet", &[], TagContent::Text("12.0000")),
+                            tag("vICMSRet", &[], TagContent::Text("12.00")),
+                            tag("CFOP", &[], TagContent::Text("5352")),
+                            tag("cMunFG", &[], TagContent::Text("3550308")),
+                        ]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<retTransp>"));
-            expect_xml_contains(&xml, &[
-                ("vServ", "100.00"), ("vBCRet", "100.00"), ("pICMSRet", "12.0000"),
-                ("vICMSRet", "12.00"), ("CFOP", "5352"), ("cMunFG", "3550308"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("vServ", "100.00"),
+                    ("vBCRet", "100.00"),
+                    ("pICMSRet", "12.0000"),
+                    ("vICMSRet", "12.00"),
+                    ("CFOP", "5352"),
+                    ("cMunFG", "3550308"),
+                ],
+            );
         }
 
         #[test]
         fn transporta_with_cpf() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("transporta", &[], TagContent::Children(vec![
-                    tag("CPF", &[], TagContent::Text("12345678901")),
-                    tag("xNome", &[], TagContent::Text("Transportador PF")),
-                    tag("xEnder", &[], TagContent::Text("Rua do Transporte")),
-                    tag("UF", &[], TagContent::Text("RJ")),
-                ])),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag(
+                        "transporta",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("CPF", &[], TagContent::Text("12345678901")),
+                            tag("xNome", &[], TagContent::Text("Transportador PF")),
+                            tag("xEnder", &[], TagContent::Text("Rua do Transporte")),
+                            tag("UF", &[], TagContent::Text("RJ")),
+                        ]),
+                    ),
+                ]),
+            );
             assert!(xml.contains("<transporta>"));
-            expect_xml_contains(&xml, &[("CPF", "12345678901"), ("xNome", "Transportador PF")]);
+            expect_xml_contains(
+                &xml,
+                &[("CPF", "12345678901"), ("xNome", "Transportador PF")],
+            );
             assert!(!xml.contains("<CNPJ>"));
         }
 
         #[test]
         fn lacres_on_multiple_volumes() {
-            let xml = tag("transp", &[], TagContent::Children(vec![
-                tag("modFrete", &[], TagContent::Text("0")),
-                tag("vol", &[], TagContent::Children(vec![
-                    tag("qVol", &[], TagContent::Text("5")),
-                    tag("lacres", &[], TagContent::Children(vec![tag("nLacre", &[], TagContent::Text("L001"))])),
-                    tag("lacres", &[], TagContent::Children(vec![tag("nLacre", &[], TagContent::Text("L002"))])),
-                ])),
-                tag("vol", &[], TagContent::Children(vec![
-                    tag("qVol", &[], TagContent::Text("3")),
-                    tag("lacres", &[], TagContent::Children(vec![tag("nLacre", &[], TagContent::Text("L003"))])),
-                ])),
-            ]));
+            let xml = tag(
+                "transp",
+                &[],
+                TagContent::Children(vec![
+                    tag("modFrete", &[], TagContent::Text("0")),
+                    tag(
+                        "vol",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("qVol", &[], TagContent::Text("5")),
+                            tag(
+                                "lacres",
+                                &[],
+                                TagContent::Children(vec![tag(
+                                    "nLacre",
+                                    &[],
+                                    TagContent::Text("L001"),
+                                )]),
+                            ),
+                            tag(
+                                "lacres",
+                                &[],
+                                TagContent::Children(vec![tag(
+                                    "nLacre",
+                                    &[],
+                                    TagContent::Text("L002"),
+                                )]),
+                            ),
+                        ]),
+                    ),
+                    tag(
+                        "vol",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("qVol", &[], TagContent::Text("3")),
+                            tag(
+                                "lacres",
+                                &[],
+                                TagContent::Children(vec![tag(
+                                    "nLacre",
+                                    &[],
+                                    TagContent::Text("L003"),
+                                )]),
+                            ),
+                        ]),
+                    ),
+                ]),
+            );
             let vol_count = xml.matches("<vol>").count();
             assert_eq!(vol_count, 2);
             assert!(xml.contains("<nLacre>L001</nLacre>"));
@@ -1065,12 +1440,20 @@ mod deep_coverage_test {
 
         #[test]
         fn malformed_url_when_base_url_empty() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
-                "35170358716523000119650010000000011000000015",
-                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
-                "",
-            ).csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001"));
-            if let Ok(url) = result { assert!(url.starts_with("?p=")) }
+            let result = fiscal::qrcode::build_nfce_qr_code_url(
+                &NfceQrCodeParams::new(
+                    "35170358716523000119650010000000011000000015",
+                    QrCodeVersion::V200,
+                    SefazEnvironment::Homologation,
+                    EmissionType::Normal,
+                    "",
+                )
+                .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G")
+                .csc_id("000001"),
+            );
+            if let Ok(url) = result {
+                assert!(url.starts_with("?p="))
+            }
         }
     }
 
@@ -1124,12 +1507,13 @@ mod communication_coverage_test {
     // ─── 1. sefazEnviaLote ───────────────────────────────────────────
 
     mod sefaz_envia_lote {
-        
 
         #[test]
         fn modelo_55_sincrono() {
             let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe></infNFe></NFe>"#;
-            let request = fiscal::sefaz::request_builders::build_autorizacao_request(xml, "9999999", true, false);
+            let request = fiscal::sefaz::request_builders::build_autorizacao_request(
+                xml, "9999999", true, false,
+            );
             assert!(request.contains("<idLote>9999999</idLote>"));
             assert!(request.contains("<indSinc>1</indSinc>"));
         }
@@ -1137,21 +1521,26 @@ mod communication_coverage_test {
         #[test]
         fn modelo_55_assincrono() {
             let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe></infNFe></NFe>"#;
-            let request = fiscal::sefaz::request_builders::build_autorizacao_request(xml, "888", false, false);
+            let request = fiscal::sefaz::request_builders::build_autorizacao_request(
+                xml, "888", false, false,
+            );
             assert!(request.contains("<indSinc>0</indSinc>"));
         }
 
         #[test]
         fn modelo_65_sincrono() {
             let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe></infNFe></NFe>"#;
-            let request = fiscal::sefaz::request_builders::build_autorizacao_request(xml, "777", true, false);
+            let request =
+                fiscal::sefaz::request_builders::build_autorizacao_request(xml, "777", true, false);
             assert!(request.contains("<idLote>777</idLote>"));
         }
 
         #[test]
         fn modelo_65_assincrono() {
             let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe></infNFe></NFe>"#;
-            let request = fiscal::sefaz::request_builders::build_autorizacao_request(xml, "666", false, false);
+            let request = fiscal::sefaz::request_builders::build_autorizacao_request(
+                xml, "666", false, false,
+            );
             assert!(request.contains("<indSinc>0</indSinc>"));
         }
     }
@@ -1163,14 +1552,20 @@ mod communication_coverage_test {
 
         #[test]
         fn valid_recibo() {
-            let request = fiscal::sefaz::request_builders::build_consulta_recibo_request("143220020730398", SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_consulta_recibo_request(
+                "143220020730398",
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains("<nRec>143220020730398</nRec>"));
             assert!(request.contains("consReciNFe"));
         }
 
         #[test]
         fn with_tp_amb_1() {
-            let request = fiscal::sefaz::request_builders::build_consulta_recibo_request("143220020730398", SefazEnvironment::Production);
+            let request = fiscal::sefaz::request_builders::build_consulta_recibo_request(
+                "143220020730398",
+                SefazEnvironment::Production,
+            );
             assert!(request.contains("<tpAmb>1</tpAmb>"));
         }
     }
@@ -1182,39 +1577,59 @@ mod communication_coverage_test {
 
         #[test]
         fn valid_chave() {
-            let request = fiscal::sefaz::request_builders::build_consulta_request("43211105730928000145650010000002401717268120", SefazEnvironment::Homologation);
-            assert!(request.contains("<chNFe>43211105730928000145650010000002401717268120</chNFe>"));
+            let request = fiscal::sefaz::request_builders::build_consulta_request(
+                "43211105730928000145650010000002401717268120",
+                SefazEnvironment::Homologation,
+            );
+            assert!(
+                request.contains("<chNFe>43211105730928000145650010000002401717268120</chNFe>")
+            );
             assert!(request.contains("consSitNFe"));
         }
 
         #[test]
         fn different_uf() {
-            let request = fiscal::sefaz::request_builders::build_consulta_request("35220605730928000145550010000048661583302923", SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_consulta_request(
+                "35220605730928000145550010000048661583302923",
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains("35220605730928000145550010000048661583302923"));
         }
 
         #[test]
         #[should_panic]
         fn empty_chave_throws() {
-            let _ = fiscal::sefaz::request_builders::build_consulta_request("", SefazEnvironment::Homologation);
+            let _ = fiscal::sefaz::request_builders::build_consulta_request(
+                "",
+                SefazEnvironment::Homologation,
+            );
         }
 
         #[test]
         #[should_panic]
         fn short_chave_throws() {
-            let _ = fiscal::sefaz::request_builders::build_consulta_request("1234567890123456789012345678901234567890123", SefazEnvironment::Homologation);
+            let _ = fiscal::sefaz::request_builders::build_consulta_request(
+                "1234567890123456789012345678901234567890123",
+                SefazEnvironment::Homologation,
+            );
         }
 
         #[test]
         #[should_panic]
         fn non_numeric_chave_throws() {
-            let _ = fiscal::sefaz::request_builders::build_consulta_request("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", SefazEnvironment::Homologation);
+            let _ = fiscal::sefaz::request_builders::build_consulta_request(
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                SefazEnvironment::Homologation,
+            );
         }
 
         #[test]
         #[should_panic]
         fn long_chave_throws() {
-            let _ = fiscal::sefaz::request_builders::build_consulta_request("123456789012345678901234567890123456789012345", SefazEnvironment::Homologation);
+            let _ = fiscal::sefaz::request_builders::build_consulta_request(
+                "123456789012345678901234567890123456789012345",
+                SefazEnvironment::Homologation,
+            );
         }
     }
 
@@ -1225,7 +1640,17 @@ mod communication_coverage_test {
 
         #[test]
         fn serie_1() {
-            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(22, "58716523000119", "55", 1, 1, 10, "Testando Inutilizacao", SefazEnvironment::Homologation, "SP");
+            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(
+                22,
+                "58716523000119",
+                "55",
+                1,
+                1,
+                10,
+                "Testando Inutilizacao",
+                SefazEnvironment::Homologation,
+                "SP",
+            );
             assert!(xml.contains("inutNFe"));
             assert!(xml.contains("<nNFIni>1</nNFIni>"));
             assert!(xml.contains("<nNFFin>10</nNFFin>"));
@@ -1233,7 +1658,17 @@ mod communication_coverage_test {
 
         #[test]
         fn serie_diferente() {
-            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(24, "58716523000119", "55", 5, 100, 200, "Justificativa de teste", SefazEnvironment::Homologation, "SP");
+            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(
+                24,
+                "58716523000119",
+                "55",
+                5,
+                100,
+                200,
+                "Justificativa de teste",
+                SefazEnvironment::Homologation,
+                "SP",
+            );
             assert!(xml.contains("<serie>5</serie>"));
             assert!(xml.contains("<nNFIni>100</nNFIni>"));
             assert!(xml.contains("<nNFFin>200</nNFFin>"));
@@ -1244,7 +1679,17 @@ mod communication_coverage_test {
         fn with_current_year() {
             let current_year = chrono::Local::now().format("%y").to_string();
             let year_u16: u16 = current_year.parse().unwrap();
-            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(year_u16, "58716523000119", "55", 1, 50, 60, "Justificativa sem ano", SefazEnvironment::Homologation, "SP");
+            let xml = fiscal::sefaz::request_builders::build_inutilizacao_request(
+                year_u16,
+                "58716523000119",
+                "55",
+                1,
+                50,
+                60,
+                "Justificativa sem ano",
+                SefazEnvironment::Homologation,
+                "SP",
+            );
             assert!(xml.contains(&format!("<ano>{current_year}</ano>")));
         }
     }
@@ -1256,26 +1701,38 @@ mod communication_coverage_test {
 
         #[test]
         fn uf_rs() {
-            let xml = fiscal::sefaz::request_builders::build_status_request("RS", SefazEnvironment::Homologation);
+            let xml = fiscal::sefaz::request_builders::build_status_request(
+                "RS",
+                SefazEnvironment::Homologation,
+            );
             assert!(xml.contains("consStatServ"));
             assert!(xml.contains("<xServ>STATUS</xServ>"));
         }
 
         #[test]
         fn uf_sp() {
-            let xml = fiscal::sefaz::request_builders::build_status_request("SP", SefazEnvironment::Homologation);
+            let xml = fiscal::sefaz::request_builders::build_status_request(
+                "SP",
+                SefazEnvironment::Homologation,
+            );
             assert!(xml.contains("consStatServ"));
         }
 
         #[test]
         fn uses_config_uf_when_empty() {
-            let xml = fiscal::sefaz::request_builders::build_status_request("RS", SefazEnvironment::Homologation);
+            let xml = fiscal::sefaz::request_builders::build_status_request(
+                "RS",
+                SefazEnvironment::Homologation,
+            );
             assert!(xml.contains("consStatServ"));
         }
 
         #[test]
         fn with_tp_amb_1() {
-            let xml = fiscal::sefaz::request_builders::build_status_request("SP", SefazEnvironment::Production);
+            let xml = fiscal::sefaz::request_builders::build_status_request(
+                "SP",
+                SefazEnvironment::Production,
+            );
             assert!(xml.contains("<tpAmb>1</tpAmb>"));
         }
     }
@@ -1287,27 +1744,51 @@ mod communication_coverage_test {
 
         #[test]
         fn with_ult_nsu() {
-            let request = fiscal::sefaz::request_builders::build_dist_dfe_request("SP", "93623057000128", Some("000000000000100"), None, SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_dist_dfe_request(
+                "SP",
+                "93623057000128",
+                Some("000000000000100"),
+                None,
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains("distDFeInt"));
             assert!(request.contains("<ultNSU>000000000000100</ultNSU>"));
         }
 
         #[test]
         fn with_num_nsu() {
-            let request = fiscal::sefaz::request_builders::build_dist_dfe_request("SP", "93623057000128", None, Some("000000000000500"), SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_dist_dfe_request(
+                "SP",
+                "93623057000128",
+                None,
+                Some("000000000000500"),
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains("<NSU>000000000000500</NSU>"));
         }
 
         #[test]
         fn with_chave() {
             let chave = "35220605730928000145550010000048661583302923";
-            let request = fiscal::sefaz::request_builders::build_dist_dfe_request("SP", "93623057000128", None, Some(chave), SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_dist_dfe_request(
+                "SP",
+                "93623057000128",
+                None,
+                Some(chave),
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains(&format!("<chNFe>{chave}</chNFe>")));
         }
 
         #[test]
         fn ult_nsu_zero() {
-            let request = fiscal::sefaz::request_builders::build_dist_dfe_request("SP", "93623057000128", Some("000000000000000"), None, SefazEnvironment::Homologation);
+            let request = fiscal::sefaz::request_builders::build_dist_dfe_request(
+                "SP",
+                "93623057000128",
+                Some("000000000000000"),
+                None,
+                SefazEnvironment::Homologation,
+            );
             assert!(request.contains("<ultNSU>000000000000000</ultNSU>"));
         }
     }
@@ -1320,7 +1801,13 @@ mod communication_coverage_test {
         #[test]
         fn cce_request() {
             let ch = "35220605730928000145550010000048661583302923";
-            let xml = fiscal::sefaz::request_builders::build_cce_request(ch, "Descricao da correcao", 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_cce_request(
+                ch,
+                "Descricao da correcao",
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Carta de Correcao"));
             assert!(xml.contains(ch));
             assert!(xml.contains("<xCorrecao>"));
@@ -1337,7 +1824,13 @@ mod communication_coverage_test {
         #[test]
         fn empty_correction_throws() {
             let result = std::panic::catch_unwind(|| {
-                fiscal::sefaz::request_builders::build_cce_request("35220605730928000145550010000048661583302923", "", 1, SefazEnvironment::Homologation, "93623057000128")
+                fiscal::sefaz::request_builders::build_cce_request(
+                    "35220605730928000145550010000048661583302923",
+                    "",
+                    1,
+                    SefazEnvironment::Homologation,
+                    "93623057000128",
+                )
             });
             let _ = result;
         }
@@ -1351,7 +1844,14 @@ mod communication_coverage_test {
         #[test]
         fn cancellation_request() {
             let ch = "35150300822602000124550010009923461099234656";
-            let xml = fiscal::sefaz::request_builders::build_cancela_request(ch, "123456789101234", "Preenchimento incorreto dos dados", 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_cancela_request(
+                ch,
+                "123456789101234",
+                "Preenchimento incorreto dos dados",
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Cancelamento"));
             assert!(xml.contains("<nProt>123456789101234</nProt>"));
             assert!(xml.contains(ch));
@@ -1367,7 +1867,14 @@ mod communication_coverage_test {
         #[test]
         fn empty_justification_throws() {
             let result = std::panic::catch_unwind(|| {
-                fiscal::sefaz::request_builders::build_cancela_request("35150300822602000124550010009923461099234656", "123456789101234", "", 1, SefazEnvironment::Homologation, "93623057000128")
+                fiscal::sefaz::request_builders::build_cancela_request(
+                    "35150300822602000124550010009923461099234656",
+                    "123456789101234",
+                    "",
+                    1,
+                    SefazEnvironment::Homologation,
+                    "93623057000128",
+                )
             });
             let _ = result;
         }
@@ -1417,7 +1924,14 @@ mod communication_coverage_test {
         #[test]
         fn confirmacao() {
             let ch = "35240305730928000145650010000001421071400478";
-            let xml = fiscal::sefaz::request_builders::build_manifesta_request(ch, "210200", None, 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_manifesta_request(
+                ch,
+                "210200",
+                None,
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Confirmacao da Operacao"));
             assert!(xml.contains("<tpEvento>210200</tpEvento>"));
         }
@@ -1425,7 +1939,14 @@ mod communication_coverage_test {
         #[test]
         fn ciencia() {
             let ch = "35240305730928000145650010000001421071400478";
-            let xml = fiscal::sefaz::request_builders::build_manifesta_request(ch, "210210", None, 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_manifesta_request(
+                ch,
+                "210210",
+                None,
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Ciencia da Operacao"));
             assert!(xml.contains("<tpEvento>210210</tpEvento>"));
         }
@@ -1433,7 +1954,14 @@ mod communication_coverage_test {
         #[test]
         fn desconhecimento() {
             let ch = "35240305730928000145650010000001421071400478";
-            let xml = fiscal::sefaz::request_builders::build_manifesta_request(ch, "210220", None, 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_manifesta_request(
+                ch,
+                "210220",
+                None,
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Desconhecimento da Operacao"));
             assert!(xml.contains("<tpEvento>210220</tpEvento>"));
         }
@@ -1441,7 +1969,14 @@ mod communication_coverage_test {
         #[test]
         fn nao_realizada() {
             let ch = "35240305730928000145650010000001421071400478";
-            let xml = fiscal::sefaz::request_builders::build_manifesta_request(ch, "210240", Some("Operacao nao foi realizada conforme esperado"), 1, SefazEnvironment::Homologation, "93623057000128");
+            let xml = fiscal::sefaz::request_builders::build_manifesta_request(
+                ch,
+                "210240",
+                Some("Operacao nao foi realizada conforme esperado"),
+                1,
+                SefazEnvironment::Homologation,
+                "93623057000128",
+            );
             assert!(xml.contains("Operacao nao Realizada"));
             assert!(xml.contains("<tpEvento>210240</tpEvento>"));
             assert!(xml.contains("<xJust>"));
@@ -1479,7 +2014,14 @@ mod communication_coverage_test {
         #[test]
         fn builds_delivery_proof() {
             let expected_desc = "Comprovante de Entrega da NF-e";
-            let expected_tags = ["<dhEntrega>", "<nDoc>12345678901</nDoc>", "<xNome>Fulano de Tal</xNome>", "<latGPS>", "<longGPS>", "<hashComprovante>"];
+            let expected_tags = [
+                "<dhEntrega>",
+                "<nDoc>12345678901</nDoc>",
+                "<xNome>Fulano de Tal</xNome>",
+                "<latGPS>",
+                "<longGPS>",
+                "<hashComprovante>",
+            ];
             assert_ne!(expected_desc, "");
             for t in &expected_tags {
                 assert_ne!(*t, "");
@@ -1488,7 +2030,8 @@ mod communication_coverage_test {
 
         #[test]
         fn builds_delivery_proof_without_gps() {
-            let xml_without_gps = "<evento><descEvento>Comprovante de Entrega da NF-e</descEvento></evento>";
+            let xml_without_gps =
+                "<evento><descEvento>Comprovante de Entrega da NF-e</descEvento></evento>";
             assert!(xml_without_gps.contains("Comprovante de Entrega da NF-e"));
             assert!(!xml_without_gps.contains("<latGPS>"));
         }
@@ -1508,7 +2051,12 @@ mod communication_coverage_test {
         #[test]
         fn builds_delivery_failure() {
             let desc = "Insucesso na Entrega da NF-e";
-            let expected_tags = ["<dhTentativaEntrega>", "<nTentativa>3</nTentativa>", "<tpMotivo>1</tpMotivo>", "<latGPS>"];
+            let expected_tags = [
+                "<dhTentativaEntrega>",
+                "<nTentativa>3</nTentativa>",
+                "<tpMotivo>1</tpMotivo>",
+                "<latGPS>",
+            ];
             assert_ne!(desc, "");
             for t in &expected_tags {
                 assert_ne!(*t, "");
@@ -1537,7 +2085,10 @@ mod communication_coverage_test {
         #[test]
         #[should_panic]
         fn empty_recibo_throws() {
-            let _ = fiscal::sefaz::request_builders::build_consulta_recibo_request("", fiscal::types::SefazEnvironment::Homologation);
+            let _ = fiscal::sefaz::request_builders::build_consulta_recibo_request(
+                "",
+                fiscal::types::SefazEnvironment::Homologation,
+            );
         }
     }
 
@@ -1707,32 +2258,52 @@ mod communication_coverage_test {
 
         #[test]
         fn sem_token_throws() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
-                "35200505730928000145650010000000121000000129",
-                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
-                "https://example.com",
-            ).csc_token("").csc_id("000001"));
+            let result = fiscal::qrcode::build_nfce_qr_code_url(
+                &NfceQrCodeParams::new(
+                    "35200505730928000145650010000000121000000129",
+                    QrCodeVersion::V200,
+                    SefazEnvironment::Homologation,
+                    EmissionType::Normal,
+                    "https://example.com",
+                )
+                .csc_token("")
+                .csc_id("000001"),
+            );
             assert!(result.is_err());
         }
 
         #[test]
         fn sem_idtoken_throws() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
-                "35200505730928000145650010000000121000000129",
-                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
-                "https://example.com",
-            ).csc_token("TOKENXYZ").csc_id(""));
+            let result = fiscal::qrcode::build_nfce_qr_code_url(
+                &NfceQrCodeParams::new(
+                    "35200505730928000145650010000000121000000129",
+                    QrCodeVersion::V200,
+                    SefazEnvironment::Homologation,
+                    EmissionType::Normal,
+                    "https://example.com",
+                )
+                .csc_token("TOKENXYZ")
+                .csc_id(""),
+            );
             assert!(result.is_err());
         }
 
         #[test]
         fn sem_url_produces_malformed() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
-                "35200505730928000145650010000000121000000129",
-                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
-                "",
-            ).csc_token("TOKENXYZ").csc_id("000001"));
-            if let Ok(url) = result { assert!(url.starts_with("?p=")) }
+            let result = fiscal::qrcode::build_nfce_qr_code_url(
+                &NfceQrCodeParams::new(
+                    "35200505730928000145650010000000121000000129",
+                    QrCodeVersion::V200,
+                    SefazEnvironment::Homologation,
+                    EmissionType::Normal,
+                    "",
+                )
+                .csc_token("TOKENXYZ")
+                .csc_id("000001"),
+            );
+            if let Ok(url) = result {
+                assert!(url.starts_with("?p="))
+            }
         }
 
         #[test]
@@ -1754,10 +2325,12 @@ mod communication_coverage_test {
             let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams::new(
                 nfce_xml,
                 "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G",
-                "000001", "",
+                "000001",
+                "",
                 "https://example.com/qrcode",
                 "https://example.com/chave",
-            )).expect("put_qr_tag failed");
+            ))
+            .expect("put_qr_tag failed");
             assert!(result.contains("infNFeSupl"));
         }
     }
@@ -1769,42 +2342,56 @@ mod communication_coverage_test {
 
         #[test]
         fn entrega_cnpj() {
-            let xml = tag("entrega", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("11222333000181")),
-                tag("xNome", &[], TagContent::Text("Empresa Destino")),
-                tag("xLgr", &[], TagContent::Text("Rua Exemplo")),
-                tag("nro", &[], TagContent::Text("100")),
-                tag("xCpl", &[], TagContent::Text("Sala 1")),
-                tag("xBairro", &[], TagContent::Text("Centro")),
-                tag("cMun", &[], TagContent::Text("3550308")),
-                tag("xMun", &[], TagContent::Text("Sao Paulo")),
-                tag("UF", &[], TagContent::Text("SP")),
-                tag("CEP", &[], TagContent::Text("01001000")),
-                tag("cPais", &[], TagContent::Text("1058")),
-                tag("xPais", &[], TagContent::Text("BRASIL")),
-                tag("fone", &[], TagContent::Text("1133334444")),
-                tag("email", &[], TagContent::Text("teste@teste.com")),
-                tag("IE", &[], TagContent::Text("123456789")),
-            ]));
+            let xml = tag(
+                "entrega",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("11222333000181")),
+                    tag("xNome", &[], TagContent::Text("Empresa Destino")),
+                    tag("xLgr", &[], TagContent::Text("Rua Exemplo")),
+                    tag("nro", &[], TagContent::Text("100")),
+                    tag("xCpl", &[], TagContent::Text("Sala 1")),
+                    tag("xBairro", &[], TagContent::Text("Centro")),
+                    tag("cMun", &[], TagContent::Text("3550308")),
+                    tag("xMun", &[], TagContent::Text("Sao Paulo")),
+                    tag("UF", &[], TagContent::Text("SP")),
+                    tag("CEP", &[], TagContent::Text("01001000")),
+                    tag("cPais", &[], TagContent::Text("1058")),
+                    tag("xPais", &[], TagContent::Text("BRASIL")),
+                    tag("fone", &[], TagContent::Text("1133334444")),
+                    tag("email", &[], TagContent::Text("teste@teste.com")),
+                    tag("IE", &[], TagContent::Text("123456789")),
+                ]),
+            );
             assert!(xml.contains("<entrega>"));
-            expect_xml_contains(&xml, &[
-                ("CNPJ", "11222333000181"), ("xLgr", "Rua Exemplo"),
-                ("xBairro", "Centro"), ("UF", "SP"), ("IE", "123456789"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("CNPJ", "11222333000181"),
+                    ("xLgr", "Rua Exemplo"),
+                    ("xBairro", "Centro"),
+                    ("UF", "SP"),
+                    ("IE", "123456789"),
+                ],
+            );
         }
 
         #[test]
         fn entrega_cpf() {
-            let xml = tag("entrega", &[], TagContent::Children(vec![
-                tag("CPF", &[], TagContent::Text("12345678901")),
-                tag("xNome", &[], TagContent::Text("Pessoa Fisica")),
-                tag("xLgr", &[], TagContent::Text("Av Brasil")),
-                tag("nro", &[], TagContent::Text("200")),
-                tag("xBairro", &[], TagContent::Text("Jardim")),
-                tag("cMun", &[], TagContent::Text("3304557")),
-                tag("xMun", &[], TagContent::Text("Rio de Janeiro")),
-                tag("UF", &[], TagContent::Text("RJ")),
-            ]));
+            let xml = tag(
+                "entrega",
+                &[],
+                TagContent::Children(vec![
+                    tag("CPF", &[], TagContent::Text("12345678901")),
+                    tag("xNome", &[], TagContent::Text("Pessoa Fisica")),
+                    tag("xLgr", &[], TagContent::Text("Av Brasil")),
+                    tag("nro", &[], TagContent::Text("200")),
+                    tag("xBairro", &[], TagContent::Text("Jardim")),
+                    tag("cMun", &[], TagContent::Text("3304557")),
+                    tag("xMun", &[], TagContent::Text("Rio de Janeiro")),
+                    tag("UF", &[], TagContent::Text("RJ")),
+                ]),
+            );
             expect_xml_contains(&xml, &[("CPF", "12345678901")]);
             assert!(!xml.contains("<CNPJ>"));
         }
@@ -1817,34 +2404,42 @@ mod communication_coverage_test {
 
         #[test]
         fn retirada_cnpj() {
-            let xml = tag("retirada", &[], TagContent::Children(vec![
-                tag("CNPJ", &[], TagContent::Text("99887766000100")),
-                tag("xNome", &[], TagContent::Text("Empresa Origem")),
-                tag("xLgr", &[], TagContent::Text("Rua Retirada")),
-                tag("nro", &[], TagContent::Text("50")),
-                tag("xBairro", &[], TagContent::Text("Industrial")),
-                tag("cMun", &[], TagContent::Text("4106902")),
-                tag("xMun", &[], TagContent::Text("Curitiba")),
-                tag("UF", &[], TagContent::Text("PR")),
-            ]));
+            let xml = tag(
+                "retirada",
+                &[],
+                TagContent::Children(vec![
+                    tag("CNPJ", &[], TagContent::Text("99887766000100")),
+                    tag("xNome", &[], TagContent::Text("Empresa Origem")),
+                    tag("xLgr", &[], TagContent::Text("Rua Retirada")),
+                    tag("nro", &[], TagContent::Text("50")),
+                    tag("xBairro", &[], TagContent::Text("Industrial")),
+                    tag("cMun", &[], TagContent::Text("4106902")),
+                    tag("xMun", &[], TagContent::Text("Curitiba")),
+                    tag("UF", &[], TagContent::Text("PR")),
+                ]),
+            );
             assert!(xml.contains("<retirada>"));
             expect_xml_contains(&xml, &[("CNPJ", "99887766000100"), ("xMun", "Curitiba")]);
         }
 
         #[test]
         fn retirada_cpf() {
-            let xml = tag("retirada", &[], TagContent::Children(vec![
-                tag("CPF", &[], TagContent::Text("98765432100")),
-                tag("xNome", &[], TagContent::Text("Produtor Rural")),
-                tag("xLgr", &[], TagContent::Text("Estrada Municipal")),
-                tag("nro", &[], TagContent::Text("KM 5")),
-                tag("xCpl", &[], TagContent::Text("Lote 10")),
-                tag("xBairro", &[], TagContent::Text("Zona Rural")),
-                tag("cMun", &[], TagContent::Text("5108402")),
-                tag("xMun", &[], TagContent::Text("Varzea Grande")),
-                tag("UF", &[], TagContent::Text("MT")),
-                tag("IE", &[], TagContent::Text("987654321")),
-            ]));
+            let xml = tag(
+                "retirada",
+                &[],
+                TagContent::Children(vec![
+                    tag("CPF", &[], TagContent::Text("98765432100")),
+                    tag("xNome", &[], TagContent::Text("Produtor Rural")),
+                    tag("xLgr", &[], TagContent::Text("Estrada Municipal")),
+                    tag("nro", &[], TagContent::Text("KM 5")),
+                    tag("xCpl", &[], TagContent::Text("Lote 10")),
+                    tag("xBairro", &[], TagContent::Text("Zona Rural")),
+                    tag("cMun", &[], TagContent::Text("5108402")),
+                    tag("xMun", &[], TagContent::Text("Varzea Grande")),
+                    tag("UF", &[], TagContent::Text("MT")),
+                    tag("IE", &[], TagContent::Text("987654321")),
+                ]),
+            );
             expect_xml_contains(&xml, &[("CPF", "98765432100"), ("IE", "987654321")]);
             assert!(!xml.contains("<CNPJ>"));
         }
@@ -1857,101 +2452,161 @@ mod communication_coverage_test {
 
         #[test]
         fn tag_comb() {
-            let xml = tag("comb", &[], TagContent::Children(vec![
-                tag("cProdANP", &[], TagContent::Text("320102001")),
-                tag("descANP", &[], TagContent::Text("GASOLINA C COMUM")),
-                tag("CODIF", &[], TagContent::Text("123456789")),
-                tag("qTemp", &[], TagContent::Text("100.1234")),
-                tag("UFCons", &[], TagContent::Text("SP")),
-            ]));
+            let xml = tag(
+                "comb",
+                &[],
+                TagContent::Children(vec![
+                    tag("cProdANP", &[], TagContent::Text("320102001")),
+                    tag("descANP", &[], TagContent::Text("GASOLINA C COMUM")),
+                    tag("CODIF", &[], TagContent::Text("123456789")),
+                    tag("qTemp", &[], TagContent::Text("100.1234")),
+                    tag("UFCons", &[], TagContent::Text("SP")),
+                ]),
+            );
             assert!(xml.contains("<comb>"));
-            expect_xml_contains(&xml, &[
-                ("cProdANP", "320102001"), ("descANP", "GASOLINA C COMUM"),
-                ("CODIF", "123456789"), ("UFCons", "SP"),
-            ]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("cProdANP", "320102001"),
+                    ("descANP", "GASOLINA C COMUM"),
+                    ("CODIF", "123456789"),
+                    ("UFCons", "SP"),
+                ],
+            );
         }
 
         #[test]
         fn tag_comb_with_cide() {
-            let xml = tag("comb", &[], TagContent::Children(vec![
-                tag("cProdANP", &[], TagContent::Text("320102001")),
-                tag("descANP", &[], TagContent::Text("GASOLINA C COMUM")),
-                tag("pGLP", &[], TagContent::Text("50.1234")),
-                tag("pGNn", &[], TagContent::Text("30.5678")),
-                tag("pGNi", &[], TagContent::Text("19.3088")),
-                tag("vPart", &[], TagContent::Text("10.50")),
-                tag("UFCons", &[], TagContent::Text("SP")),
-                tag("CIDE", &[], TagContent::Children(vec![
-                    tag("qBCProd", &[], TagContent::Text("1000.5000")),
-                    tag("vAliqProd", &[], TagContent::Text("0.1234")),
-                    tag("vCIDE", &[], TagContent::Text("123.46")),
-                ])),
-                tag("pBio", &[], TagContent::Text("15.0000")),
-            ]));
+            let xml = tag(
+                "comb",
+                &[],
+                TagContent::Children(vec![
+                    tag("cProdANP", &[], TagContent::Text("320102001")),
+                    tag("descANP", &[], TagContent::Text("GASOLINA C COMUM")),
+                    tag("pGLP", &[], TagContent::Text("50.1234")),
+                    tag("pGNn", &[], TagContent::Text("30.5678")),
+                    tag("pGNi", &[], TagContent::Text("19.3088")),
+                    tag("vPart", &[], TagContent::Text("10.50")),
+                    tag("UFCons", &[], TagContent::Text("SP")),
+                    tag(
+                        "CIDE",
+                        &[],
+                        TagContent::Children(vec![
+                            tag("qBCProd", &[], TagContent::Text("1000.5000")),
+                            tag("vAliqProd", &[], TagContent::Text("0.1234")),
+                            tag("vCIDE", &[], TagContent::Text("123.46")),
+                        ]),
+                    ),
+                    tag("pBio", &[], TagContent::Text("15.0000")),
+                ]),
+            );
             assert!(xml.contains("<CIDE>"));
-            expect_xml_contains(&xml, &[("qBCProd", "1000.5000"), ("vAliqProd", "0.1234"), ("vCIDE", "123.46")]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("qBCProd", "1000.5000"),
+                    ("vAliqProd", "0.1234"),
+                    ("vCIDE", "123.46"),
+                ],
+            );
             assert!(xml.contains("<pGLP>"));
             assert!(xml.contains("<pBio>"));
         }
 
         #[test]
         fn tag_encerrante() {
-            let xml = tag("encerrante", &[], TagContent::Children(vec![
-                tag("nBico", &[], TagContent::Text("1")),
-                tag("nBomba", &[], TagContent::Text("2")),
-                tag("nTanque", &[], TagContent::Text("3")),
-                tag("vEncIni", &[], TagContent::Text("1000.123")),
-                tag("vEncFin", &[], TagContent::Text("1050.456")),
-            ]));
+            let xml = tag(
+                "encerrante",
+                &[],
+                TagContent::Children(vec![
+                    tag("nBico", &[], TagContent::Text("1")),
+                    tag("nBomba", &[], TagContent::Text("2")),
+                    tag("nTanque", &[], TagContent::Text("3")),
+                    tag("vEncIni", &[], TagContent::Text("1000.123")),
+                    tag("vEncFin", &[], TagContent::Text("1050.456")),
+                ]),
+            );
             assert!(xml.contains("<encerrante>"));
-            expect_xml_contains(&xml, &[("nBico", "1"), ("nBomba", "2"), ("nTanque", "3"), ("vEncIni", "1000.123"), ("vEncFin", "1050.456")]);
+            expect_xml_contains(
+                &xml,
+                &[
+                    ("nBico", "1"),
+                    ("nBomba", "2"),
+                    ("nTanque", "3"),
+                    ("vEncIni", "1000.123"),
+                    ("vEncFin", "1050.456"),
+                ],
+            );
         }
 
         #[test]
         fn tag_encerrante_sem_bomba() {
-            let xml = tag("encerrante", &[], TagContent::Children(vec![
-                tag("nBico", &[], TagContent::Text("5")),
-                tag("nTanque", &[], TagContent::Text("1")),
-                tag("vEncIni", &[], TagContent::Text("500.000")),
-                tag("vEncFin", &[], TagContent::Text("600.000")),
-            ]));
+            let xml = tag(
+                "encerrante",
+                &[],
+                TagContent::Children(vec![
+                    tag("nBico", &[], TagContent::Text("5")),
+                    tag("nTanque", &[], TagContent::Text("1")),
+                    tag("vEncIni", &[], TagContent::Text("500.000")),
+                    tag("vEncFin", &[], TagContent::Text("600.000")),
+                ]),
+            );
             expect_xml_contains(&xml, &[("nBico", "5")]);
             assert!(!xml.contains("<nBomba>"));
         }
 
         #[test]
         fn tag_orig_comb() {
-            let xml = tag("origComb", &[], TagContent::Children(vec![
-                tag("indImport", &[], TagContent::Text("0")),
-                tag("cUFOrig", &[], TagContent::Text("35")),
-                tag("pOrig", &[], TagContent::Text("100.0000")),
-            ]));
+            let xml = tag(
+                "origComb",
+                &[],
+                TagContent::Children(vec![
+                    tag("indImport", &[], TagContent::Text("0")),
+                    tag("cUFOrig", &[], TagContent::Text("35")),
+                    tag("pOrig", &[], TagContent::Text("100.0000")),
+                ]),
+            );
             assert!(xml.contains("<origComb>"));
-            expect_xml_contains(&xml, &[("indImport", "0"), ("cUFOrig", "35"), ("pOrig", "100.0000")]);
+            expect_xml_contains(
+                &xml,
+                &[("indImport", "0"), ("cUFOrig", "35"), ("pOrig", "100.0000")],
+            );
         }
 
         #[test]
         fn tag_orig_comb_importado() {
-            let xml = tag("origComb", &[], TagContent::Children(vec![
-                tag("indImport", &[], TagContent::Text("1")),
-                tag("cUFOrig", &[], TagContent::Text("35")),
-                tag("pOrig", &[], TagContent::Text("50.5000")),
-            ]));
+            let xml = tag(
+                "origComb",
+                &[],
+                TagContent::Children(vec![
+                    tag("indImport", &[], TagContent::Text("1")),
+                    tag("cUFOrig", &[], TagContent::Text("35")),
+                    tag("pOrig", &[], TagContent::Text("50.5000")),
+                ]),
+            );
             expect_xml_contains(&xml, &[("indImport", "1"), ("pOrig", "50.5000")]);
         }
 
         #[test]
         fn multiple_orig_comb_same_item() {
-            let xml1 = tag("origComb", &[], TagContent::Children(vec![
-                tag("indImport", &[], TagContent::Text("0")),
-                tag("cUFOrig", &[], TagContent::Text("35")),
-                tag("pOrig", &[], TagContent::Text("60.0000")),
-            ]));
-            let xml2 = tag("origComb", &[], TagContent::Children(vec![
-                tag("indImport", &[], TagContent::Text("1")),
-                tag("cUFOrig", &[], TagContent::Text("41")),
-                tag("pOrig", &[], TagContent::Text("40.0000")),
-            ]));
+            let xml1 = tag(
+                "origComb",
+                &[],
+                TagContent::Children(vec![
+                    tag("indImport", &[], TagContent::Text("0")),
+                    tag("cUFOrig", &[], TagContent::Text("35")),
+                    tag("pOrig", &[], TagContent::Text("60.0000")),
+                ]),
+            );
+            let xml2 = tag(
+                "origComb",
+                &[],
+                TagContent::Children(vec![
+                    tag("indImport", &[], TagContent::Text("1")),
+                    tag("cUFOrig", &[], TagContent::Text("41")),
+                    tag("pOrig", &[], TagContent::Text("40.0000")),
+                ]),
+            );
             assert!(xml1.contains("<origComb>"));
             assert!(xml2.contains("<origComb>"));
             expect_xml_contains(&xml2, &[("cUFOrig", "41")]);
@@ -2098,8 +2753,11 @@ mod communication_coverage_test {
         #[test]
         fn returns_nfce_url_for_model_65() {
             let url = fiscal::sefaz::urls::get_sefaz_url(
-                "SP", SefazEnvironment::Homologation, "NfeAutorizacao",
-            ).expect("get_sefaz_url failed");
+                "SP",
+                SefazEnvironment::Homologation,
+                "NfeAutorizacao",
+            )
+            .expect("get_sefaz_url failed");
             // URL should exist and be non-empty
             assert!(!url.is_empty());
         }
@@ -2107,8 +2765,11 @@ mod communication_coverage_test {
         #[test]
         fn returns_nfe_url_for_model_55() {
             let url = fiscal::sefaz::urls::get_sefaz_url(
-                "SP", SefazEnvironment::Homologation, "NfeAutorizacao",
-            ).expect("get_sefaz_url failed");
+                "SP",
+                SefazEnvironment::Homologation,
+                "NfeAutorizacao",
+            )
+            .expect("get_sefaz_url failed");
             assert!(!url.is_empty());
         }
     }

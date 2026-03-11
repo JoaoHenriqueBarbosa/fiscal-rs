@@ -1,8 +1,8 @@
 //! Build the `<dest>` (recipient) group of the NF-e XML.
 
-use crate::types::{InvoiceBuildData, InvoiceModel};
-use crate::xml_utils::{tag, TagContent};
 use super::tax_id::TaxId;
+use crate::types::{InvoiceBuildData, InvoiceModel};
+use crate::xml_utils::{TagContent, tag};
 
 /// Build the `<dest>` element. Falls back to issuer address when
 /// recipient address fields are empty (SEFAZ requires address for model 55).
@@ -25,23 +25,35 @@ pub(crate) fn build_dest(data: &InvoiceBuildData) -> Option<String> {
     }
 
     if !is_nfce {
-        let street = r.street.as_deref()
+        let street = r
+            .street
+            .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or(&iss.street);
-        let street_number = r.street_number.as_deref()
+        let street_number = r
+            .street_number
+            .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or(&iss.street_number);
-        let district = r.district.as_deref()
+        let district = r
+            .district
+            .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or(&iss.district);
-        let city_code = r.city_code.as_ref()
+        let city_code = r
+            .city_code
+            .as_ref()
             .filter(|c| !c.0.is_empty())
             .map(|c| c.0.as_str())
             .unwrap_or(&iss.city_code.0);
-        let city_name = r.city_name.as_deref()
+        let city_name = r
+            .city_name
+            .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or(&iss.city_name);
-        let zip_code = r.zip_code.as_deref()
+        let zip_code = r
+            .zip_code
+            .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or(&iss.zip_code);
 
@@ -65,9 +77,11 @@ pub(crate) fn build_dest(data: &InvoiceBuildData) -> Option<String> {
         children.push(tag("enderDest", &[], TagContent::Children(addr_children)));
     }
 
-    children.push(tag("indIEDest", &[], TagContent::Text(
-        if r.state_tax_id.is_some() { "1" } else { "9" },
-    )));
+    children.push(tag(
+        "indIEDest",
+        &[],
+        TagContent::Text(if r.state_tax_id.is_some() { "1" } else { "9" }),
+    ));
     if let Some(ref ie) = r.state_tax_id {
         children.push(tag("IE", &[], TagContent::Text(ie)));
     }

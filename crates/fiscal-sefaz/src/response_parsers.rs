@@ -1,5 +1,5 @@
-use fiscal_core::xml_utils::extract_xml_tag_value;
 use fiscal_core::FiscalError;
+use fiscal_core::xml_utils::extract_xml_tag_value;
 
 /// Parsed result of a SEFAZ NF-e authorization (`retEnviNFe`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,8 +60,7 @@ pub fn parse_autorizacao_response(xml: &str) -> Result<AuthorizationResponse, Fi
 
         let status_code = extract_xml_tag_value(inf_prot, "cStat")
             .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in <protNFe>".into()))?;
-        let status_message =
-            extract_xml_tag_value(inf_prot, "xMotivo").unwrap_or_default();
+        let status_message = extract_xml_tag_value(inf_prot, "xMotivo").unwrap_or_default();
         let protocol_number = extract_xml_tag_value(inf_prot, "nProt");
         let authorized_at = extract_xml_tag_value(inf_prot, "dhRecbto");
 
@@ -75,8 +74,9 @@ pub fn parse_autorizacao_response(xml: &str) -> Result<AuthorizationResponse, Fi
     }
 
     // Fallback: batch-level status from <retEnviNFe> directly
-    let status_code = extract_xml_tag_value(&body, "cStat")
-        .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in authorization response".into()))?;
+    let status_code = extract_xml_tag_value(&body, "cStat").ok_or_else(|| {
+        FiscalError::XmlParsing("missing <cStat> in authorization response".into())
+    })?;
     let status_message =
         extract_xml_tag_value(&body, "xMotivo").unwrap_or_else(|| "Unknown".into());
 
@@ -131,8 +131,9 @@ pub fn parse_cancellation_response(xml: &str) -> Result<CancellationResponse, Fi
     // Try to narrow into <infEvento> first
     let scope = extract_inner_content(&body, "infEvento").unwrap_or(&body);
 
-    let status_code = extract_xml_tag_value(scope, "cStat")
-        .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in cancellation response".into()))?;
+    let status_code = extract_xml_tag_value(scope, "cStat").ok_or_else(|| {
+        FiscalError::XmlParsing("missing <cStat> in cancellation response".into())
+    })?;
     let status_message =
         extract_xml_tag_value(scope, "xMotivo").unwrap_or_else(|| "Unknown".into());
     let protocol_number = extract_xml_tag_value(scope, "nProt");
@@ -434,10 +435,7 @@ mod tests {
         );
         let resp = parse_cancellation_response(xml).unwrap();
         assert_eq!(resp.status_code, "135");
-        assert_eq!(
-            resp.status_message,
-            "Evento registrado e vinculado a NF-e"
-        );
+        assert_eq!(resp.status_message, "Evento registrado e vinculado a NF-e");
         assert_eq!(resp.protocol_number.as_deref(), Some("135220000009999"));
     }
 
