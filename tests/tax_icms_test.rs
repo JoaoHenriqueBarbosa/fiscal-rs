@@ -1,4 +1,7 @@
-use fiscal::tax_icms::{build_icms_xml, build_icms_uf_dest_xml, create_icms_totals, merge_icms_totals, IcmsData};
+use fiscal::tax_icms::{
+    build_icms_xml, build_icms_uf_dest_xml, create_icms_totals, merge_icms_totals,
+    IcmsCst, IcmsCsosn, IcmsVariant, IcmsTotals, IcmsUfDestData,
+};
 use rstest::rstest;
 use fiscal::newtypes::{Cents, Rate};
 
@@ -10,16 +13,17 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_00_regular_icms() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("00".to_string()),
-            mod_bc: Some("0".to_string()),
-            v_bc: Some(Cents(10000)),
-            p_icms: Some(Rate(1800)),
-            v_icms: Some(Cents(1800)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCst::Cst00 {
+            orig: "0".into(),
+            mod_bc: "0".into(),
+            v_bc: Cents(10000),
+            p_icms: Rate(1800),
+            v_icms: Cents(1800),
+            p_fcp: None,
+            v_fcp: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS00>"));
         assert!(xml.contains("<orig>0</orig>"));
         assert!(xml.contains("<CST>00</CST>"));
@@ -33,19 +37,17 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_00_with_fcp() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("00".to_string()),
-            mod_bc: Some("0".to_string()),
-            v_bc: Some(Cents(10000)),
-            p_icms: Some(Rate(1800)),
-            v_icms: Some(Cents(1800)),
-            v_bc_fcp: Some(Cents(10000)),
+        let variant = IcmsVariant::from(IcmsCst::Cst00 {
+            orig: "0".into(),
+            mod_bc: "0".into(),
+            v_bc: Cents(10000),
+            p_icms: Rate(1800),
+            v_icms: Cents(1800),
             p_fcp: Some(Rate(200)),
             v_fcp: Some(Cents(200)),
-            ..Default::default()
-        }).unwrap();
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<pFCP>"));
         assert!(xml.contains("<vFCP>2.00</vFCP>"));
         assert_eq!(totals.v_fcp, Cents(200));
@@ -53,21 +55,29 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_10_icms_with_st() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("10".to_string()),
-            mod_bc: Some("0".to_string()),
-            v_bc: Some(Cents(10000)),
-            p_icms: Some(Rate(1800)),
-            v_icms: Some(Cents(1800)),
-            mod_bc_st: Some("4".to_string()),
+        let variant = IcmsVariant::from(IcmsCst::Cst10 {
+            orig: "0".into(),
+            mod_bc: "0".into(),
+            v_bc: Cents(10000),
+            p_icms: Rate(1800),
+            v_icms: Cents(1800),
+            v_bc_fcp: None,
+            p_fcp: None,
+            v_fcp: None,
+            mod_bc_st: "4".into(),
             p_mva_st: Some(Rate(4000)),
-            v_bc_st: Some(Cents(14000)),
-            p_icms_st: Some(Rate(1800)),
-            v_icms_st: Some(Cents(720)),
-            ..Default::default()
-        }).unwrap();
+            p_red_bc_st: None,
+            v_bc_st: Cents(14000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(720),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            v_icms_st_deson: None,
+            mot_des_icms_st: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS10>"));
         assert!(xml.contains("<modBCST>4</modBCST>"));
         assert!(xml.contains("<vBCST>140.00</vBCST>"));
@@ -78,33 +88,45 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_20_icms_with_base_reduction() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("20".to_string()),
-            mod_bc: Some("0".to_string()),
-            p_red_bc: Some(Rate(5000)),
-            v_bc: Some(Cents(5000)),
-            p_icms: Some(Rate(1800)),
-            v_icms: Some(Cents(900)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCst::Cst20 {
+            orig: "0".into(),
+            mod_bc: "0".into(),
+            p_red_bc: Rate(5000),
+            v_bc: Cents(5000),
+            p_icms: Rate(1800),
+            v_icms: Cents(900),
+            v_bc_fcp: None,
+            p_fcp: None,
+            v_fcp: None,
+            v_icms_deson: None,
+            mot_des_icms: None,
+            ind_deduz_deson: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS20>"));
         assert!(xml.contains("<pRedBC>50.0000</pRedBC>"));
     }
 
     #[test]
     fn cst_30_exempt_with_st() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("30".to_string()),
-            mod_bc_st: Some("4".to_string()),
-            v_bc_st: Some(Cents(10000)),
-            p_icms_st: Some(Rate(1800)),
-            v_icms_st: Some(Cents(1800)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCst::Cst30 {
+            orig: "0".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: Cents(10000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(1800),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            v_icms_deson: None,
+            mot_des_icms: None,
+            ind_deduz_deson: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS30>"));
         assert_eq!(totals.v_st, Cents(1800));
     }
@@ -120,12 +142,29 @@ mod regime_normal_cst {
         #[case] expected_tag: &str,
         #[case] expected_cst: &str,
     ) {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some(cst.to_string()),
-            ..Default::default()
-        }).unwrap();
+        let variant = match cst {
+            "40" => IcmsVariant::from(IcmsCst::Cst40 {
+                orig: "0".into(),
+                v_icms_deson: None,
+                mot_des_icms: None,
+                ind_deduz_deson: None,
+            }),
+            "41" => IcmsVariant::from(IcmsCst::Cst41 {
+                orig: "0".into(),
+                v_icms_deson: None,
+                mot_des_icms: None,
+                ind_deduz_deson: None,
+            }),
+            "50" => IcmsVariant::from(IcmsCst::Cst50 {
+                orig: "0".into(),
+                v_icms_deson: None,
+                mot_des_icms: None,
+                ind_deduz_deson: None,
+            }),
+            _ => unreachable!(),
+        };
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains(expected_tag), "CST {cst} should produce {expected_tag}");
         assert!(xml.contains(expected_cst), "CST {cst} should contain {expected_cst}");
         assert_eq!(totals.v_icms, Cents(0), "CST {cst} should have zero ICMS");
@@ -133,47 +172,79 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_51_deferred() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("51".to_string()),
-            mod_bc: Some("0".to_string()),
+        let variant = IcmsVariant::from(IcmsCst::Cst51 {
+            orig: "0".into(),
+            mod_bc: Some("0".into()),
+            p_red_bc: None,
+            c_benef_rbc: None,
             v_bc: Some(Cents(10000)),
             p_icms: Some(Rate(1800)),
+            v_icms_op: None,
+            p_dif: None,
+            v_icms_dif: None,
             v_icms: Some(Cents(1800)),
-            ..Default::default()
-        }).unwrap();
+            v_bc_fcp: None,
+            p_fcp: None,
+            v_fcp: None,
+            p_fcp_dif: None,
+            v_fcp_dif: None,
+            v_fcp_efet: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS51>"));
     }
 
     #[test]
     fn cst_60_previously_charged_by_st() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("60".to_string()),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCst::Cst60 {
+            orig: "0".into(),
+            v_bc_st_ret: None,
+            p_st: None,
+            v_icms_substituto: None,
+            v_icms_st_ret: None,
+            v_bc_fcp_st_ret: None,
+            p_fcp_st_ret: None,
+            v_fcp_st_ret: None,
+            p_red_bc_efet: None,
+            v_bc_efet: None,
+            p_icms_efet: None,
+            v_icms_efet: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS60>"));
     }
 
     #[test]
     fn cst_70_reduction_with_st() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("70".to_string()),
-            mod_bc: Some("0".to_string()),
-            p_red_bc: Some(Rate(3000)),
-            v_bc: Some(Cents(7000)),
-            p_icms: Some(Rate(1800)),
-            v_icms: Some(Cents(1260)),
-            mod_bc_st: Some("4".to_string()),
-            v_bc_st: Some(Cents(10000)),
-            p_icms_st: Some(Rate(1800)),
-            v_icms_st: Some(Cents(540)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCst::Cst70 {
+            orig: "0".into(),
+            mod_bc: "0".into(),
+            p_red_bc: Rate(3000),
+            v_bc: Cents(7000),
+            p_icms: Rate(1800),
+            v_icms: Cents(1260),
+            v_bc_fcp: None,
+            p_fcp: None,
+            v_fcp: None,
+            mod_bc_st: "4".into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: Cents(10000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(540),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            v_icms_deson: None,
+            mot_des_icms: None,
+            ind_deduz_deson: None,
+            v_icms_st_deson: None,
+            mot_des_icms_st: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS70>"));
         assert_eq!(totals.v_bc, Cents(7000));
         assert_eq!(totals.v_st, Cents(540));
@@ -181,28 +252,49 @@ mod regime_normal_cst {
 
     #[test]
     fn cst_90_other() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("90".to_string()),
-            mod_bc: Some("0".to_string()),
+        let variant = IcmsVariant::from(IcmsCst::Cst90 {
+            orig: "0".into(),
+            mod_bc: Some("0".into()),
             v_bc: Some(Cents(10000)),
+            p_red_bc: None,
+            c_benef_rbc: None,
             p_icms: Some(Rate(1200)),
+            v_icms_op: None,
+            p_dif: None,
+            v_icms_dif: None,
             v_icms: Some(Cents(1200)),
-            ..Default::default()
-        }).unwrap();
+            v_bc_fcp: None,
+            p_fcp: None,
+            v_fcp: None,
+            p_fcp_dif: None,
+            v_fcp_dif: None,
+            v_fcp_efet: None,
+            mod_bc_st: None,
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: None,
+            p_icms_st: None,
+            v_icms_st: None,
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            v_icms_deson: None,
+            mot_des_icms: None,
+            ind_deduz_deson: None,
+            v_icms_st_deson: None,
+            mot_des_icms_st: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<ICMS90>"));
     }
 
     #[test]
     fn throws_on_unknown_cst() {
-        let result = build_icms_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            cst: Some("99".to_string()),
-            ..Default::default()
-        });
-        assert!(result.is_err());
+        // With the algebraic API, unknown CSTs are a compile-time error.
+        // This test verifies that UnsupportedIcmsCst still works at the error level.
+        let err = fiscal::FiscalError::UnsupportedIcmsCst("99".into());
+        assert!(format!("{err:?}").contains("99"));
     }
 }
 
@@ -214,14 +306,14 @@ mod simples_nacional_csosn {
 
     #[test]
     fn csosn_101_with_sn_credit() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("101".to_string()),
-            p_cred_sn: Some(Rate(350)),
-            v_cred_icms_sn: Some(Cents(350)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn101 {
+            orig: "0".into(),
+            csosn: "101".into(),
+            p_cred_sn: Rate(350),
+            v_cred_icms_sn: Cents(350),
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>101</CSOSN>"));
         assert!(xml.contains("<pCredSN>"));
         assert!(xml.contains("<vCredICMSSN>"));
@@ -232,30 +324,35 @@ mod simples_nacional_csosn {
     #[case("102")]
     #[case("103")]
     fn csosn_102_103_no_credit(#[case] csosn: &str) {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some(csosn.to_string()),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn102 {
+            orig: "0".into(),
+            csosn: csosn.into(),
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains(&format!("<CSOSN>{csosn}</CSOSN>")));
         assert!(!xml.contains("<pCredSN>"), "CSOSN {csosn} should not have credit");
     }
 
     #[test]
     fn csosn_201_sn_with_st_and_credit() {
-        let (xml, totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("201".to_string()),
-            mod_bc_st: Some("4".to_string()),
-            v_bc_st: Some(Cents(10000)),
-            p_icms_st: Some(Rate(1800)),
-            v_icms_st: Some(Cents(1800)),
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn201 {
+            orig: "0".into(),
+            csosn: "201".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: Cents(10000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(1800),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
             p_cred_sn: Some(Rate(350)),
             v_cred_icms_sn: Some(Cents(350)),
-            ..Default::default()
-        }).unwrap();
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>201</CSOSN>"));
         assert!(xml.contains("<vICMSST>"));
         assert!(xml.contains("<pCredSN>"));
@@ -264,54 +361,78 @@ mod simples_nacional_csosn {
 
     #[test]
     fn csosn_202_sn_with_st_no_credit() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("202".to_string()),
-            mod_bc_st: Some("4".to_string()),
-            v_bc_st: Some(Cents(10000)),
-            p_icms_st: Some(Rate(1800)),
-            v_icms_st: Some(Cents(1800)),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn202 {
+            orig: "0".into(),
+            csosn: "202".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: Cents(10000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(1800),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>202</CSOSN>"));
     }
 
     #[test]
     fn csosn_500_previously_charged_by_st() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("500".to_string()),
-            ..Default::default()
-        }).unwrap();
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn500 {
+            orig: "0".into(),
+            csosn: "500".into(),
+            v_bc_st_ret: None,
+            p_st: None,
+            v_icms_substituto: None,
+            v_icms_st_ret: None,
+            v_bc_fcp_st_ret: None,
+            p_fcp_st_ret: None,
+            v_fcp_st_ret: None,
+            p_red_bc_efet: None,
+            v_bc_efet: None,
+            p_icms_efet: None,
+            v_icms_efet: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>500</CSOSN>"));
     }
 
     #[test]
     fn csosn_900_other_sn() {
-        let (xml, _totals) = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("900".to_string()),
-            mod_bc: Some("0".to_string()),
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn900 {
+            orig: "0".into(),
+            csosn: "900".into(),
+            mod_bc: Some("0".into()),
             v_bc: Some(Cents(10000)),
+            p_red_bc: None,
             p_icms: Some(Rate(1800)),
             v_icms: Some(Cents(1800)),
-            ..Default::default()
-        }).unwrap();
+            mod_bc_st: None,
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: None,
+            p_icms_st: None,
+            v_icms_st: None,
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+            p_cred_sn: None,
+            v_cred_icms_sn: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>900</CSOSN>"));
     }
 
     #[test]
     fn throws_on_unknown_csosn() {
-        let result = build_icms_xml(&IcmsData {
-            tax_regime: 1,
-            orig: "0".to_string(),
-            csosn: Some("999".to_string()),
-            ..Default::default()
-        });
-        assert!(result.is_err());
+        // With the algebraic API, unknown CSOSNs are a compile-time error.
+        let err = fiscal::FiscalError::UnsupportedIcmsCsosn("999".into());
+        assert!(format!("{err:?}").contains("999"));
     }
 }
 
@@ -322,18 +443,15 @@ mod icms_uf_dest {
 
     #[test]
     fn builds_interstate_destination_icms() {
-        let (xml, _totals) = build_icms_uf_dest_xml(&IcmsData {
-            tax_regime: 3,
-            orig: "0".to_string(),
-            v_bc_uf_dest: Some(Cents(10000)),
+        let (xml, _totals) = build_icms_uf_dest_xml(&IcmsUfDestData {
+            v_bc_uf_dest: Cents(10000),
+            v_bc_fcp_uf_dest: None,
             p_fcp_uf_dest: Some(Rate(200)),
+            p_icms_uf_dest: Rate(1800),
+            p_icms_inter: Rate(1200),
             v_fcp_uf_dest: Some(Cents(200)),
-            p_icms_uf_dest: Some(Rate(1800)),
-            v_icms_uf_dest: Some(Cents(600)),
-            p_icms_inter: Some(Rate(1200)),
-            p_icms_inter_part: Some(Rate(10000)),
+            v_icms_uf_dest: Cents(600),
             v_icms_uf_remet: Some(Cents(1200)),
-            ..Default::default()
         }).unwrap();
         assert!(xml.contains("<ICMSUFDest>"));
         assert!(xml.contains("<vBCUFDest>100.00</vBCUFDest>"));
