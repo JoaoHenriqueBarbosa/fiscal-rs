@@ -250,7 +250,7 @@ fn remove_ns_prefix(xml: &str, prefix: &str) -> String {
 /// Extract the raw content between the opening and closing of a tag,
 /// including any namespace-prefixed variant. Returns a slice of the
 /// original string covering from `<tag ...>` to `</tag>` inclusive.
-fn extract_raw_tag<'a>(xml: &'a str, local_name: &str) -> Option<String> {
+fn extract_raw_tag(xml: &str, local_name: &str) -> Option<String> {
     // Find opening tag
     let start = find_opening_tag_pos(xml, local_name)?;
     let after_start = xml[start..].find('>')? + start + 1;

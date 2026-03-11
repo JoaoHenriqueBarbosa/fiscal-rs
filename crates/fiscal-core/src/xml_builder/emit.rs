@@ -32,6 +32,7 @@ pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
 }
 
 /// Build address child tags (xLgr … xPais), reused for emit/dest/retirada/entrega.
+#[allow(clippy::too_many_arguments)]
 pub fn build_address_fields(
     street: &str,
     number: &str,

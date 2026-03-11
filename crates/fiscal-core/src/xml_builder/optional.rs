@@ -68,7 +68,7 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     let mut children = Vec::new();
 
     // infAdFisco before infCpl per schema
-    if let Some(ref note) = add_info.and_then(|a| a.tax_authority_note.as_ref()) {
+    if let Some(note) = add_info.and_then(|a| a.tax_authority_note.as_ref()) {
         children.push(tag("infAdFisco", &[], TagContent::Text(note)));
     }
 

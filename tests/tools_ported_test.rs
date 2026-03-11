@@ -590,9 +590,6 @@ mod qrcode_test {
                 .csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001")
         );
         // Either returns Err or a malformed URL starting with "?p="
-        match result {
-            Ok(url) => assert!(url.starts_with("?p=")),
-            Err(_) => {} // also acceptable
-        }
+        if let Ok(url) = result { assert!(url.starts_with("?p=")) }
     }
 }

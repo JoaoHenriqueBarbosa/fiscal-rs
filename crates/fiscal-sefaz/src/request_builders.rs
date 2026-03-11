@@ -82,7 +82,7 @@ pub fn build_autorizacao_request(
     // Strip XML declaration if present
     let content = xml
         .trim()
-        .trim_start_matches(|c: char| c != '<' || false);
+        .trim_start_matches(|c: char| c != '<');
     let stripped = strip_xml_declaration(content);
 
     let ind_sinc = if sync { "1" } else { "0" };
@@ -194,6 +194,7 @@ pub fn build_consulta_recibo_request(
 /// # Errors
 ///
 /// This function panics on invalid state codes rather than returning `Result`.
+#[allow(clippy::too_many_arguments)]
 pub fn build_inutilizacao_request(
     year: u16,
     tax_id: &str,

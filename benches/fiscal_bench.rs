@@ -144,7 +144,7 @@ fn bench_format_cents_or_zero_none(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_format_cents_10(bencher: divan::Bencher) {
-    bencher.bench(|| format_cents_10(divan::black_box(150_00)));
+    bencher.bench(|| format_cents_10(divan::black_box(15_000)));
 }
 
 #[divan::bench]
@@ -335,7 +335,7 @@ fn bench_filter_fields_mixed(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_create_icms_totals(bencher: divan::Bencher) {
-    bencher.bench(|| create_icms_totals());
+    bencher.bench(create_icms_totals);
 }
 
 #[divan::bench]
@@ -537,7 +537,7 @@ fn bench_build_issqn_xml_with_totals(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_create_issqn_totals(bencher: divan::Bencher) {
-    bencher.bench(|| create_issqn_totals());
+    bencher.bench(create_issqn_totals);
 }
 
 #[divan::bench]
@@ -624,7 +624,7 @@ fn bench_calculate_mod11(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_generate_numeric_code(bencher: divan::Bencher) {
-    bencher.bench(|| generate_numeric_code());
+    bencher.bench(generate_numeric_code);
 }
 
 #[divan::bench]
@@ -835,7 +835,7 @@ fn bench_invoice_builder_simple(bencher: divan::Bencher) {
 fn bench_invoice_builder_10_items(bencher: divan::Bencher) {
     let issuer = make_sample_issuer();
     let recipient = make_sample_recipient();
-    let items: Vec<InvoiceItemData> = (1..=10).map(|n| make_sample_item(n)).collect();
+    let items: Vec<InvoiceItemData> = (1..=10).map(make_sample_item).collect();
     let payment = PaymentData::new("01", Cents(150000));
     bencher.bench(|| {
         InvoiceBuilder::new(

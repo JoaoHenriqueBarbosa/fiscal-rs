@@ -124,7 +124,7 @@ pub fn txt_to_xml(txt: &str, layout: &str) -> Result<String, FiscalError> {
 /// Returns [`FiscalError::WrongDocument`] if the document header is missing
 /// or empty.
 pub fn validate_txt(txt: &str, layout: &str) -> Result<bool, FiscalError> {
-    let txt = txt.replace('\r', "").replace('\t', "");
+    let txt = txt.replace(['\r', '\t'], "");
     let txt = txt.trim();
     if txt.is_empty() {
         return Err(FiscalError::WrongDocument("Empty document".into()));
@@ -296,8 +296,7 @@ fn fields_to_std(fields: &[&str], struct_def: &str) -> Fields {
     let struct_fields: Vec<&str> = struct_def.split('|').collect();
     let mut std = Fields::new();
     let len = struct_fields.len().saturating_sub(1);
-    for i in 1..len {
-        let name = struct_fields[i];
+    for (i, name) in struct_fields.iter().enumerate().take(len).skip(1) {
         let data = fields.get(i).copied().unwrap_or("");
         if !name.is_empty() && !data.is_empty() {
             std.insert(name.to_string(), data.to_string());
@@ -639,7 +638,7 @@ impl<'a> NFeParser<'a> {
     }
 
     fn finalize_current_item(&mut self) {
-        if self.cur_prod.get("cProd").is_none() && self.cur_prod.get("xProd").is_none() {
+        if !self.cur_prod.contains_key("cProd") && !self.cur_prod.contains_key("xProd") {
             return;
         }
         self.items.push(ItemBuild {
@@ -693,8 +692,8 @@ impl<'a> NFeParser<'a> {
 
         parts.push(self.build_pag());
 
-        if self.inf_adic_fields.get("infAdFisco").is_some()
-            || self.inf_adic_fields.get("infCpl").is_some()
+        if self.inf_adic_fields.contains_key("infAdFisco")
+            || self.inf_adic_fields.contains_key("infCpl")
         {
             parts.push(self.build_inf_adic());
         }

@@ -172,11 +172,7 @@ fn xml_str_to_json_value(xml: &str) -> Result<serde_json::Value, FiscalError> {
                 let text = e.unescape().unwrap_or_default().to_string();
                 if !text.is_empty() {
                     if let Some((_name, map)) = stack.last_mut() {
-                        if map.is_empty() {
-                            map.insert("#text".to_string(), Value::String(text));
-                        } else {
-                            map.insert("#text".to_string(), Value::String(text));
-                        }
+                        map.insert("#text".to_string(), Value::String(text));
                     }
                 }
             }

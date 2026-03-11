@@ -50,7 +50,7 @@ impl Contingency {
     ) -> Result<(), FiscalError> {
         let trimmed = reason.trim();
         let len = trimmed.chars().count();
-        if len < 15 || len > 256 {
+        if !(15..=256).contains(&len) {
             return Err(FiscalError::Contingency(
                 "The justification for entering contingency mode must be between 15 and 256 UTF-8 characters.".to_string(),
             ));
@@ -444,9 +444,8 @@ fn extract_json_string(json: &str, key: &str) -> Option<String> {
     let rest = rest.strip_prefix(':')?;
     let rest = rest.trim_start();
 
-    if rest.starts_with('"') {
+    if let Some(content) = rest.strip_prefix('"') {
         // String value
-        let content = &rest[1..];
         let end = content.find('"')?;
         Some(content[..end].to_string())
     } else {

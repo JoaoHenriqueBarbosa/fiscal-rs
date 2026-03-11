@@ -84,10 +84,10 @@ mod deep_coverage_test {
 
         #[test]
         fn set_check_gtin_validates_gtin_codes() {
-            assert_eq!(fiscal::gtin::is_valid_gtin("SEM GTIN").unwrap(), true);
-            assert_eq!(fiscal::gtin::is_valid_gtin("").unwrap(), true);
+            assert!(fiscal::gtin::is_valid_gtin("SEM GTIN").unwrap());
+            assert!(fiscal::gtin::is_valid_gtin("").unwrap());
             assert!(fiscal::gtin::is_valid_gtin("1234567890123").is_err());
-            assert_eq!(fiscal::gtin::is_valid_gtin("7891234567895").unwrap(), true);
+            assert!(fiscal::gtin::is_valid_gtin("7891234567895").unwrap());
         }
 
         #[test]
@@ -514,7 +514,7 @@ mod deep_coverage_test {
         #[test]
         fn throws_on_empty_chave() {
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
 
         #[test]
@@ -532,7 +532,7 @@ mod deep_coverage_test {
         #[test]
         fn throws_on_empty_string() {
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
     }
 
@@ -1070,10 +1070,7 @@ mod deep_coverage_test {
                 QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
                 "",
             ).csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001"));
-            match result {
-                Ok(url) => assert!(url.starts_with("?p=")),
-                Err(_) => {}
-            }
+            if let Ok(url) = result { assert!(url.starts_with("?p=")) }
         }
     }
 
@@ -1334,7 +1331,7 @@ mod communication_coverage_test {
         fn empty_chave_throws() {
             // test_sefaz_cce_chave_vazia_throws
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
 
         #[test]
@@ -1364,7 +1361,7 @@ mod communication_coverage_test {
         fn empty_chave_throws() {
             // test_sefaz_cancela_chave_vazia_throws
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
 
         #[test]
@@ -1391,7 +1388,7 @@ mod communication_coverage_test {
             let expected_desc = "Cancelamento por substituicao";
             let expected_ref = format!("<chNFeRef>{ch}</chNFeRef>");
             assert!(expected_ref.contains(ch));
-            assert!(!expected_desc.is_empty());
+            assert_ne!(expected_desc, "");
         }
 
         #[test]
@@ -1456,7 +1453,7 @@ mod communication_coverage_test {
         fn empty_chave_throws() {
             // Validate that empty access key is invalid for manifestation
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
     }
 
@@ -1483,9 +1480,9 @@ mod communication_coverage_test {
         fn builds_delivery_proof() {
             let expected_desc = "Comprovante de Entrega da NF-e";
             let expected_tags = ["<dhEntrega>", "<nDoc>12345678901</nDoc>", "<xNome>Fulano de Tal</xNome>", "<latGPS>", "<longGPS>", "<hashComprovante>"];
-            assert!(!expected_desc.is_empty());
+            assert_ne!(expected_desc, "");
             for t in &expected_tags {
-                assert!(!t.is_empty());
+                assert_ne!(*t, "");
             }
         }
 
@@ -1500,7 +1497,7 @@ mod communication_coverage_test {
         fn builds_delivery_proof_cancellation() {
             let desc = "Cancelamento Comprovante de Entrega da NF-e";
             let xml = "<nProtEvento>135220000001234</nProtEvento>";
-            assert!(!desc.is_empty());
+            assert_ne!(desc, "");
             assert!(xml.contains("<nProtEvento>135220000001234</nProtEvento>"));
         }
     }
@@ -1512,9 +1509,9 @@ mod communication_coverage_test {
         fn builds_delivery_failure() {
             let desc = "Insucesso na Entrega da NF-e";
             let expected_tags = ["<dhTentativaEntrega>", "<nTentativa>3</nTentativa>", "<tpMotivo>1</tpMotivo>", "<latGPS>"];
-            assert!(!desc.is_empty());
+            assert_ne!(desc, "");
             for t in &expected_tags {
-                assert!(!t.is_empty());
+                assert_ne!(*t, "");
             }
         }
 
@@ -1529,7 +1526,7 @@ mod communication_coverage_test {
         fn delivery_failure_cancellation() {
             let desc = "Cancelamento Insucesso na Entrega da NF-e";
             let xml = "<nProtEvento>135220000005678</nProtEvento>";
-            assert!(!desc.is_empty());
+            assert_ne!(desc, "");
             assert!(xml.contains("<nProtEvento>135220000005678</nProtEvento>"));
         }
     }
@@ -1550,7 +1547,7 @@ mod communication_coverage_test {
         #[test]
         fn empty_chave_is_invalid() {
             let key = "";
-            assert!(key.is_empty());
+            assert_eq!(key, "");
         }
     }
 
@@ -1735,10 +1732,7 @@ mod communication_coverage_test {
                 QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
                 "",
             ).csc_token("TOKENXYZ").csc_id("000001"));
-            match result {
-                Ok(url) => assert!(url.starts_with("?p=")),
-                Err(_) => {}
-            }
+            if let Ok(url) = result { assert!(url.starts_with("?p=")) }
         }
 
         #[test]

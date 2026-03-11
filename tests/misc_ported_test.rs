@@ -239,9 +239,9 @@ mod webservices_test {
 mod gtin_test {
     #[test]
     fn empty_string_and_sem_gtin_and_valid_gtin_are_valid() {
-        assert_eq!(fiscal::gtin::is_valid_gtin("").unwrap(), true);
-        assert_eq!(fiscal::gtin::is_valid_gtin("SEM GTIN").unwrap(), true);
-        assert_eq!(fiscal::gtin::is_valid_gtin("7898357410015").unwrap(), true);
+        assert!(fiscal::gtin::is_valid_gtin("").unwrap());
+        assert!(fiscal::gtin::is_valid_gtin("SEM GTIN").unwrap());
+        assert!(fiscal::gtin::is_valid_gtin("7898357410015").unwrap());
     }
 
     #[test]
@@ -271,10 +271,7 @@ mod valid_txt_test {
         let txt = String::from_utf8_lossy(&bytes);
         let result = fiscal::convert::validate_txt(&txt, "local");
         // Should return Ok with errors or Err — either way, validation detected problems
-        match result {
-            Ok(valid) => assert!(!valid, "Expected validation to fail"),
-            Err(_) => {} // also acceptable
-        }
+        if let Ok(valid) = result { assert!(!valid, "Expected validation to fail") }
     }
 
     #[test]
@@ -353,9 +350,8 @@ mod convert_test {
     fn convert_local_txt() -> String {
         let txt = std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_01.txt"))
             .expect("Failed to read local txt");
-        let result = fiscal::convert::txt_to_xml(&txt, "local_v12")
-            .expect("txt_to_xml failed");
-        result
+        fiscal::convert::txt_to_xml(&txt, "local_v12")
+            .expect("txt_to_xml failed")
     }
 
     #[test]
@@ -901,9 +897,7 @@ mod complements_test {
         // We test via attach_event_protocol since the Rust API may unify them
         let result = fiscal::complement::attach_event_protocol(
             // Cancellation uses an envEvento wrapper, but we test with the available API
-            &format!(
-                r#"<envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>1</idLote><evento versao="1.00"><infEvento Id="ID110111"><tpEvento>110111</tpEvento></infEvento></evento></envEvento>"#
-            ),
+            r#"<envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>1</idLote><evento versao="1.00"><infEvento Id="ID110111"><tpEvento>110111</tpEvento></infEvento></evento></envEvento>"#,
             cancel_xml,
         );
         // Result may succeed or fail depending on validation — the important thing is it doesn't panic
