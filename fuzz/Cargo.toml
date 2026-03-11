@@ -1,0 +1,38 @@
+[package]
+name = "fiscal-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+fiscal-core = { path = "../crates/fiscal-core" }
+fiscal-sefaz = { path = "../crates/fiscal-sefaz", default-features = false }
+
+[[bin]]
+name = "fuzz_response_parsers"
+path = "fuzz_targets/fuzz_response_parsers.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_txt_to_xml"
+path = "fuzz_targets/fuzz_txt_to_xml.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_xml_standardize"
+path = "fuzz_targets/fuzz_xml_standardize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_gtin_validation"
+path = "fuzz_targets/fuzz_gtin_validation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_xml_tag_extraction"
+path = "fuzz_targets/fuzz_xml_tag_extraction.rs"
+doc = false
