@@ -1,13 +1,13 @@
 //! Sealed public traits for tax calculation and XML serialization.
 
 use crate::sealed::private::Sealed;
-use crate::tax_element::{serialize_tax_element, TaxElement};
-use crate::tax_icms::{build_icms_xml, create_icms_totals, IcmsVariant};
-use crate::tax_issqn::{build_issqn_xml, IssqnData};
-use crate::tax_is::{build_is_xml, IsData};
+use crate::tax_element::{TaxElement, serialize_tax_element};
+use crate::tax_icms::{IcmsVariant, build_icms_xml, create_icms_totals};
+use crate::tax_is::{IsData, build_is_xml};
+use crate::tax_issqn::{IssqnData, build_issqn_xml};
 use crate::tax_pis_cofins_ipi::{
-    build_cofins_xml, build_ipi_xml, build_ii_xml, build_pis_xml,
-    CofinsData, IiData, IpiData, PisData,
+    CofinsData, IiData, IpiData, PisData, build_cofins_xml, build_ii_xml, build_ipi_xml,
+    build_pis_xml,
 };
 
 // ── TaxCalculation ──────────────────────────────────────────────────────────
@@ -108,9 +108,9 @@ mod tests {
     use crate::newtypes::{Cents, Rate, Rate4};
     use crate::tax_element::TaxField;
     use crate::tax_icms::{IcmsCst, IcmsVariant};
-    use crate::tax_pis_cofins_ipi::{CofinsData, IiData, IpiData, PisData};
-    use crate::tax_issqn::IssqnData;
     use crate::tax_is::IsData;
+    use crate::tax_issqn::IssqnData;
+    use crate::tax_pis_cofins_ipi::{CofinsData, IiData, IpiData, PisData};
 
     // -- IcmsVariant ----------------------------------------------------------
 
@@ -173,12 +173,7 @@ mod tests {
 
     #[test]
     fn ii_data_trait_matches_free_fn() {
-        let data = IiData::new(
-            Cents(10000),
-            Cents(200),
-            Cents(1000),
-            Cents(50),
-        );
+        let data = IiData::new(Cents(10000), Cents(200), Cents(1000), Cents(50));
 
         assert_eq!(data.build_xml(), build_ii_xml(&data));
     }

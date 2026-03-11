@@ -1,3 +1,9 @@
+//! IS (Imposto Seletivo) XML generation for NF-e items — PL_010 tax reform.
+//!
+//! The IS (Imposto Seletivo) is a new consumption tax introduced by Brazil's
+//! 2024 tax reform. This module provides [`IsData`] and [`build_is_xml`] to
+//! generate the `<IS>` element placed inside `<imposto>`.
+
 use crate::tax_element::{
     TaxElement, TaxField, filter_fields, optional_field, serialize_tax_element,
 };
@@ -30,6 +36,11 @@ pub struct IsData {
 }
 
 impl IsData {
+    /// Create a new `IsData` with required fields.
+    ///
+    /// `cst_is` is the IS tax situation code, `c_class_trib_is` is the
+    /// IS classification code, and `v_is` is the pre-formatted IS value string
+    /// (e.g. `"5.00"`).
     pub fn new(
         cst_is: impl Into<String>,
         c_class_trib_is: impl Into<String>,
@@ -42,22 +53,27 @@ impl IsData {
             ..Default::default()
         }
     }
+    /// Set the IS calculation base (`vBCIS`), e.g. `"100.00"`.
     pub fn v_bc_is(mut self, v: impl Into<String>) -> Self {
         self.v_bc_is = Some(v.into());
         self
     }
+    /// Set the IS ad-valorem rate (`pIS`), e.g. `"5.0000"`.
     pub fn p_is(mut self, v: impl Into<String>) -> Self {
         self.p_is = Some(v.into());
         self
     }
+    /// Set the IS specific rate (`pISEspec`), e.g. `"1.5000"`.
     pub fn p_is_espec(mut self, v: impl Into<String>) -> Self {
         self.p_is_espec = Some(v.into());
         self
     }
+    /// Set the taxable unit of measure (`uTrib`), e.g. `"LT"`.
     pub fn u_trib(mut self, v: impl Into<String>) -> Self {
         self.u_trib = Some(v.into());
         self
     }
+    /// Set the taxable quantity (`qTrib`), e.g. `"10.0000"`.
     pub fn q_trib(mut self, v: impl Into<String>) -> Self {
         self.q_trib = Some(v.into());
         self

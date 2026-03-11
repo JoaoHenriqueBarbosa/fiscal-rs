@@ -1,4 +1,18 @@
-/// Escape special XML characters in text content and attribute values
+//! Low-level XML building primitives used throughout the crate.
+//!
+//! These utilities are deliberately simple and allocation-efficient: they work
+//! on `&str` slices and return owned `String`s, with no external XML library
+//! dependency.
+
+/// Escape special XML characters in text content and attribute values,
+/// replacing `&`, `<`, `>`, `"`, and `'` with their XML entity equivalents.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::escape_xml;
+/// assert_eq!(escape_xml("Tom & Jerry <cats>"), "Tom &amp; Jerry &lt;cats&gt;");
+/// ```
 pub fn escape_xml(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for ch in s.chars() {
@@ -14,7 +28,22 @@ pub fn escape_xml(s: &str) -> String {
     result
 }
 
-/// Extract text content of a simple XML tag from a raw XML string
+/// Extract the text content of the first occurrence of a simple XML tag in a
+/// raw XML string.
+///
+/// Searches for `<tag_name>…</tag_name>` and returns the inner text.  Does not
+/// handle namespaced tags, nested tags of the same name, or CDATA sections.
+///
+/// Returns `None` if the tag is absent.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::extract_xml_tag_value;
+/// let xml = "<root><cStat>100</cStat></root>";
+/// assert_eq!(extract_xml_tag_value(xml, "cStat"), Some("100".to_string()));
+/// assert_eq!(extract_xml_tag_value(xml, "missing"), None);
+/// ```
 pub fn extract_xml_tag_value(xml: &str, tag_name: &str) -> Option<String> {
     let open = format!("<{tag_name}>");
     let close = format!("</{tag_name}>");
@@ -45,11 +74,18 @@ pub fn tag(name: &str, attrs: &[(&str, &str)], children: TagContent<'_>) -> Stri
     }
 }
 
-/// Content variants for the tag() builder
+/// Content variants for the [`tag`] builder function.
+///
+/// Use [`TagContent::None`] for self-closing elements, [`TagContent::Text`]
+/// for text nodes (automatically XML-escaped), and [`TagContent::Children`]
+/// for pre-built child element strings.
 #[non_exhaustive]
 pub enum TagContent<'a> {
+    /// Empty element: `<name></name>`.
     None,
+    /// Text content (will be XML-escaped): `<name>text</name>`.
     Text(&'a str),
+    /// Pre-built child elements concatenated verbatim: `<name><a/><b/></name>`.
     Children(Vec<String>),
 }
 

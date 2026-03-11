@@ -2,13 +2,19 @@ use fiscal_core::constants::{NFE_NAMESPACE, NFE_VERSION};
 use fiscal_core::state_codes::get_state_code;
 use fiscal_core::types::SefazEnvironment;
 
-/// Event type constants matching the SEFAZ specification.
+/// Event type constants (`tpEvento`) matching the SEFAZ specification.
 pub mod event_types {
+    /// Carta de Correção Eletrônica (CC-e), code `110110`.
     pub const CCE: u32 = 110110;
+    /// Cancellation event, code `110111`.
     pub const CANCELLATION: u32 = 110111;
+    /// Recipient confirms operation, code `210200`.
     pub const CONFIRMATION: u32 = 210200;
+    /// Recipient is aware of operation, code `210210`.
     pub const AWARENESS: u32 = 210210;
+    /// Recipient does not recognize the operation, code `210220`.
     pub const UNKNOWN_OPERATION: u32 = 210220;
+    /// Recipient confirms operation was not performed, code `210240`.
     pub const OPERATION_NOT_PERFORMED: u32 = 210240;
 }
 

@@ -1,7 +1,16 @@
-/// A single XML field: <name>value</name>
+//! Internal building blocks for tax XML element serialisation.
+//!
+//! [`TaxField`] and [`TaxElement`] form an intermediate representation used by
+//! tax computation functions (ICMS, PIS, COFINS, IPI, II, ISSQN) before
+//! rendering to an XML string via [`serialize_tax_element`].  Application code
+//! should not need to use these types directly.
+
+/// A single XML field represented as a `<name>value</name>` pair.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaxField {
+    /// XML tag name.
     pub name: String,
+    /// Text content (will be XML-escaped on serialisation).
     pub value: String,
 }
 

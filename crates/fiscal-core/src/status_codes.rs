@@ -1,6 +1,13 @@
-/// SEFAZ status code constants (cStat) used across the fiscal module.
+//! SEFAZ status code constants (`cStat`) and valid-status sets.
+//!
+//! The [`sefaz_status`] submodule exposes named constants for the most common
+//! response codes from the SEFAZ web services.  The [`VALID_PROTOCOL_STATUSES`]
+//! and [`VALID_EVENT_STATUSES`] slices are used by [`crate::complement`] to
+//! validate responses before attaching protocols.
+
+/// SEFAZ status code constants (`cStat`) used across the fiscal module.
 ///
-/// Reference: Manual de Orientacao do Contribuinte (MOC) v7.0+
+/// Reference: Manual de Orientação do Contribuinte (MOC) v7.0+
 pub mod sefaz_status {
     /// 100 -- Authorized (Autorizado o uso da NF-e)
     pub const AUTHORIZED: &str = "100";

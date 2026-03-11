@@ -1,14 +1,39 @@
+//! Public data structures for NF-e / NFC-e documents.
+//!
+//! This module contains all the strongly-typed structs and enums used to
+//! represent the data required to build a Brazilian electronic invoice (NF-e
+//! model 55 or NFC-e model 65).  Every struct follows the builder pattern:
+//! required fields are passed to `new(...)`, and optional fields are set via
+//! chainable setter methods.
+//!
+//! # Key types
+//!
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`IssuerData`] | Company/issuer identification and address |
+//! | [`RecipientData`] | Buyer/recipient identification (optional for NFC-e under R$200) |
+//! | [`InvoiceItemData`] | Line-item with product data and all applicable taxes |
+//! | [`PaymentData`] | Payment method and amount |
+//! | [`SefazEnvironment`] | Production vs. homologation environment selector |
+//! | [`InvoiceModel`] | NF-e (55) vs. NFC-e (65) |
+//! | [`EmissionType`] | Normal vs. contingency emission type |
+//! | [`TaxRegime`] | Simples Nacional / Simples Excess / Normal regime |
+
 use chrono::{DateTime, FixedOffset, NaiveDate};
 
 use crate::newtypes::{Cents, IbgeCode, Rate, Rate4};
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-/// NF-e model: 55 = NF-e (B2B), 65 = NFC-e (consumer)
+/// NF-e model code: 55 = NF-e (business-to-business), 65 = NFC-e (consumer).
+///
+/// The value maps directly to the `<mod>` element inside `<ide>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum InvoiceModel {
+    /// Model 55 — NF-e for business operations and B2B transactions.
     Nfe = 55,
+    /// Model 65 — NFC-e for consumer-facing retail sales (Nota Fiscal de Consumidor Eletrônica).
     Nfce = 65,
 }
 
@@ -28,11 +53,17 @@ impl std::fmt::Display for InvoiceModel {
     }
 }
 
-/// SEFAZ environment: 1 = production, 2 = homologation
+/// SEFAZ submission environment: production (`tpAmb=1`) or homologation (`tpAmb=2`).
+///
+/// Use [`Homologation`](SefazEnvironment::Homologation) during development and
+/// testing; switch to [`Production`](SefazEnvironment::Production) only when
+/// issuing real fiscal documents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SefazEnvironment {
+    /// Production environment — documents have legal fiscal validity.
     Production = 1,
+    /// Homologation environment — for testing only; documents have no fiscal validity.
     Homologation = 2,
 }
 
@@ -46,13 +77,19 @@ impl SefazEnvironment {
     }
 }
 
-/// Emission type (tpEmis)
+/// NF-e emission type (`tpEmis`) — normal or one of the contingency modes.
+///
+/// Values map directly to the `<tpEmis>` element in the `<ide>` group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EmissionType {
+    /// `1` — Normal online emission via the primary SEFAZ authorizer.
     Normal = 1,
+    /// `6` — SVC-AN contingency (Sefaz Virtual do Ambiente Nacional).
     SvcAn = 6,
+    /// `7` — SVC-RS contingency (Sefaz Virtual do Rio Grande do Sul).
     SvcRs = 7,
+    /// `9` — Offline contingency (NF-e or NFC-e issued without network access).
     Offline = 9,
 }
 
@@ -68,21 +105,33 @@ impl EmissionType {
     }
 }
 
-/// Tax regime (CRT): 1=Simples Nacional, 2=Simples excess, 3=Normal
+/// Tax regime code (`CRT`) identifying the issuer's taxation framework.
+///
+/// Determines which ICMS CST/CSOSN codes are valid for the issuer and
+/// maps to the `<CRT>` element inside `<emit>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TaxRegime {
+    /// `CRT=1` — Simples Nacional (small businesses, unified tax collection).
     SimplesNacional = 1,
+    /// `CRT=2` — Simples Nacional with ICMS excess (revenue above Simples threshold).
     SimplesExcess = 2,
+    /// `CRT=3` — Normal regime (Lucro Real or Lucro Presumido).
     Normal = 3,
 }
 
-/// Contingency type for NF-e emission fallback
+/// Contingency type used when the primary SEFAZ authorizer is unavailable.
+///
+/// Each Brazilian state is pre-assigned to either SVC-AN or SVC-RS; see
+/// [`crate::contingency::contingency_for_state`] for the mapping.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ContingencyType {
+    /// SVC-AN — Sefaz Virtual do Ambiente Nacional (federal fallback).
     SvcAn,
+    /// SVC-RS — Sefaz Virtual do Rio Grande do Sul (southern states fallback).
     SvcRs,
+    /// Offline — document issued without any network access to SEFAZ.
     Offline,
 }
 
@@ -97,23 +146,37 @@ impl ContingencyType {
     }
 }
 
-/// QR Code version: 200 (v2) or 300 (v3, NT 2025.001)
+/// NFC-e QR code generation version.
+///
+/// Version 2 (`V200`) is the current standard and requires a CSC token.
+/// Version 3 (`V300`, introduced in NT 2025.001) drops the CSC requirement
+/// for online mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum QrCodeVersion {
+    /// Version 2 (`qrCodType=2`) — requires CSC token and CSC ID for SHA-1 HMAC.
     V200 = 200,
+    /// Version 3 (`qrCodType=3`, NT 2025.001) — no CSC needed for online emission.
     V300 = 300,
 }
 
 // ── Data structures ──────────────────────────────────────────────────────────
 
-/// Certificate loaded from PFX file
+/// PKCS#12 certificate data loaded from a PFX file.
+///
+/// Holds the PEM-encoded private key and certificate alongside the original
+/// PFX buffer and passphrase so the certificate can be reused for multiple
+/// signing operations without re-parsing.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct CertificateData {
+    /// PEM-encoded RSA private key (PKCS#8 format).
     pub private_key: String,
+    /// PEM-encoded X.509 certificate.
     pub certificate: String,
+    /// Raw PKCS#12/PFX binary buffer.
     pub pfx_buffer: Vec<u8>,
+    /// Passphrase used to unlock the PFX file.
     pub passphrase: String,
 }
 
@@ -134,14 +197,21 @@ impl CertificateData {
     }
 }
 
-/// Certificate info for display purposes
+/// Human-readable X.509 certificate metadata for display purposes.
+///
+/// Extracted from a PKCS#12 file without exposing the private key.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct CertificateInfo {
+    /// Common name (CN) from the certificate's subject field.
     pub common_name: String,
+    /// Date from which the certificate is valid (`notBefore`).
     pub valid_from: NaiveDate,
+    /// Expiry date of the certificate (`notAfter`).
     pub valid_until: NaiveDate,
+    /// Hex-encoded X.509 serial number.
     pub serial_number: String,
+    /// Common name (CN) of the certificate issuer.
     pub issuer: String,
 }
 
@@ -164,18 +234,28 @@ impl CertificateInfo {
     }
 }
 
-/// Access key components for NF-e/NFC-e
+/// Input parameters for building a 44-digit NF-e / NFC-e access key.
+///
+/// The access key (`chave de acesso`) uniquely identifies a Brazilian electronic
+/// invoice and is computed from these components using a Verhoeff-like algorithm.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct AccessKeyParams {
-    /// IBGE numeric state code (e.g. "41" for PR).
+    /// IBGE numeric state code (e.g. `"41"` for Paraná).
     pub state_code: IbgeCode,
+    /// Emission year and month in `YYMM` format (e.g. `"2503"` for March 2025).
     pub year_month: String,
+    /// CNPJ or CPF of the issuer (digits only, 14 or 11 characters).
     pub tax_id: String,
+    /// Invoice model: [`InvoiceModel::Nfe`] (55) or [`InvoiceModel::Nfce`] (65).
     pub model: InvoiceModel,
+    /// Series number (0–999).
     pub series: u32,
+    /// Invoice number (`nNF`, 1–999 999 999).
     pub number: u32,
+    /// Emission type used to set `tpEmis` in the key.
     pub emission_type: EmissionType,
+    /// Random numeric code (`cNF`, 8 digits) for uniqueness.
     pub numeric_code: String,
 }
 
@@ -205,24 +285,61 @@ impl AccessKeyParams {
     }
 }
 
-/// Issuer data (from fiscal settings)
+/// Issuer (emitente) identification and address data.
+///
+/// Required for every NF-e / NFC-e document. Built via [`IssuerData::new`];
+/// optional fields (`trade_name`, `address_complement`) are set with chainable
+/// methods.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::types::{IssuerData, TaxRegime};
+/// use fiscal_core::newtypes::IbgeCode;
+///
+/// let issuer = IssuerData::new(
+///     "12345678000199",   // CNPJ
+///     "123456789",        // state tax ID
+///     "Minha Empresa Ltda",
+///     TaxRegime::SimplesNacional,
+///     "PR",
+///     IbgeCode("4106852".into()),
+///     "Curitiba",
+///     "Rua das Flores",
+///     "100",
+///     "Centro",
+///     "80010-010",
+/// );
+/// assert_eq!(issuer.state_code, "PR");
+/// ```
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct IssuerData {
+    /// CNPJ or CPF of the issuer (digits only).
     pub tax_id: String,
+    /// State tax registration (Inscrição Estadual).
     pub state_tax_id: String,
+    /// Legal company name (`xNome`).
     pub company_name: String,
+    /// Trading / fantasy name (`xFant`). Optional.
     pub trade_name: Option<String>,
+    /// Tax regime code (`CRT`).
     pub tax_regime: TaxRegime,
-    /// Two-letter state abbreviation (UF), e.g. "PR".
+    /// Two-letter state abbreviation (UF), e.g. `"PR"`.
     pub state_code: String,
-    /// IBGE city code, e.g. "4106852".
+    /// IBGE city code, e.g. `"4106852"` for Curitiba.
     pub city_code: IbgeCode,
+    /// City name (`xMun`).
     pub city_name: String,
+    /// Street name (`xLgr`).
     pub street: String,
+    /// Street / building number (`nro`).
     pub street_number: String,
+    /// Neighbourhood / district (`xBairro`).
     pub district: String,
+    /// Brazilian postal code — 8 digits, no hyphen (`CEP`).
     pub zip_code: String,
+    /// Address complement such as suite or floor (`xCpl`). Optional.
     pub address_complement: Option<String>,
 }
 
@@ -273,23 +390,36 @@ impl IssuerData {
     }
 }
 
-/// Recipient data (optional for NFC-e under R$200)
+/// Recipient (destinatário) identification and optional address data.
+///
+/// For NFC-e issued to anonymous consumers under R$200 the recipient may be
+/// omitted entirely. For other documents, at minimum `tax_id` and `name` are
+/// required; the full address is optional.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct RecipientData {
+    /// CNPJ, CPF, or foreign ID of the recipient (digits only).
     pub tax_id: String,
+    /// Recipient legal or individual name (`xNome`).
     pub name: String,
-    /// Two-letter state abbreviation (UF), e.g. "PR". Kept as Option<String>
-    /// because recipients can be from any state or absent entirely.
+    /// Two-letter state abbreviation (UF), e.g. `"PR"`.
+    /// `None` when the recipient's state is unknown or absent.
     pub state_code: Option<String>,
+    /// State tax registration (IE) of the recipient.
     pub state_tax_id: Option<String>,
+    /// Street name (`xLgr`).
     pub street: Option<String>,
+    /// Street / building number (`nro`).
     pub street_number: Option<String>,
+    /// Neighbourhood / district (`xBairro`).
     pub district: Option<String>,
-    /// IBGE city code, e.g. "4106852".
+    /// IBGE city code, e.g. `"4106852"` for Curitiba.
     pub city_code: Option<IbgeCode>,
+    /// City name (`xMun`).
     pub city_name: Option<String>,
+    /// Brazilian postal code — 8 digits, no hyphen (`CEP`).
     pub zip_code: Option<String>,
+    /// Address complement (`xCpl`).
     pub complement: Option<String>,
 }
 
@@ -359,12 +489,18 @@ impl RecipientData {
     }
 }
 
-/// Contingency data for fallback emission
+/// Contingency activation data embedded in an NF-e when the primary SEFAZ
+/// authorizer is unavailable.
+///
+/// When present, the XML builder inserts `<dhCont>` and `<xJust>` into `<ide>`.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ContingencyData {
+    /// Which contingency mode is active.
     pub contingency_type: ContingencyType,
+    /// Human-readable justification for entering contingency (15–256 chars).
     pub reason: String,
+    /// Timestamp when contingency mode was activated.
     pub at: DateTime<FixedOffset>,
 }
 
@@ -383,11 +519,16 @@ impl ContingencyData {
     }
 }
 
-/// Payment data for invoice
+/// Payment method and amount for a single payment entry (`<detPag>`).
+///
+/// Use the payment type codes from [`crate::constants::payment_types`] for
+/// the `method` field (e.g. `"01"` for cash, `"17"` for Pix).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PaymentData {
+    /// Payment type code (`tPag`), e.g. `"01"` (cash) or `"03"` (credit card).
     pub method: String,
+    /// Amount paid in this payment entry.
     pub amount: Cents,
 }
 
@@ -401,13 +542,19 @@ impl PaymentData {
     }
 }
 
-/// Payment card details
+/// Optional credit/debit card details attached to a payment entry (`<card>`).
+///
+/// All fields are optional; set only the ones available from the payment terminal.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct PaymentCardDetail {
+    /// Integration type code (`tpIntegra`): `"1"` (integrated) or `"2"` (non-integrated).
     pub integ_type: Option<String>,
+    /// CNPJ of the card acquirer (`CNPJ`).
     pub card_tax_id: Option<String>,
+    /// Card brand code (`tBand`), e.g. `"01"` (Visa), `"02"` (Mastercard).
     pub card_brand: Option<String>,
+    /// Authorization code from the acquirer (`cAut`).
     pub auth_code: Option<String>,
 }
 
@@ -442,50 +589,80 @@ impl PaymentCardDetail {
     }
 }
 
-/// Referenced document types
+/// Referenced fiscal document types that may appear in the `<NFref>` section.
+///
+/// Each variant represents a different class of referenced document.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ReferenceDoc {
+    /// Reference to another NF-e by its 44-digit access key.
     Nfe {
+        /// 44-digit access key of the referenced NF-e.
         access_key: String,
     },
+    /// Reference to a paper NF (model 1 or 1A).
     Nf {
-        /// IBGE numeric state code (e.g. "41" for PR).
+        /// IBGE numeric state code (e.g. `"41"` for PR).
         state_code: IbgeCode,
+        /// Year and month in `YYMM` format.
         year_month: String,
+        /// CNPJ of the issuer.
         tax_id: String,
+        /// Document model (e.g. `"01"`).
         model: String,
+        /// Series number.
         series: String,
+        /// Document number.
         number: String,
     },
+    /// Reference to a paper NF from a rural producer (NFP).
     Nfp {
-        /// IBGE numeric state code (e.g. "41" for PR).
+        /// IBGE numeric state code (e.g. `"41"` for PR).
         state_code: IbgeCode,
+        /// Year and month in `YYMM` format.
         year_month: String,
+        /// CPF or CNPJ of the issuer.
         tax_id: String,
+        /// Document model.
         model: String,
+        /// Series number.
         series: String,
+        /// Document number.
         number: String,
     },
+    /// Reference to a CT-e by its 44-digit access key.
     Cte {
+        /// 44-digit access key of the referenced CT-e.
         access_key: String,
     },
+    /// Reference to an ECF fiscal receipt.
     Ecf {
+        /// ECF model code.
         model: String,
+        /// ECF sequential number.
         ecf_number: String,
+        /// COO (Contador de Ordem de Operação) number.
         coo_number: String,
     },
 }
 
-/// Transport data
+/// Transport section (`<transp>`) data for an NF-e document.
+///
+/// The freight mode is required; all other fields are optional.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct TransportData {
+    /// Freight modality code (`modFrete`): `"0"` (issuer) through `"9"` (no freight).
     pub freight_mode: String,
+    /// Carrier identification (transportadora).
     pub carrier: Option<CarrierData>,
+    /// Main transport vehicle.
     pub vehicle: Option<VehicleData>,
+    /// Trailer vehicles (reboque).
     pub trailers: Option<Vec<VehicleData>>,
+    /// List of transported volumes (`vol`).
     pub volumes: Option<Vec<VolumeData>>,
+    /// ICMS retained on transport services (`retTransp`).
     pub retained_icms: Option<RetainedIcmsTransp>,
 }
 
@@ -530,13 +707,21 @@ impl TransportData {
 }
 
 /// Carrier (transportadora) identification for freight transport.
+///
+/// All fields are optional to accommodate scenarios where only partial
+/// carrier information is available.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct CarrierData {
+    /// CNPJ or CPF of the carrier.
     pub tax_id: Option<String>,
+    /// Legal name of the carrier (`xNome`).
     pub name: Option<String>,
+    /// State tax registration (IE) of the carrier.
     pub state_tax_id: Option<String>,
+    /// Two-letter state code (UF) of the carrier.
     pub state_code: Option<String>,
+    /// Full address string of the carrier (`xEnder`).
     pub address: Option<String>,
 }
 
@@ -577,12 +762,15 @@ impl CarrierData {
     }
 }
 
-/// Vehicle data for transport (veicTransp / reboque).
+/// Vehicle identification for transport (`veicTransp`) or trailers (`reboque`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct VehicleData {
+    /// Vehicle licence plate (`placa`).
     pub plate: String,
+    /// State (UF) where the vehicle is registered.
     pub state_code: String,
+    /// ANTT registration code (`RNTC`). Optional.
     pub rntc: Option<String>,
 }
 
@@ -603,16 +791,23 @@ impl VehicleData {
     }
 }
 
-/// Volume data for transported goods (vol).
+/// A single transported volume (`<vol>`) with optional identification and weights.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct VolumeData {
+    /// Number of volumes (`qVol`).
     pub quantity: Option<u32>,
+    /// Species / type of packaging (`esp`), e.g. `"CAIXA"`.
     pub species: Option<String>,
+    /// Brand on the packaging (`marca`).
     pub brand: Option<String>,
+    /// Volume number / identifier (`nVol`).
     pub number: Option<String>,
+    /// Net weight in kilograms (`pesoL`).
     pub net_weight: Option<f64>,
+    /// Gross weight in kilograms (`pesoB`).
     pub gross_weight: Option<f64>,
+    /// List of seal numbers (`lacres`).
     pub seals: Option<Vec<String>>,
 }
 
@@ -659,15 +854,21 @@ impl VolumeData {
     }
 }
 
-/// Retained ICMS on transport services (retTransp).
+/// ICMS retained on transport services (`<retTransp>`).
+///
+/// Applicable when the carrier is subject to ICMS withholding.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct RetainedIcmsTransp {
+    /// ICMS calculation base for the retained amount (`vBCRet`).
     pub v_bc_ret: Cents,
+    /// ICMS rate applied to the retained amount (`pICMSRet`).
     pub p_icms_ret: Rate,
+    /// Retained ICMS value (`vICMSRet`).
     pub v_icms_ret: Cents,
+    /// CFOP code applicable to the transport service.
     pub cfop: String,
-    /// IBGE city code for the transport tax event municipality.
+    /// IBGE city code of the municipality where the tax event occurred.
     pub city_code: IbgeCode,
 }
 
@@ -690,11 +891,13 @@ impl RetainedIcmsTransp {
     }
 }
 
-/// Billing data (cobr)
+/// Billing section (`<cobr>`) with optional invoice header and installments.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct BillingData {
+    /// Billing invoice summary (`<fat>`).
     pub invoice: Option<BillingInvoice>,
+    /// Individual billing installments (`<dup>`).
     pub installments: Option<Vec<Installment>>,
 }
 
@@ -717,13 +920,17 @@ impl BillingData {
     }
 }
 
-/// Billing invoice header (fat) with original, discount, and net values.
+/// Billing invoice summary (`<fat>`) with original, discount, and net values.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct BillingInvoice {
+    /// Invoice / bill number (`nFat`).
     pub number: String,
+    /// Original invoice value before discounts (`vOrig`).
     pub original_value: Cents,
+    /// Discount amount (`vDesc`). Optional.
     pub discount_value: Option<Cents>,
+    /// Net invoice value after discounts (`vLiq`).
     pub net_value: Cents,
 }
 
@@ -745,12 +952,15 @@ impl BillingInvoice {
     }
 }
 
-/// Billing installment (dup) with number, due date, and value.
+/// A single billing installment (`<dup>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Installment {
+    /// Installment number (`nDup`), e.g. `"001"`.
     pub number: String,
+    /// Due date (`dVenc`) in `YYYY-MM-DD` format.
     pub due_date: String,
+    /// Instalment amount (`vDup`).
     pub value: Cents,
 }
 
@@ -765,21 +975,29 @@ impl Installment {
     }
 }
 
-/// Withdrawal/pickup or delivery location
+/// Address data for pickup (`retirada`) or delivery (`entrega`) locations.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct LocationData {
+    /// CNPJ or CPF of the location owner.
     pub tax_id: String,
+    /// Name of the location (`xNome`). Optional.
     pub name: Option<String>,
+    /// Street name (`xLgr`).
     pub street: String,
+    /// Street / building number (`nro`).
     pub number: String,
+    /// Address complement (`xCpl`). Optional.
     pub complement: Option<String>,
+    /// Neighbourhood / district (`xBairro`).
     pub district: String,
-    /// IBGE city code, e.g. "4106852".
+    /// IBGE city code, e.g. `"4106852"` for Curitiba.
     pub city_code: IbgeCode,
+    /// City name (`xMun`).
     pub city_name: String,
-    /// Two-letter state abbreviation (UF), e.g. "PR".
+    /// Two-letter state abbreviation (UF), e.g. `"PR"`.
     pub state_code: String,
+    /// Postal code (`CEP`). Optional.
     pub zip_code: Option<String>,
 }
 
@@ -826,14 +1044,19 @@ impl LocationData {
     }
 }
 
-/// Additional info (infAdic)
+/// Additional information section (`<infAdic>`) for freeform notes and observations.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct AdditionalInfo {
+    /// Free-text note for the taxpayer (`infCpl`), printed on the DANFE.
     pub taxpayer_note: Option<String>,
+    /// Note for the tax authority (`infAdFisco`), not printed on the DANFE.
     pub tax_authority_note: Option<String>,
+    /// Contributor observations (`obsCont`).
     pub contributor_obs: Option<Vec<FieldText>>,
+    /// Fiscal observations (`obsFisco`).
     pub fiscal_obs: Option<Vec<FieldText>>,
+    /// References to administrative or judicial processes (`procRef`).
     pub process_refs: Option<Vec<ProcessRef>>,
 }
 
@@ -870,11 +1093,13 @@ impl AdditionalInfo {
     }
 }
 
-/// Generic field/text pair used in contributor and fiscal observations.
+/// A field-name / text-value pair used in contributor and fiscal observations.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct FieldText {
+    /// Field identifier (`xCampo`), max 20 characters.
     pub field: String,
+    /// Text value (`xTexto`), max 60 characters.
     pub text: String,
 }
 
@@ -888,11 +1113,13 @@ impl FieldText {
     }
 }
 
-/// Referenced administrative or judicial process (procRef).
+/// Reference to an administrative or judicial process (`<procRef>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ProcessRef {
+    /// Process number (`nProc`).
     pub number: String,
+    /// Process origin code (`indProc`): `"0"` (SEFAZ) through `"9"` (others).
     pub origin: String,
 }
 
@@ -906,11 +1133,13 @@ impl ProcessRef {
     }
 }
 
-/// Intermediary info (infIntermed)
+/// Intermediary entity data (`<infIntermed>`) for marketplace transactions.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct IntermediaryData {
+    /// CNPJ of the intermediary platform.
     pub tax_id: String,
+    /// Platform's internal identifier for the transaction (`idCadIntTran`). Optional.
     pub id_cad_int_tran: Option<String>,
 }
 
@@ -930,13 +1159,18 @@ impl IntermediaryData {
     }
 }
 
-/// Tech responsible (infRespTec)
+/// Technical responsible entity (`<infRespTec>`) — the company that developed the
+/// software used to issue the NF-e.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct TechResponsibleData {
+    /// CNPJ of the responsible software company (`CNPJ`).
     pub tax_id: String,
+    /// Name of the technical contact person (`xContato`).
     pub contact: String,
+    /// Contact email address (`email`).
     pub email: String,
+    /// Contact phone number (`fone`). Optional.
     pub phone: Option<String>,
 }
 
@@ -962,12 +1196,15 @@ impl TechResponsibleData {
     }
 }
 
-/// Purchase data (compra)
+/// Purchase references (`<compra>`) linking the NF-e to a purchase order or contract.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct PurchaseData {
+    /// Purchase order number (`xPed`). Optional.
     pub order_number: Option<String>,
+    /// Contract number (`xCont`). Optional.
     pub contract_number: Option<String>,
+    /// Purchase note / tender number (`xNEmp`). Optional.
     pub purchase_note: Option<String>,
 }
 
@@ -994,12 +1231,15 @@ impl PurchaseData {
     }
 }
 
-/// Export data (exporta)
+/// Export information (`<exporta>`) for NF-e documents covering international exports.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ExportData {
+    /// UF of the exit point from Brazil (`UFSaidaPais`).
     pub exit_state: String,
+    /// Name of the export location / port (`xLocExporta`).
     pub export_location: String,
+    /// Name of the dispatch/customs location (`xLocDespacho`). Optional.
     pub dispatch_location: Option<String>,
 }
 
@@ -1020,16 +1260,25 @@ impl ExportData {
     }
 }
 
-/// Retained taxes (retTrib)
+/// Retained federal taxes (`<retTrib>`) withheld at source.
+///
+/// All fields are optional; include only those applicable to the transaction.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct RetTribData {
+    /// Retained PIS value (`vRetPIS`).
     pub v_ret_pis: Option<Cents>,
+    /// Retained COFINS value (`vRetCOFINS`).
     pub v_ret_cofins: Option<Cents>,
+    /// Retained CSLL value (`vRetCSLL`).
     pub v_ret_csll: Option<Cents>,
+    /// IRRF calculation base (`vBCIRRF`).
     pub v_bc_irrf: Option<Cents>,
+    /// Retained IRRF value (`vIRRF`).
     pub v_irrf: Option<Cents>,
+    /// Social security (INSS) calculation base (`vBCRetPrev`).
     pub v_bc_ret_prev: Option<Cents>,
+    /// Retained social security contribution (`vRetPrev`).
     pub v_ret_prev: Option<Cents>,
 }
 
@@ -1076,14 +1325,19 @@ impl RetTribData {
     }
 }
 
-/// Batch tracking (rastro)
+/// Batch/lot tracking data (`<rastro>`) for traceability of perishable or regulated goods.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct RastroData {
+    /// Batch / lot number (`nLote`).
     pub n_lote: String,
+    /// Quantity in this batch (`qLote`).
     pub q_lote: f64,
+    /// Manufacturing / production date (`dFab`) in `YYYY-MM-DD` format.
     pub d_fab: String,
+    /// Expiry / validation date (`dVal`) in `YYYY-MM-DD` format.
     pub d_val: String,
+    /// Aggregate code (`cAgreg`). Optional.
     pub c_agreg: Option<String>,
 }
 
@@ -1111,33 +1365,59 @@ impl RastroData {
     }
 }
 
-/// Vehicle details (veicProd)
+/// Vehicle product details (`<veicProd>`) for NF-e documents covering automotive sales.
+///
+/// All fields are required as mandated by DENATRAN / SEFAZ vehicle invoicing rules.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct VeicProdData {
+    /// Type of operation (`tpOp`): `"1"` (sale to end consumer), `"2"` (sell to reseller), `"3"` (other).
     pub tp_op: String,
+    /// Chassis number (`chassi`), 17 characters.
     pub chassi: String,
+    /// DENATRAN colour code (`cCor`).
     pub c_cor: String,
+    /// Colour description (`xCor`).
     pub x_cor: String,
+    /// Engine power in CV (`pot`).
     pub pot: String,
+    /// Engine displacement in cm³ (`cilin`).
     pub cilin: String,
+    /// Net weight in kg (`pesoL`).
     pub peso_l: String,
+    /// Gross weight in kg (`pesoB`).
     pub peso_b: String,
+    /// Vehicle serial number (`nSerie`).
     pub n_serie: String,
+    /// Fuel type code (`tpComb`).
     pub tp_comb: String,
+    /// Engine number (`nMotor`).
     pub n_motor: String,
+    /// Maximum towing capacity in kg (`CMT`).
     pub cmt: String,
+    /// Wheelbase in mm (`dist`).
     pub dist: String,
+    /// Model year (`anoMod`).
     pub ano_mod: String,
+    /// Manufacturing year (`anoFab`).
     pub ano_fab: String,
+    /// Paint type code (`tpPint`).
     pub tp_pint: String,
+    /// Vehicle type code (`tpVeic`).
     pub tp_veic: String,
+    /// Vehicle species code (`espVeic`).
     pub esp_veic: String,
+    /// VIN condition (`VIN`): `"R"` (regular) or `"N"` (non-regular).
     pub vin: String,
+    /// Vehicle condition (`condVeic`): `"1"` (new) or `"2"` (used).
     pub cond_veic: String,
+    /// DENATRAN vehicle model code (`cMod`).
     pub c_mod: String,
+    /// DENATRAN colour code (extended) (`cCorDENATRAN`).
     pub c_cor_denatran: String,
+    /// Passenger capacity (`lota`).
     pub lota: String,
+    /// Vehicle restriction code (`tpRest`).
     pub tp_rest: String,
 }
 
@@ -1199,12 +1479,15 @@ impl VeicProdData {
     }
 }
 
-/// Medicine details (med)
+/// Medicine / pharmaceutical product details (`<med>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct MedData {
+    /// ANVISA product registry code (`cProdANVISA`). Optional (use `"isento"` when exempt).
     pub c_prod_anvisa: Option<String>,
+    /// Exemption reason when `cProdANVISA` is absent (`xMotivoIsencao`). Optional.
     pub x_motivo_isencao: Option<String>,
+    /// Maximum consumer price (`vPMC`) in the applicable state.
     pub v_pmc: Cents,
 }
 
@@ -1230,13 +1513,17 @@ impl MedData {
     }
 }
 
-/// Weapon details (arma)
+/// Firearm / weapon product details (`<arma>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ArmaData {
+    /// Weapon type code (`tpArma`): `"0"` (allowed use) or `"1"` (restricted use).
     pub tp_arma: String,
+    /// Weapon serial number (`nSerie`).
     pub n_serie: String,
+    /// Barrel number (`nCano`).
     pub n_cano: String,
+    /// Weapon description (`descr`).
     pub descr: String,
 }
 
@@ -1257,11 +1544,13 @@ impl ArmaData {
     }
 }
 
-/// Per-item observations (obsItem)
+/// Per-item observation fields (`<obsItem>`).
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct ObsItemData {
+    /// Contributor observation (`obsCont`). Optional.
     pub obs_cont: Option<ObsField>,
+    /// Fiscal observation (`obsFisco`). Optional.
     pub obs_fisco: Option<ObsField>,
 }
 
@@ -1283,11 +1572,13 @@ impl ObsItemData {
     }
 }
 
-/// Per-item observation field (obsCont / obsFisco) with field name and text.
+/// A single per-item observation field (`obsCont` or `obsFisco`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ObsField {
+    /// Field identifier (`xCampo`), max 20 characters.
     pub x_campo: String,
+    /// Text content (`xTexto`), max 60 characters.
     pub x_texto: String,
 }
 
@@ -1301,11 +1592,13 @@ impl ObsField {
     }
 }
 
-/// Referenced DFe per item
+/// A referenced digital fiscal document (DFe) linked to an invoice item (`<DFeRef>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct DFeReferenciadoData {
+    /// 44-digit access key of the referenced DFe.
     pub chave_acesso: String,
+    /// Item number within the referenced DFe (`nItemRef`). Optional.
     pub n_item: Option<String>,
 }
 
@@ -1325,85 +1618,160 @@ impl DFeReferenciadoData {
     }
 }
 
-/// Invoice item data
+/// Complete data for a single invoice line item (`<det>`), including product
+/// identification, pricing, and all applicable taxes.
+///
+/// Required fields are supplied via [`InvoiceItemData::new`]; optional fields
+/// (shipping, discounts, extended tax fields, specialised product data) are set
+/// via chainable setter methods.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct InvoiceItemData {
+    /// Sequential item number (`nItem`, 1-based).
     pub item_number: u32,
+    /// Issuer's internal product code (`cProd`).
     pub product_code: String,
+    /// Product or service description (`xProd`).
     pub description: String,
+    /// NCM (Nomenclatura Comum do MERCOSUL) classification code.
     pub ncm: String,
+    /// CFOP operation code (4 digits).
     pub cfop: String,
+    /// Commercial unit of measure (`uCom`), e.g. `"UN"`, `"KG"`.
     pub unit_of_measure: String,
+    /// Quantity in commercial units (`qCom`).
     pub quantity: f64,
+    /// Commercial unit price (`vUnCom`).
     pub unit_price: Cents,
+    /// Total item value (`vProd = qCom × vUnCom`).
     pub total_price: Cents,
+    /// GTIN / EAN barcode for commercial units (`cEAN`). `None` = no barcode.
     pub c_ean: Option<String>,
+    /// GTIN / EAN barcode for the taxation unit (`cEANTrib`). `None` = no barcode.
     pub c_ean_trib: Option<String>,
+    /// CEST code for ST-subject products (`CEST`). Optional.
     pub cest: Option<String>,
+    /// Freight value allocated to this item (`vFrete`). Optional.
     pub v_frete: Option<Cents>,
+    /// Insurance value allocated to this item (`vSeg`). Optional.
     pub v_seg: Option<Cents>,
+    /// Discount value for this item (`vDesc`). Optional.
     pub v_desc: Option<Cents>,
+    /// Other costs allocated to this item (`vOutro`). Optional.
     pub v_outro: Option<Cents>,
+    /// Product origin code (`orig`), e.g. `"0"` (domestic). Optional.
     pub orig: Option<String>,
-    // ICMS
+    // ── ICMS ────────────────────────────────────────────────────────────────
+    /// ICMS CST or CSOSN code (2–3 digits).
     pub icms_cst: String,
+    /// ICMS rate applied to this item (`pICMS`).
     pub icms_rate: Rate,
+    /// ICMS value for this item (`vICMS`).
     pub icms_amount: Cents,
+    /// ICMS base calculation modality (`modBC`). Optional.
     pub icms_mod_bc: Option<i64>,
+    /// ICMS base reduction rate (`pRedBC`). Optional.
     pub icms_red_bc: Option<Rate>,
+    /// ICMS ST base calculation modality (`modBCST`). Optional.
     pub icms_mod_bc_st: Option<i64>,
+    /// ICMS ST added value margin (`pMVAST`). Optional.
     pub icms_p_mva_st: Option<Rate>,
+    /// ICMS ST base reduction rate (`pRedBCST`). Optional.
     pub icms_red_bc_st: Option<Rate>,
+    /// ICMS ST calculation base value (`vBCST`). Optional.
     pub icms_v_bc_st: Option<Cents>,
+    /// ICMS ST rate (`pICMSST`). Optional.
     pub icms_p_icms_st: Option<Rate>,
+    /// ICMS ST value (`vICMSST`). Optional.
     pub icms_v_icms_st: Option<Cents>,
+    /// Desonerated ICMS value (`vICMSDeson`). Optional.
     pub icms_v_icms_deson: Option<Cents>,
+    /// Reason code for ICMS desoneration (`motDesICMS`). Optional.
     pub icms_mot_des_icms: Option<i64>,
+    /// FCP rate (`pFCP`). Optional.
     pub icms_p_fcp: Option<Rate>,
+    /// FCP value (`vFCP`). Optional.
     pub icms_v_fcp: Option<Cents>,
+    /// FCP calculation base (`vBCFCP`). Optional.
     pub icms_v_bc_fcp: Option<Cents>,
+    /// FCP-ST rate (`pFCPST`). Optional.
     pub icms_p_fcp_st: Option<Rate>,
+    /// FCP-ST value (`vFCPST`). Optional.
     pub icms_v_fcp_st: Option<Cents>,
+    /// FCP-ST calculation base (`vBCFCPST`). Optional.
     pub icms_v_bc_fcp_st: Option<Cents>,
+    /// Simples Nacional ICMS credit rate (`pCredSN`). Optional.
     pub icms_p_cred_sn: Option<Rate>,
+    /// Simples Nacional ICMS credit value (`vCredICMSSN`). Optional.
     pub icms_v_cred_icms_sn: Option<Cents>,
+    /// ICMS substitute value (`vICMSSubstituto`). Optional.
     pub icms_v_icms_substituto: Option<Cents>,
-    // PIS
+    // ── PIS ─────────────────────────────────────────────────────────────────
+    /// PIS CST code (2 digits).
     pub pis_cst: String,
+    /// PIS calculation base value (`vBCPIS`). Optional.
     pub pis_v_bc: Option<Cents>,
+    /// PIS rate (`pPIS`). Optional.
     pub pis_p_pis: Option<Rate4>,
+    /// PIS value (`vPIS`). Optional.
     pub pis_v_pis: Option<Cents>,
+    /// PIS quantity base (`qBCProd`). Optional.
     pub pis_q_bc_prod: Option<i64>,
+    /// PIS unit value (`vAliqProd`) for quantity-based calculation. Optional.
     pub pis_v_aliq_prod: Option<i64>,
-    // COFINS
+    // ── COFINS ──────────────────────────────────────────────────────────────
+    /// COFINS CST code (2 digits).
     pub cofins_cst: String,
+    /// COFINS calculation base value (`vBCCOFINS`). Optional.
     pub cofins_v_bc: Option<Cents>,
+    /// COFINS rate (`pCOFINS`). Optional.
     pub cofins_p_cofins: Option<Rate4>,
+    /// COFINS value (`vCOFINS`). Optional.
     pub cofins_v_cofins: Option<Cents>,
+    /// COFINS quantity base (`qBCProd`). Optional.
     pub cofins_q_bc_prod: Option<i64>,
+    /// COFINS unit value (`vAliqProd`) for quantity-based calculation. Optional.
     pub cofins_v_aliq_prod: Option<i64>,
-    // IPI
+    // ── IPI ─────────────────────────────────────────────────────────────────
+    /// IPI CST code. Optional (only for industrialised products).
     pub ipi_cst: Option<String>,
+    /// IPI enquadramento (classification) code (`cEnq`). Optional.
     pub ipi_c_enq: Option<String>,
+    /// IPI calculation base (`vBCIPI`). Optional.
     pub ipi_v_bc: Option<Cents>,
+    /// IPI rate (`pIPI`). Optional.
     pub ipi_p_ipi: Option<Rate>,
+    /// IPI value (`vIPI`). Optional.
     pub ipi_v_ipi: Option<Cents>,
+    /// IPI quantity base (`qUnid`). Optional.
     pub ipi_q_unid: Option<i64>,
+    /// IPI unit value (`vUnid`). Optional.
     pub ipi_v_unid: Option<i64>,
-    // II
+    // ── II (Import Duty) ─────────────────────────────────────────────────────
+    /// Import duty (II) calculation base (`vBCII`). Optional.
     pub ii_v_bc: Option<Cents>,
+    /// Customs clearance expenses (`vDespAdu`). Optional.
     pub ii_v_desp_adu: Option<Cents>,
+    /// Import duty value (`vII`). Optional.
     pub ii_v_ii: Option<Cents>,
+    /// IOF (financial operations tax) for imports (`vIOF`). Optional.
     pub ii_v_iof: Option<Cents>,
-    // Product options
+    // ── Specialised product data ─────────────────────────────────────────────
+    /// Batch / lot traceability records (`rastro`). Optional.
     pub rastro: Option<Vec<RastroData>>,
+    /// Vehicle product details (`veicProd`). Optional.
     pub veic_prod: Option<VeicProdData>,
+    /// Medicine / pharmaceutical product details (`med`). Optional.
     pub med: Option<MedData>,
+    /// Firearm / weapon details (`arma`). Optional.
     pub arma: Option<Vec<ArmaData>>,
+    /// RECOPI number for paper / printing sector products. Optional.
     pub n_recopi: Option<String>,
+    /// Additional product information printed on the DANFE (`infAdProd`). Optional.
     pub inf_ad_prod: Option<String>,
+    /// Per-item observations (`obsItem`). Optional.
     pub obs_item: Option<ObsItemData>,
+    /// Referenced digital fiscal document for this item (`DFeRef`). Optional.
     pub dfe_referenciado: Option<DFeReferenciadoData>,
 }
 
@@ -1826,10 +2194,11 @@ pub(crate) struct InvoiceBuildData {
     pub export: Option<ExportData>,
 }
 
-/// Third-party entity authorized to download the XML (autXML).
+/// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct AuthorizedXml {
+    /// CNPJ or CPF of the authorised entity.
     pub tax_id: String,
 }
 
@@ -1849,22 +2218,37 @@ pub(crate) struct InvoiceXmlResult {
     pub access_key: String,
 }
 
-/// Parameters for building an NFC-e QR Code URL
+/// Parameters for building an NFC-e QR Code URL.
+///
+/// Pass to [`crate::qrcode::build_nfce_qr_code_url`].
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct NfceQrCodeParams {
+    /// 44-digit NFC-e access key.
     pub access_key: String,
+    /// QR Code generation version.
     pub version: QrCodeVersion,
+    /// Submission environment (production or homologation).
     pub environment: SefazEnvironment,
+    /// Emission type (normal or contingency).
     pub emission_type: EmissionType,
+    /// Base URL from the state's NFC-e portal (without `?p=`).
     pub qr_code_base_url: String,
+    /// CSC (Consumer Security Code) token. Required for `V200`.
     pub csc_token: Option<String>,
+    /// CSC identifier number. Required for `V200`.
     pub csc_id: Option<String>,
+    /// Emission date-time string (`dhEmi`). Required for offline `V200`.
     pub issued_at: Option<String>,
+    /// Total NFC-e value string (2 decimal places). Required for offline `V200`.
     pub total_value: Option<String>,
+    /// Total ICMS value string. Optional.
     pub total_icms: Option<String>,
+    /// SHA-1 digest value from the XML signature. Required for offline `V200`.
     pub digest_value: Option<String>,
+    /// CNPJ, CPF, or foreign ID of the destination. Optional.
     pub dest_document: Option<String>,
+    /// Destination ID type indicator. Optional.
     pub dest_id_type: Option<String>,
 }
 
@@ -1936,15 +2320,23 @@ impl NfceQrCodeParams {
     }
 }
 
-/// Parameters for inserting QR Code into NFC-e XML
+/// Parameters for inserting the `<infNFeSupl>` QR Code block into a signed NFC-e XML.
+///
+/// Pass to [`crate::qrcode::put_qr_tag`].
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PutQRTagParams {
+    /// The signed NFC-e XML string.
     pub xml: String,
+    /// CSC (Consumer Security Code) token value.
     pub csc_token: String,
+    /// CSC identifier number (as a string).
     pub csc_id: String,
+    /// QR Code version string: `"200"` or `"300"`.
     pub version: String,
+    /// Base QR Code URL for the issuer's state.
     pub qr_code_base_url: String,
+    /// Base URL for the consumer consultation link (`urlChave`).
     pub url_chave: String,
 }
 

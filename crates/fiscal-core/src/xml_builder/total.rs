@@ -5,12 +5,16 @@ use crate::tax_icms::IcmsTotals;
 use crate::types::RetTribData;
 use crate::xml_utils::{TagContent, tag};
 
-/// Accumulated non-ICMS totals.
+/// Accumulated non-ICMS totals for the invoice total calculation.
 #[derive(Debug, Clone)]
 pub struct OtherTotals {
+    /// Total IPI value in cents.
     pub v_ipi: i64,
+    /// Total PIS value in cents.
     pub v_pis: i64,
+    /// Total COFINS value in cents.
     pub v_cofins: i64,
+    /// Total II (import tax) value in cents.
     pub v_ii: i64,
 }
 

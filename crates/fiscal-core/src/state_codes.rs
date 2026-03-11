@@ -1,9 +1,28 @@
+//! Brazilian state IBGE code lookup tables and helper functions.
+//!
+//! Two static maps are provided:
+//! - [`STATE_IBGE_CODES`] — two-letter UF abbreviation → IBGE numeric `cUF` code.
+//! - [`IBGE_TO_UF`] — IBGE numeric code → two-letter UF abbreviation (reverse).
+//!
+//! Use [`get_state_code`] and [`get_state_by_code`] for ergonomic access
+//! with proper error handling.
+
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::FiscalError;
 
-/// UF abbreviation -> IBGE numeric code (cUF)
+/// Lazy-initialised map from two-letter UF abbreviation to IBGE numeric state code (`cUF`).
+///
+/// Contains all 26 Brazilian states plus the Federal District (DF).
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::state_codes::STATE_IBGE_CODES;
+/// assert_eq!(STATE_IBGE_CODES.get("PR"), Some(&"41"));
+/// assert_eq!(STATE_IBGE_CODES.get("SP"), Some(&"35"));
+/// ```
 pub static STATE_IBGE_CODES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     HashMap::from([
         ("AC", "12"),
@@ -36,7 +55,14 @@ pub static STATE_IBGE_CODES: LazyLock<HashMap<&'static str, &'static str>> = Laz
     ])
 });
 
-/// IBGE numeric code -> UF abbreviation (reverse lookup)
+/// Lazy-initialised reverse map from IBGE numeric state code to two-letter UF abbreviation.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::state_codes::IBGE_TO_UF;
+/// assert_eq!(IBGE_TO_UF.get("41"), Some(&"PR"));
+/// ```
 pub static IBGE_TO_UF: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     STATE_IBGE_CODES
         .iter()

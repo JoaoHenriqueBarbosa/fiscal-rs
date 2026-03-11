@@ -1,3 +1,15 @@
+//! PIS, COFINS, IPI, and II (import tax) XML generation for NF-e items.
+//!
+//! Public entry points:
+//! - [`build_pis_xml`] / [`build_pis_st_xml`] — `<PIS>` / `<PISST>` elements
+//! - [`build_cofins_xml`] / [`build_cofins_st_xml`] — `<COFINS>` / `<COFINSST>` elements
+//! - [`build_ipi_xml`] — `<IPI>` element (IPITrib or IPINT)
+//! - [`build_ii_xml`] — `<II>` import-tax element
+//!
+//! Internally PIS and COFINS share a single generic engine parameterised by
+//! [`ContributionTaxConfig`]; their public APIs accept separate typed structs
+//! ([`PisData`] / [`CofinsData`]) so callers remain independent.
+
 use crate::format_utils::{format_cents_or_zero, format_rate4_or_zero};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_element::{TaxElement, TaxField, serialize_tax_element};
@@ -25,14 +37,23 @@ const IPI_TRIB_CSTS: &[&str] = &["00", "49", "50", "99"];
 // ── Types ───────────────────────────────────────────────────────────────────
 
 /// PIS tax input data. Monetary fields use [`Cents`], rates use [`Rate4`].
+///
+/// Build with [`PisData::new`] and chain the optional setters.
+/// Pass to [`build_pis_xml`] to generate the `<PIS>` XML fragment.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct PisData {
+    /// PIS CST code (`CST`), e.g. `"01"`, `"07"`.
     pub cst: String,
+    /// Calculation base value (`vBC`). Required for CST 01/02.
     pub v_bc: Option<Cents>,
+    /// PIS rate (`pPIS`). Required for CST 01/02.
     pub p_pis: Option<Rate4>,
+    /// PIS value (`vPIS`). Required for CST 01/02/49+.
     pub v_pis: Option<Cents>,
+    /// Quantity base for unit-rate calculation (`qBCProd`). Required for CST 03.
     pub q_bc_prod: Option<i64>,
+    /// Unit aliquot in tenths of reais (`vAliqProd`). Required for CST 03.
     pub v_aliq_prod: Option<i64>,
 }
 
@@ -71,15 +92,23 @@ impl PisData {
     }
 }
 
-/// PIS-ST input data
+/// PIS-ST (substituição tributária) input data.
+///
+/// Pass to [`build_pis_st_xml`] to generate the `<PISST>` XML fragment.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct PisStData {
+    /// ST calculation base value (`vBC`). Optional for quantity-based mode.
     pub v_bc: Option<Cents>,
+    /// PIS rate for ST (`pPIS`). Optional.
     pub p_pis: Option<Rate4>,
+    /// Quantity base for unit-rate calculation (`qBCProd`). Optional.
     pub q_bc_prod: Option<i64>,
+    /// Unit aliquot (`vAliqProd`). Optional.
     pub v_aliq_prod: Option<i64>,
+    /// PIS ST value (`vPIS`).
     pub v_pis: Cents,
+    /// Indicates whether ST value should be summed (`indSomaPISST`). Optional.
     pub ind_soma_pis_st: Option<i64>,
 }
 
@@ -119,14 +148,23 @@ impl PisStData {
 }
 
 /// COFINS tax input data. Monetary fields use [`Cents`], rates use [`Rate4`].
+///
+/// Build with [`CofinsData::new`] and chain the optional setters.
+/// Pass to [`build_cofins_xml`] to generate the `<COFINS>` XML fragment.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct CofinsData {
+    /// COFINS CST code (`CST`), e.g. `"01"`, `"07"`.
     pub cst: String,
+    /// Calculation base value (`vBC`). Required for CST 01/02.
     pub v_bc: Option<Cents>,
+    /// COFINS rate (`pCOFINS`). Required for CST 01/02.
     pub p_cofins: Option<Rate4>,
+    /// COFINS value (`vCOFINS`). Required for CST 01/02/49+.
     pub v_cofins: Option<Cents>,
+    /// Quantity base for unit-rate calculation (`qBCProd`). Required for CST 03.
     pub q_bc_prod: Option<i64>,
+    /// Unit aliquot in tenths of reais (`vAliqProd`). Required for CST 03.
     pub v_aliq_prod: Option<i64>,
 }
 
@@ -165,15 +203,23 @@ impl CofinsData {
     }
 }
 
-/// COFINS-ST input data
+/// COFINS-ST (substituição tributária) input data.
+///
+/// Pass to [`build_cofins_st_xml`] to generate the `<COFINSST>` XML fragment.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct CofinsStData {
+    /// ST calculation base value (`vBC`). Optional for quantity-based mode.
     pub v_bc: Option<Cents>,
+    /// COFINS rate for ST (`pCOFINS`). Optional.
     pub p_cofins: Option<Rate4>,
+    /// Quantity base for unit-rate calculation (`qBCProd`). Optional.
     pub q_bc_prod: Option<i64>,
+    /// Unit aliquot (`vAliqProd`). Optional.
     pub v_aliq_prod: Option<i64>,
+    /// COFINS ST value (`vCOFINS`).
     pub v_cofins: Cents,
+    /// Indicates whether ST value should be summed (`indSomaCOFINSST`). Optional.
     pub ind_soma_cofins_st: Option<i64>,
 }
 
@@ -212,19 +258,32 @@ impl CofinsStData {
     }
 }
 
-/// IPI input data
+/// IPI (Imposto sobre Produtos Industrializados) input data.
+///
+/// Build with [`IpiData::new`] and chain the optional setters.
+/// Pass to [`build_ipi_xml`] to generate the `<IPI>` XML fragment.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct IpiData {
+    /// IPI CST code (`CST`), e.g. `"00"`, `"53"`.
     pub cst: String,
+    /// Enquadramento IPI code (`cEnq`), e.g. `"999"`.
     pub c_enq: String,
+    /// Producer CNPJ (`CNPJProd`). Optional.
     pub cnpj_prod: Option<String>,
+    /// Seal control code (`cSelo`). Optional.
     pub c_selo: Option<String>,
+    /// Seal quantity (`qSelo`). Optional.
     pub q_selo: Option<i64>,
+    /// Calculation base value (`vBC`). Required when `p_ipi` is set.
     pub v_bc: Option<Cents>,
+    /// IPI rate (`pIPI`). Required for percentage-based taxed CSTs.
     pub p_ipi: Option<Rate>,
+    /// Quantity of units (`qUnid`). Required for unit-rate taxed CSTs.
     pub q_unid: Option<i64>,
+    /// Unit value (`vUnid`). Required for unit-rate taxed CSTs.
     pub v_unid: Option<i64>,
+    /// IPI value (`vIPI`). Required for taxed CSTs.
     pub v_ipi: Option<Cents>,
 }
 
@@ -279,13 +338,20 @@ impl IpiData {
     }
 }
 
-/// II (import tax) input data
+/// II (Imposto de Importação — import tax) input data.
+///
+/// All four fields are required. Pass to [`build_ii_xml`] to generate the
+/// `<II>` XML fragment.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct IiData {
+    /// Import tax calculation base (`vBC`).
     pub v_bc: Cents,
+    /// Customs clearance expenses (`vDespAdu`).
     pub v_desp_adu: Cents,
+    /// Import tax value (`vII`).
     pub v_ii: Cents,
+    /// IOF (tax on financial operations) value (`vIOF`).
     pub v_iof: Cents,
 }
 

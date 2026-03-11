@@ -11,11 +11,17 @@ use crate::xml_utils::{TagContent, tag};
 /// Result from building a single `<det>` element.
 #[derive(Debug, Clone)]
 pub struct DetResult {
+    /// The serialised `<det>` XML string.
     pub xml: String,
+    /// Accumulated ICMS totals contributed by this item.
     pub icms_totals: IcmsTotals,
+    /// IPI value in cents contributed by this item.
     pub v_ipi: i64,
+    /// PIS value in cents contributed by this item.
     pub v_pis: i64,
+    /// COFINS value in cents contributed by this item.
     pub v_cofins: i64,
+    /// II (import tax) value in cents contributed by this item.
     pub v_ii: i64,
 }
 

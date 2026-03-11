@@ -1,3 +1,11 @@
+//! ISSQN (ISS — Imposto Sobre Serviços) XML generation for NF-e service items.
+//!
+//! Public entry points:
+//! - [`build_issqn_xml`] — generate `<ISSQN>` element without total accumulation.
+//! - [`build_issqn_xml_with_totals`] — generate `<ISSQN>` element and accumulate into [`IssqnTotals`].
+//! - [`build_imposto_devol`] — generate `<impostoDevol>` element for return invoices.
+//! - [`create_issqn_totals`] — create a zeroed [`IssqnTotals`] accumulator.
+
 use crate::format_utils::{format_cents_2, format_rate_4};
 use crate::tax_element::{
     TaxElement, TaxField, filter_fields, optional_field, serialize_tax_element,
@@ -43,6 +51,12 @@ pub struct IssqnData {
 }
 
 impl IssqnData {
+    /// Create a new `IssqnData` with all required fields.
+    ///
+    /// `v_bc` is the calculation base in cents; `v_aliq` is the ISS rate in
+    /// hundredths of percent (e.g. `500` = 5.00%); `v_issqn` is the tax value
+    /// in cents; `c_mun_fg` is the 7-digit IBGE municipality code of the
+    /// taxable event; `c_list_serv` is the service list item code (LC 116/2003).
     pub fn new(
         v_bc: i64,
         v_aliq: i64,
@@ -59,46 +73,57 @@ impl IssqnData {
             ..Default::default()
         }
     }
+    /// Set the deduction value (`vDeducao`) in cents.
     pub fn v_deducao(mut self, v: i64) -> Self {
         self.v_deducao = Some(v);
         self
     }
+    /// Set the other retention value (`vOutro`) in cents.
     pub fn v_outro(mut self, v: i64) -> Self {
         self.v_outro = Some(v);
         self
     }
+    /// Set the unconditional discount (`vDescIncond`) in cents.
     pub fn v_desc_incond(mut self, v: i64) -> Self {
         self.v_desc_incond = Some(v);
         self
     }
+    /// Set the conditional discount (`vDescCond`) in cents.
     pub fn v_desc_cond(mut self, v: i64) -> Self {
         self.v_desc_cond = Some(v);
         self
     }
+    /// Set the ISS retention value (`vISSRet`) in cents.
     pub fn v_iss_ret(mut self, v: i64) -> Self {
         self.v_iss_ret = Some(v);
         self
     }
+    /// Set the ISS enforceability indicator (`indISS`), values 1–7.
     pub fn ind_iss(mut self, v: impl Into<String>) -> Self {
         self.ind_iss = Some(v.into());
         self
     }
+    /// Set the municipal service code (`cServico`).
     pub fn c_servico(mut self, v: impl Into<String>) -> Self {
         self.c_servico = Some(v.into());
         self
     }
+    /// Set the municipality of incidence (`cMun`, 7-digit IBGE code).
     pub fn c_mun(mut self, v: impl Into<String>) -> Self {
         self.c_mun = Some(v.into());
         self
     }
+    /// Set the country code (`cPais`).
     pub fn c_pais(mut self, v: impl Into<String>) -> Self {
         self.c_pais = Some(v.into());
         self
     }
+    /// Set the judicial process number (`nProcesso`).
     pub fn n_processo(mut self, v: impl Into<String>) -> Self {
         self.n_processo = Some(v.into());
         self
     }
+    /// Set the tax incentive indicator (`indIncentivo`): `"1"` = yes, `"2"` = no.
     pub fn ind_incentivo(mut self, v: impl Into<String>) -> Self {
         self.ind_incentivo = Some(v.into());
         self
