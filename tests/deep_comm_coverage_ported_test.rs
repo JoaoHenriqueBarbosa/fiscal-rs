@@ -12,41 +12,11 @@ use common::expect_xml_tag_values as expect_xml_contains;
 
 /// Standard minimal item for NF-e 55 tests.
 fn minimal_nfe55_item() -> InvoiceItemData {
-    InvoiceItemData {
-        item_number: 1,
-        product_code: "001".to_string(),
-        description: "Produto Teste".to_string(),
-        ncm: "61091000".to_string(),
-        cfop: "5102".to_string(),
-        unit_of_measure: "UN".to_string(),
-        quantity: 10.0,
-        unit_price: Cents(1000),
-        total_price: Cents(10000),
-        icms_cst: "00".to_string(),
-        icms_rate: Rate(1800),
-        icms_amount: Cents(1800),
-        icms_mod_bc: Some(0),
-        pis_cst: "07".to_string(),
-        cofins_cst: "07".to_string(),
-        c_ean: None, c_ean_trib: None, cest: None, v_frete: None, v_seg: None,
-        v_desc: None, v_outro: None, orig: None, icms_red_bc: None,
-        icms_mod_bc_st: None, icms_p_mva_st: None, icms_red_bc_st: None,
-        icms_v_bc_st: None, icms_p_icms_st: None, icms_v_icms_st: None,
-        icms_v_icms_deson: None, icms_mot_des_icms: None, icms_p_fcp: None,
-        icms_v_fcp: None, icms_v_bc_fcp: None, icms_p_fcp_st: None,
-        icms_v_fcp_st: None, icms_v_bc_fcp_st: None, icms_p_cred_sn: None,
-        icms_v_cred_icms_sn: None, icms_v_icms_substituto: None,
-        pis_v_bc: None, pis_p_pis: None, pis_v_pis: None,
-        pis_q_bc_prod: None, pis_v_aliq_prod: None,
-        cofins_v_bc: None, cofins_p_cofins: None, cofins_v_cofins: None,
-        cofins_q_bc_prod: None, cofins_v_aliq_prod: None,
-        ipi_cst: None, ipi_c_enq: None, ipi_v_bc: None, ipi_p_ipi: None,
-        ipi_v_ipi: None, ipi_q_unid: None, ipi_v_unid: None,
-        ii_v_bc: None, ii_v_desp_adu: None, ii_v_ii: None, ii_v_iof: None,
-        rastro: None, veic_prod: None, med: None, arma: None,
-        n_recopi: None, inf_ad_prod: None, obs_item: None,
-        dfe_referenciado: None,
-    }
+    InvoiceItemData::new(
+        1, "001", "Produto Teste", "61091000", "5102", "UN",
+        10.0, Cents(1000), Cents(10000),
+        "00", Rate(1800), Cents(1800), "07", "07",
+    ).icms_mod_bc(0)
 }
 
 /// Helper to build a minimal NF-e 55 InvoiceBuilder for tests that just need valid XML output.
@@ -61,35 +31,21 @@ fn minimal_nfe55(number: u32) -> InvoiceBuilder {
         .unwrap();
 
     InvoiceBuilder::new(
-        IssuerData {
-            tax_id: "58716523000119".to_string(),
-            state_tax_id: "123456789012".to_string(),
-            company_name: "EMPRESA TESTE LTDA".to_string(),
-            trade_name: Some("EMPRESA TESTE".to_string()),
-            tax_regime: TaxRegime::Normal,
-            state_code: "SP".to_string(),
-            city_code: IbgeCode("3550308".to_string()),
-            city_name: "Sao Paulo".to_string(),
-            street: "Rua Teste".to_string(),
-            street_number: "100".to_string(),
-            district: "Centro".to_string(),
-            zip_code: "01001000".to_string(),
-            address_complement: None,
-        },
+        IssuerData::new(
+            "58716523000119", "123456789012", "EMPRESA TESTE LTDA",
+            TaxRegime::Normal, "SP",
+            IbgeCode("3550308".to_string()), "Sao Paulo",
+            "Rua Teste", "100", "Centro", "01001000",
+        ).trade_name("EMPRESA TESTE"),
         SefazEnvironment::Homologation,
         InvoiceModel::Nfe,
     )
     .series(1)
     .invoice_number(number)
     .issued_at(dt)
-    .recipient(RecipientData {
-        tax_id: "11222333000181".to_string(),
-        name: "CLIENTE TESTE".to_string(),
-        state_code: Some("SP".to_string()),
-        ..Default::default()
-    })
+    .recipient(RecipientData::new("11222333000181", "CLIENTE TESTE").state_code("SP"))
     .items(vec![minimal_nfe55_item()])
-    .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(10000) }])
+    .payments(vec![PaymentData::new("01", Cents(10000))])
 }
 
 // =============================================================================
@@ -121,7 +77,7 @@ mod deep_coverage_test {
             let result = minimal_nfe55(30)
                 .operation_nature("OPERACAO COM ACENTUACAO")
                 .items(vec![item])
-                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(1000) }])
+                .payments(vec![PaymentData::new("01", Cents(1000))])
                 .build();
             assert!(result.is_ok());
         }
@@ -353,28 +309,14 @@ mod deep_coverage_test {
             item.description = "Produto NFC-e".to_string();
             item.icms_cst = "102".to_string();
 
-            let issuer = IssuerData {
-                tax_id: "58716523000119".to_string(),
-                state_tax_id: "123456789012".to_string(),
-                company_name: "EMPRESA TESTE LTDA".to_string(),
-                trade_name: Some("EMPRESA TESTE".to_string()),
-                tax_regime: TaxRegime::SimplesNacional,
-                state_code: "SP".to_string(),
-                city_code: IbgeCode("3550308".to_string()),
-                city_name: "Sao Paulo".to_string(),
-                street: "Rua Teste".to_string(),
-                street_number: "100".to_string(),
-                district: "Centro".to_string(),
-                zip_code: "01001000".to_string(),
-                address_complement: None,
-            };
+            let issuer = IssuerData::new("58716523000119", "123456789012", "EMPRESA TESTE LTDA", TaxRegime::SimplesNacional, "SP", IbgeCode("3550308".to_string()), "Sao Paulo", "Rua Teste", "100", "Centro", "01001000").trade_name("EMPRESA TESTE");
 
             let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
                 .series(1)
                 .invoice_number(1)
                 .issued_at(dt)
                 .items(vec![item])
-                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(5000) }])
+                .payments(vec![PaymentData::new("01", Cents(5000))])
                 .build()
                 .expect("build failed");
             let modelo = &built.access_key()[20..22];
@@ -949,7 +891,7 @@ mod deep_coverage_test {
 
             let built = minimal_nfe55(30)
                 .items(vec![item1, item2])
-                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(11000) }])
+                .payments(vec![PaymentData::new("01", Cents(11000))])
                 .build()
                 .expect("build failed");
             assert!(built.xml().contains(r#"nItem="1""#));
@@ -1223,7 +1165,7 @@ mod deep_coverage_test {
 
             let built = minimal_nfe55(10)
                 .items(vec![item1, item2])
-                .payments(vec![PaymentData { method: "01".to_string(), amount: Cents(20000) }])
+                .payments(vec![PaymentData::new("01", Cents(20000))])
                 .build()
                 .expect("build failed");
             assert!(built.xml().contains(r#"nItem="1""#));

@@ -8,22 +8,17 @@ mod build_nfce_qr_code_url_v200 {
 
     #[test]
     fn generates_online_qr_code_url_tp_emis_1() {
-        let url = build_nfce_qr_code_url(&NfceQrCodeParams {
-            version: QrCodeVersion::V200,
-            access_key: "35260112345678000199650010000000011123456780".into(),
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            csc_id: Some("000001".into()),
-            csc_token: Some("ABCDEF123456".into()),
-            qr_code_base_url:
-                "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode".into(),
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        })
+        let url = build_nfce_qr_code_url(
+            &NfceQrCodeParams::new(
+                "35260112345678000199650010000000011123456780",
+                QrCodeVersion::V200,
+                SefazEnvironment::Homologation,
+                EmissionType::Normal,
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode",
+            )
+            .csc_id("000001")
+            .csc_token("ABCDEF123456"),
+        )
         .expect("should build v200 online QR code URL");
 
         assert!(url.contains(
@@ -39,21 +34,20 @@ mod build_nfce_qr_code_url_v200 {
 
     #[test]
     fn generates_offline_qr_code_url_tp_emis_9() {
-        let url = build_nfce_qr_code_url(&NfceQrCodeParams {
-            version: QrCodeVersion::V200,
-            access_key: "35260112345678000199650010000000011123456780".into(),
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Offline,
-            csc_id: Some("000001".into()),
-            csc_token: Some("ABCDEF123456".into()),
-            qr_code_base_url: "https://example.com/qrcode".into(),
-            issued_at: Some("2026-01-15T10:30:00-03:00".into()),
-            total_value: Some("100.00".into()),
-            total_icms: None,
-            digest_value: Some("abc123digest==".into()),
-            dest_document: None,
-            dest_id_type: None,
-        })
+        let url = build_nfce_qr_code_url(
+            &NfceQrCodeParams::new(
+                "35260112345678000199650010000000011123456780",
+                QrCodeVersion::V200,
+                SefazEnvironment::Homologation,
+                EmissionType::Offline,
+                "https://example.com/qrcode",
+            )
+            .csc_id("000001")
+            .csc_token("ABCDEF123456")
+            .issued_at("2026-01-15T10:30:00-03:00")
+            .total_value("100.00")
+            .digest_value("abc123digest=="),
+        )
         .expect("should build v200 offline QR code URL");
 
         assert!(url.contains("?p="));
@@ -62,21 +56,17 @@ mod build_nfce_qr_code_url_v200 {
 
     #[test]
     fn throws_without_csc_for_v200() {
-        let result = build_nfce_qr_code_url(&NfceQrCodeParams {
-            version: QrCodeVersion::V200,
-            access_key: "35260112345678000199650010000000011123456780".into(),
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            csc_id: Some("".into()),
-            csc_token: Some("".into()),
-            qr_code_base_url: "https://example.com/qrcode".into(),
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        });
+        let result = build_nfce_qr_code_url(
+            &NfceQrCodeParams::new(
+                "35260112345678000199650010000000011123456780",
+                QrCodeVersion::V200,
+                SefazEnvironment::Homologation,
+                EmissionType::Normal,
+                "https://example.com/qrcode",
+            )
+            .csc_id("")
+            .csc_token(""),
+        );
 
         assert!(result.is_err(), "v200 without CSC should return Err");
     }
@@ -89,21 +79,15 @@ mod build_nfce_qr_code_url_v300 {
 
     #[test]
     fn generates_online_qr_code_url_no_csc_needed() {
-        let url = build_nfce_qr_code_url(&NfceQrCodeParams {
-            version: QrCodeVersion::V300,
-            access_key: "35260112345678000199650010000000011123456780".into(),
-            environment: SefazEnvironment::Homologation,
-            emission_type: EmissionType::Normal,
-            qr_code_base_url: "https://example.com/qrcode".into(),
-            csc_token: None,
-            csc_id: None,
-            issued_at: None,
-            total_value: None,
-            total_icms: None,
-            digest_value: None,
-            dest_document: None,
-            dest_id_type: None,
-        })
+        let url = build_nfce_qr_code_url(
+            &NfceQrCodeParams::new(
+                "35260112345678000199650010000000011123456780",
+                QrCodeVersion::V300,
+                SefazEnvironment::Homologation,
+                EmissionType::Normal,
+                "https://example.com/qrcode",
+            ),
+        )
         .expect("should build v300 online QR code URL");
 
         assert!(url.contains("?p="));

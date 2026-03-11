@@ -10,6 +10,7 @@ use crate::FiscalError;
 /// primary SEFAZ authorizer is unavailable. Supports SVC-AN, SVC-RS, and
 /// offline contingency types.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Contingency {
     /// The active contingency type, or `None` when in normal mode.
     pub contingency_type: Option<ContingencyType>,

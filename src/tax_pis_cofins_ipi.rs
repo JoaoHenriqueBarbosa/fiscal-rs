@@ -28,6 +28,7 @@ const IPI_TRIB_CSTS: &[&str] = &["00", "49", "50", "99"];
 
 /// PIS tax input data. Monetary fields use [`Cents`], rates use [`Rate4`].
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct PisData {
     pub cst: String,
     pub v_bc: Option<Cents>,
@@ -37,8 +38,26 @@ pub struct PisData {
     pub v_aliq_prod: Option<i64>,
 }
 
+impl PisData {
+    /// Create a new `PisData` with the required CST.
+    pub fn new(cst: impl Into<String>) -> Self {
+        Self { cst: cst.into(), ..Default::default() }
+    }
+    /// Set the base value.
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    /// Set the PIS rate.
+    pub fn p_pis(mut self, v: Rate4) -> Self { self.p_pis = Some(v); self }
+    /// Set the PIS value.
+    pub fn v_pis(mut self, v: Cents) -> Self { self.v_pis = Some(v); self }
+    /// Set the quantity base.
+    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    /// Set the quantity rate.
+    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+}
+
 /// PIS-ST input data
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct PisStData {
     pub v_bc: Option<Cents>,
     pub p_pis: Option<Rate4>,
@@ -48,8 +67,26 @@ pub struct PisStData {
     pub ind_soma_pis_st: Option<i64>,
 }
 
+impl PisStData {
+    /// Create a new `PisStData` with the required PIS value.
+    pub fn new(v_pis: Cents) -> Self {
+        Self { v_pis, ..Default::default() }
+    }
+    /// Set the base value.
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    /// Set the PIS rate.
+    pub fn p_pis(mut self, v: Rate4) -> Self { self.p_pis = Some(v); self }
+    /// Set the quantity base.
+    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    /// Set the quantity rate.
+    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    /// Set the ST indicator.
+    pub fn ind_soma_pis_st(mut self, v: i64) -> Self { self.ind_soma_pis_st = Some(v); self }
+}
+
 /// COFINS tax input data. Monetary fields use [`Cents`], rates use [`Rate4`].
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct CofinsData {
     pub cst: String,
     pub v_bc: Option<Cents>,
@@ -59,8 +96,26 @@ pub struct CofinsData {
     pub v_aliq_prod: Option<i64>,
 }
 
+impl CofinsData {
+    /// Create a new `CofinsData` with the required CST.
+    pub fn new(cst: impl Into<String>) -> Self {
+        Self { cst: cst.into(), ..Default::default() }
+    }
+    /// Set the base value.
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    /// Set the COFINS rate.
+    pub fn p_cofins(mut self, v: Rate4) -> Self { self.p_cofins = Some(v); self }
+    /// Set the COFINS value.
+    pub fn v_cofins(mut self, v: Cents) -> Self { self.v_cofins = Some(v); self }
+    /// Set the quantity base.
+    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    /// Set the quantity rate.
+    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+}
+
 /// COFINS-ST input data
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct CofinsStData {
     pub v_bc: Option<Cents>,
     pub p_cofins: Option<Rate4>,
@@ -70,8 +125,26 @@ pub struct CofinsStData {
     pub ind_soma_cofins_st: Option<i64>,
 }
 
+impl CofinsStData {
+    /// Create a new `CofinsStData` with the required COFINS value.
+    pub fn new(v_cofins: Cents) -> Self {
+        Self { v_cofins, ..Default::default() }
+    }
+    /// Set the base value.
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    /// Set the COFINS rate.
+    pub fn p_cofins(mut self, v: Rate4) -> Self { self.p_cofins = Some(v); self }
+    /// Set the quantity base.
+    pub fn q_bc_prod(mut self, v: i64) -> Self { self.q_bc_prod = Some(v); self }
+    /// Set the quantity rate.
+    pub fn v_aliq_prod(mut self, v: i64) -> Self { self.v_aliq_prod = Some(v); self }
+    /// Set the ST indicator.
+    pub fn ind_soma_cofins_st(mut self, v: i64) -> Self { self.ind_soma_cofins_st = Some(v); self }
+}
+
 /// IPI input data
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct IpiData {
     pub cst: String,
     pub c_enq: String,
@@ -85,13 +158,44 @@ pub struct IpiData {
     pub v_ipi: Option<Cents>,
 }
 
+impl IpiData {
+    /// Create a new `IpiData` with required CST and enquadramento code.
+    pub fn new(cst: impl Into<String>, c_enq: impl Into<String>) -> Self {
+        Self { cst: cst.into(), c_enq: c_enq.into(), ..Default::default() }
+    }
+    /// Set the CNPJ of the producer.
+    pub fn cnpj_prod(mut self, v: impl Into<String>) -> Self { self.cnpj_prod = Some(v.into()); self }
+    /// Set the seal code.
+    pub fn c_selo(mut self, v: impl Into<String>) -> Self { self.c_selo = Some(v.into()); self }
+    /// Set the seal quantity.
+    pub fn q_selo(mut self, v: i64) -> Self { self.q_selo = Some(v); self }
+    /// Set the base value.
+    pub fn v_bc(mut self, v: Cents) -> Self { self.v_bc = Some(v); self }
+    /// Set the IPI rate.
+    pub fn p_ipi(mut self, v: Rate) -> Self { self.p_ipi = Some(v); self }
+    /// Set the unit quantity.
+    pub fn q_unid(mut self, v: i64) -> Self { self.q_unid = Some(v); self }
+    /// Set the unit value.
+    pub fn v_unid(mut self, v: i64) -> Self { self.v_unid = Some(v); self }
+    /// Set the IPI value.
+    pub fn v_ipi(mut self, v: Cents) -> Self { self.v_ipi = Some(v); self }
+}
+
 /// II (import tax) input data
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct IiData {
     pub v_bc: Cents,
     pub v_desp_adu: Cents,
     pub v_ii: Cents,
     pub v_iof: Cents,
+}
+
+impl IiData {
+    /// Create a new `IiData` with all required fields.
+    pub fn new(v_bc: Cents, v_desp_adu: Cents, v_ii: Cents, v_iof: Cents) -> Self {
+        Self { v_bc, v_desp_adu, v_ii, v_iof }
+    }
 }
 
 // ── Contribution tax (PIS / COFINS) generic engine ─────────────────────────

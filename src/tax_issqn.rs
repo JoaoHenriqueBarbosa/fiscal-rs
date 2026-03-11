@@ -4,6 +4,7 @@ use crate::tax_element::{filter_fields, optional_field, serialize_tax_element, T
 /// ISSQN (ISS - Imposto Sobre Servicos) input data.
 /// All monetary amounts in cents, rates as hundredths.
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct IssqnData {
     /// Base de calculo in cents
     pub v_bc: i64,
@@ -41,6 +42,7 @@ pub struct IssqnData {
 
 /// ISSQN totals accumulator (mirrors PHP stdISSQNTot).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct IssqnTotals {
     /// Total ISSQN base value
     pub v_bc: i64,

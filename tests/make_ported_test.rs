@@ -1282,12 +1282,7 @@ mod tag_ii_ported {
 
     #[test]
     fn test_tagii_builds_ii_group() {
-        let xml = build_ii_xml(&IiData {
-            v_bc: Cents(10000),
-            v_desp_adu: Cents(100),
-            v_ii: Cents(100),
-            v_iof: Cents(100),
-        });
+        let xml = build_ii_xml(&IiData::new(Cents(10000), Cents(100), Cents(100), Cents(100)));
 
         expect_wrapped_in(&xml, "II");
         expect_xml_contains(&xml, &[
@@ -1776,13 +1771,10 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_aliq_cst_01_with_percentage() {
-        let xml = build_pis_xml(&PisData {
-            cst: "01".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(165)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("01")
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(165)));
 
         expect_wrapped_in(&xml, "PIS");
         expect_wrapped_in(&xml, "PISAliq");
@@ -1796,13 +1788,10 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_aliq_cst_02() {
-        let xml = build_pis_xml(&PisData {
-            cst: "02".into(),
-            v_bc: Some(Cents(20000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(330)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("02")
+            .v_bc(Cents(20000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(330)));
 
         expect_wrapped_in(&xml, "PISAliq");
         expect_xml_contains(&xml, &[("CST", "02")]);
@@ -1810,13 +1799,10 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_qtde_cst_03_with_quantity() {
-        let xml = build_pis_xml(&PisData {
-            cst: "03".into(),
-            q_bc_prod: Some(10000),
-            v_aliq_prod: Some(50000),
-            v_pis: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("03")
+            .q_bc_prod(10000)
+            .v_aliq_prod(50000)
+            .v_pis(Cents(500)));
 
         expect_wrapped_in(&xml, "PISQtde");
         expect_xml_contains(&xml, &[
@@ -1829,10 +1815,7 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_nt_cst_04_non_taxed() {
-        let xml = build_pis_xml(&PisData {
-            cst: "04".into(),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("04"));
 
         expect_wrapped_in(&xml, "PISNT");
         expect_xml_contains(&xml, &[("CST", "04")]);
@@ -1854,13 +1837,10 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_outr_cst_49_with_percentage() {
-        let xml = build_pis_xml(&PisData {
-            cst: "49".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(165)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("49")
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(165)));
 
         expect_wrapped_in(&xml, "PISOutr");
         expect_xml_contains(&xml, &[
@@ -1873,13 +1853,10 @@ mod pis_builders_ported {
 
     #[test]
     fn pis_outr_cst_99_with_quantity() {
-        let xml = build_pis_xml(&PisData {
-            cst: "99".into(),
-            q_bc_prod: Some(10000),
-            v_aliq_prod: Some(50000),
-            v_pis: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("99")
+            .q_bc_prod(10000)
+            .v_aliq_prod(50000)
+            .v_pis(Cents(500)));
 
         expect_wrapped_in(&xml, "PISOutr");
         expect_xml_contains(&xml, &[
@@ -1900,13 +1877,10 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_aliq_cst_01_with_percentage() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "01".into(),
-            v_bc: Some(Cents(10000)),
-            p_cofins: Some(Rate4(76000)),
-            v_cofins: Some(Cents(760)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("01")
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000))
+            .v_cofins(Cents(760)));
 
         expect_wrapped_in(&xml, "COFINS");
         expect_wrapped_in(&xml, "COFINSAliq");
@@ -1920,13 +1894,10 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_qtde_cst_03_with_quantity() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "03".into(),
-            q_bc_prod: Some(10000),
-            v_aliq_prod: Some(50000),
-            v_cofins: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("03")
+            .q_bc_prod(10000)
+            .v_aliq_prod(50000)
+            .v_cofins(Cents(500)));
 
         expect_wrapped_in(&xml, "COFINSQtde");
         expect_xml_contains(&xml, &[
@@ -1939,10 +1910,7 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_nt_cst_04_non_taxed() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "04".into(),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("04"));
 
         expect_wrapped_in(&xml, "COFINSNT");
         expect_xml_contains(&xml, &[("CST", "04")]);
@@ -1962,13 +1930,10 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_outr_cst_99_with_percentage() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "99".into(),
-            v_bc: Some(Cents(10000)),
-            p_cofins: Some(Rate4(76000)),
-            v_cofins: Some(Cents(760)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("99")
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000))
+            .v_cofins(Cents(760)));
 
         expect_wrapped_in(&xml, "COFINSOutr");
         expect_xml_contains(&xml, &[
@@ -1981,13 +1946,10 @@ mod cofins_builders_ported {
 
     #[test]
     fn cofins_outr_cst_49_with_quantity() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "49".into(),
-            q_bc_prod: Some(20000),
-            v_aliq_prod: Some(30000),
-            v_cofins: Some(Cents(600)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("49")
+            .q_bc_prod(20000)
+            .v_aliq_prod(30000)
+            .v_cofins(Cents(600)));
 
         expect_wrapped_in(&xml, "COFINSOutr");
         expect_xml_contains(&xml, &[
@@ -2008,14 +1970,10 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_50_with_percentage() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "50".into(),
-            c_enq: "999".into(),
-            v_bc: Some(Cents(10000)),
-            p_ipi: Some(Rate(50000)),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("50", "999")
+            .v_bc(Cents(10000))
+            .p_ipi(Rate(50000))
+            .v_ipi(Cents(500)));
 
         expect_wrapped_in(&xml, "IPI");
         expect_wrapped_in(&xml, "IPITrib");
@@ -2030,14 +1988,10 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_00_with_percentage() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "00".into(),
-            c_enq: "999".into(),
-            v_bc: Some(Cents(20000)),
-            p_ipi: Some(Rate(100000)),
-            v_ipi: Some(Cents(2000)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("00", "999")
+            .v_bc(Cents(20000))
+            .p_ipi(Rate(100000))
+            .v_ipi(Cents(2000)));
 
         expect_wrapped_in(&xml, "IPITrib");
         expect_xml_contains(&xml, &[("CST", "00"), ("pIPI", "10.0000")]);
@@ -2045,14 +1999,10 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_49_with_unit_based() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "49".into(),
-            c_enq: "999".into(),
-            q_unid: Some(10000),
-            v_unid: Some(50000),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("49", "999")
+            .q_unid(10000)
+            .v_unid(50000)
+            .v_ipi(Cents(500)));
 
         expect_wrapped_in(&xml, "IPITrib");
         expect_xml_contains(&xml, &[
@@ -2065,14 +2015,10 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_trib_cst_99_with_percentage() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "99".into(),
-            c_enq: "311".into(),
-            v_bc: Some(Cents(50000)),
-            p_ipi: Some(Rate(150000)),
-            v_ipi: Some(Cents(7500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("99", "311")
+            .v_bc(Cents(50000))
+            .p_ipi(Rate(150000))
+            .v_ipi(Cents(7500)));
 
         expect_wrapped_in(&xml, "IPITrib");
         expect_xml_contains(&xml, &[
@@ -2086,11 +2032,7 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_nt_cst_01_non_taxed() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "01".into(),
-            c_enq: "999".into(),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("01", "999"));
 
         expect_wrapped_in(&xml, "IPI");
         expect_wrapped_in(&xml, "IPINT");
@@ -2114,17 +2056,13 @@ mod ipi_builders_ported {
 
     #[test]
     fn ipi_with_optional_header_fields_cnpj_prod_cselo_qselo() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "50".into(),
-            c_enq: "999".into(),
-            cnpj_prod: Some("12345678901234".into()),
-            c_selo: Some("SELO123".into()),
-            q_selo: Some(10),
-            v_bc: Some(Cents(10000)),
-            p_ipi: Some(Rate(50000)),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("50", "999")
+            .cnpj_prod("12345678901234")
+            .c_selo("SELO123")
+            .q_selo(10)
+            .v_bc(Cents(10000))
+            .p_ipi(Rate(50000))
+            .v_ipi(Cents(500)));
 
         expect_xml_contains(&xml, &[
             ("CNPJProd", "12345678901234"),
@@ -2143,12 +2081,7 @@ mod ii_builders_additional {
 
     #[test]
     fn builds_ii_with_all_zero_values() {
-        let xml = build_ii_xml(&IiData {
-            v_bc: Cents(0),
-            v_desp_adu: Cents(0),
-            v_ii: Cents(0),
-            v_iof: Cents(0),
-        });
+        let xml = build_ii_xml(&IiData::new(Cents(0), Cents(0), Cents(0), Cents(0)));
 
         expect_xml_contains(&xml, &[
             ("vBC", "0.00"),
@@ -2160,12 +2093,7 @@ mod ii_builders_additional {
 
     #[test]
     fn builds_ii_with_large_values() {
-        let xml = build_ii_xml(&IiData {
-            v_bc: Cents(1000000),
-            v_desp_adu: Cents(50000),
-            v_ii: Cents(150000),
-            v_iof: Cents(25000),
-        });
+        let xml = build_ii_xml(&IiData::new(Cents(1000000), Cents(50000), Cents(150000), Cents(25000)));
 
         expect_xml_contains(&xml, &[
             ("vBC", "10000.00"),

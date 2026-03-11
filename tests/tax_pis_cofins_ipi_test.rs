@@ -13,13 +13,10 @@ mod build_pis_xml_tests {
     #[test]
     fn cst_01_pis_aliq_percentage_based() {
         // pPIS=16500 means 1.6500%, vBC=10000 cents = R$100, vPIS=165 cents = R$1.65
-        let xml = build_pis_xml(&PisData {
-            cst: "01".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(165)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("01")
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(165)));
         assert!(xml.contains("<PISAliq>"));
         assert!(xml.contains("<CST>01</CST>"));
         assert!(xml.contains("<vBC>100.00</vBC>"));
@@ -29,26 +26,20 @@ mod build_pis_xml_tests {
 
     #[test]
     fn cst_02_pis_aliq() {
-        let xml = build_pis_xml(&PisData {
-            cst: "02".into(),
-            v_bc: Some(Cents(5000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(83)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("02")
+            .v_bc(Cents(5000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(83)));
         assert!(xml.contains("<PISAliq>"));
         assert!(xml.contains("<CST>02</CST>"));
     }
 
     #[test]
     fn cst_03_pis_qtde_quantity_based() {
-        let xml = build_pis_xml(&PisData {
-            cst: "03".into(),
-            q_bc_prod: Some(10000),
-            v_aliq_prod: Some(500000),
-            v_pis: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("03")
+            .q_bc_prod(10000)
+            .v_aliq_prod(500000)
+            .v_pis(Cents(500)));
         assert!(xml.contains("<PISQtde>"));
         assert!(xml.contains("<qBCProd>"));
         assert!(xml.contains("<vAliqProd>"));
@@ -63,10 +54,7 @@ mod build_pis_xml_tests {
     #[case("08")]
     #[case("09")]
     fn cst_04_to_09_pis_nt(#[case] cst: &str) {
-        let xml = build_pis_xml(&PisData {
-            cst: cst.into(),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new(cst));
         assert!(xml.contains("<PISNT>"), "CST {cst} should produce <PISNT>");
         assert!(
             xml.contains(&format!("<CST>{cst}</CST>")),
@@ -77,13 +65,10 @@ mod build_pis_xml_tests {
 
     #[test]
     fn cst_49_pis_outr_percentage() {
-        let xml = build_pis_xml(&PisData {
-            cst: "49".into(),
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Some(Cents(165)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("49")
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .v_pis(Cents(165)));
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<vBC>"));
         assert!(xml.contains("<pPIS>"));
@@ -91,25 +76,19 @@ mod build_pis_xml_tests {
 
     #[test]
     fn cst_99_pis_outr_percentage() {
-        let xml = build_pis_xml(&PisData {
-            cst: "99".into(),
-            v_bc: Some(Cents(0)),
-            p_pis: Some(Rate4(0)),
-            v_pis: Some(Cents(0)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("99")
+            .v_bc(Cents(0))
+            .p_pis(Rate4(0))
+            .v_pis(Cents(0)));
         assert!(xml.contains("<PISOutr>"));
     }
 
     #[test]
     fn cst_99_pis_outr_quantity_based() {
-        let xml = build_pis_xml(&PisData {
-            cst: "99".into(),
-            q_bc_prod: Some(5000),
-            v_aliq_prod: Some(100),
-            v_pis: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_pis_xml(&PisData::new("99")
+            .q_bc_prod(5000)
+            .v_aliq_prod(100)
+            .v_pis(Cents(500)));
         assert!(xml.contains("<PISOutr>"));
         assert!(xml.contains("<qBCProd>"));
     }
@@ -122,12 +101,9 @@ mod build_pis_st_xml_tests {
 
     #[test]
     fn builds_pisst_with_percentage() {
-        let xml = build_pis_st_xml(&PisStData {
-            v_bc: Some(Cents(10000)),
-            p_pis: Some(Rate4(16500)),
-            v_pis: Cents(165),
-            ..Default::default()
-        });
+        let xml = build_pis_st_xml(&PisStData::new(Cents(165))
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500)));
         assert!(xml.contains("<PISST>"));
         assert!(xml.contains("<vBC>"));
     }
@@ -141,13 +117,10 @@ mod build_cofins_xml_tests {
     #[test]
     fn cst_01_cofins_aliq() {
         // pCOFINS=76000 means 7.6000%
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "01".into(),
-            v_bc: Some(Cents(10000)),
-            p_cofins: Some(Rate4(76000)),
-            v_cofins: Some(Cents(760)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("01")
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000))
+            .v_cofins(Cents(760)));
         assert!(xml.contains("<COFINSAliq>"));
         assert!(xml.contains("<CST>01</CST>"));
         assert!(xml.contains("<pCOFINS>7.6000</pCOFINS>"));
@@ -155,34 +128,25 @@ mod build_cofins_xml_tests {
 
     #[test]
     fn cst_03_cofins_qtde() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "03".into(),
-            q_bc_prod: Some(10000),
-            v_aliq_prod: Some(500000),
-            v_cofins: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("03")
+            .q_bc_prod(10000)
+            .v_aliq_prod(500000)
+            .v_cofins(Cents(500)));
         assert!(xml.contains("<COFINSQtde>"));
     }
 
     #[test]
     fn cst_04_cofins_nt() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "04".into(),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("04"));
         assert!(xml.contains("<COFINSNT>"));
     }
 
     #[test]
     fn cst_99_cofins_outr() {
-        let xml = build_cofins_xml(&CofinsData {
-            cst: "99".into(),
-            v_bc: Some(Cents(0)),
-            p_cofins: Some(Rate4(0)),
-            v_cofins: Some(Cents(0)),
-            ..Default::default()
-        });
+        let xml = build_cofins_xml(&CofinsData::new("99")
+            .v_bc(Cents(0))
+            .p_cofins(Rate4(0))
+            .v_cofins(Cents(0)));
         assert!(xml.contains("<COFINSOutr>"));
     }
 }
@@ -194,12 +158,9 @@ mod build_cofins_st_xml_tests {
 
     #[test]
     fn builds_cofinsst() {
-        let xml = build_cofins_st_xml(&CofinsStData {
-            v_bc: Some(Cents(10000)),
-            p_cofins: Some(Rate4(76000)),
-            v_cofins: Cents(760),
-            ..Default::default()
-        });
+        let xml = build_cofins_st_xml(&CofinsStData::new(Cents(760))
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000)));
         assert!(xml.contains("<COFINSST>"));
     }
 }
@@ -212,14 +173,10 @@ mod build_ipi_xml_tests {
     #[test]
     fn cst_50_ipi_trib_percentage_based() {
         // pIPI=50000 means 5.0000%
-        let xml = build_ipi_xml(&IpiData {
-            cst: "50".into(),
-            c_enq: "999".into(),
-            v_bc: Some(Cents(10000)),
-            p_ipi: Some(Rate(50000)),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("50", "999")
+            .v_bc(Cents(10000))
+            .p_ipi(Rate(50000))
+            .v_ipi(Cents(500)));
         assert!(xml.contains("<IPI>"));
         assert!(xml.contains("<IPITrib>"));
         assert!(xml.contains("<CST>50</CST>"));
@@ -231,27 +188,19 @@ mod build_ipi_xml_tests {
 
     #[test]
     fn cst_00_ipi_trib() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "00".into(),
-            c_enq: "999".into(),
-            v_bc: Some(Cents(5000)),
-            p_ipi: Some(Rate(100000)),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("00", "999")
+            .v_bc(Cents(5000))
+            .p_ipi(Rate(100000))
+            .v_ipi(Cents(500)));
         assert!(xml.contains("<IPITrib>"));
     }
 
     #[test]
     fn cst_99_ipi_trib_quantity_based() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "99".into(),
-            c_enq: "999".into(),
-            q_unid: Some(10000),
-            v_unid: Some(500000),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("99", "999")
+            .q_unid(10000)
+            .v_unid(500000)
+            .v_ipi(Cents(500)));
         assert!(xml.contains("<IPITrib>"));
         assert!(xml.contains("<qUnid>"));
         assert!(xml.contains("<vUnid>"));
@@ -270,11 +219,7 @@ mod build_ipi_xml_tests {
     #[case("54")]
     #[case("55")]
     fn ipint_cst_variants(#[case] cst: &str) {
-        let xml = build_ipi_xml(&IpiData {
-            cst: cst.into(),
-            c_enq: "999".into(),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new(cst, "999"));
         assert!(xml.contains("<IPINT>"), "CST {cst} should produce <IPINT>");
         assert!(
             xml.contains(&format!("<CST>{cst}</CST>")),
@@ -285,17 +230,13 @@ mod build_ipi_xml_tests {
 
     #[test]
     fn includes_optional_fields() {
-        let xml = build_ipi_xml(&IpiData {
-            cst: "50".into(),
-            c_enq: "999".into(),
-            cnpj_prod: Some("12345678000199".into()),
-            c_selo: Some("ABC".into()),
-            q_selo: Some(10),
-            v_bc: Some(Cents(10000)),
-            p_ipi: Some(Rate(50000)),
-            v_ipi: Some(Cents(500)),
-            ..Default::default()
-        });
+        let xml = build_ipi_xml(&IpiData::new("50", "999")
+            .cnpj_prod("12345678000199")
+            .c_selo("ABC")
+            .q_selo(10)
+            .v_bc(Cents(10000))
+            .p_ipi(Rate(50000))
+            .v_ipi(Cents(500)));
         assert!(xml.contains("<CNPJProd>12345678000199</CNPJProd>"));
         assert!(xml.contains("<cSelo>ABC</cSelo>"));
         assert!(xml.contains("<qSelo>10</qSelo>"));
@@ -309,12 +250,7 @@ mod build_ii_xml_tests {
 
     #[test]
     fn builds_import_tax() {
-        let xml = build_ii_xml(&IiData {
-            v_bc: Cents(50000),
-            v_desp_adu: Cents(5000),
-            v_ii: Cents(7500),
-            v_iof: Cents(0),
-        });
+        let xml = build_ii_xml(&IiData::new(Cents(50000), Cents(5000), Cents(7500), Cents(0)));
         assert!(xml.contains("<II>"));
         assert!(xml.contains("<vBC>500.00</vBC>"));
         assert!(xml.contains("<vDespAdu>50.00</vDespAdu>"));

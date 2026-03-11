@@ -3,6 +3,7 @@ use crate::FiscalError;
 
 /// Parsed result of a SEFAZ NF-e authorization (`retEnviNFe`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct AuthorizationResponse {
     /// SEFAZ status code (`cStat`).
     pub status_code: String,
@@ -18,6 +19,7 @@ pub struct AuthorizationResponse {
 
 /// Parsed result of a SEFAZ service status (`retConsStatServ`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct StatusResponse {
     /// SEFAZ status code (`cStat`).
     pub status_code: String,
@@ -29,6 +31,7 @@ pub struct StatusResponse {
 
 /// Parsed result of a SEFAZ cancellation event (`retEvento`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CancellationResponse {
     /// SEFAZ status code (`cStat`).
     pub status_code: String,

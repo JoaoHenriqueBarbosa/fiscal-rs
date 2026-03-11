@@ -26,40 +26,22 @@ fn make_issued_at() -> chrono::DateTime<FixedOffset> {
 
 /// Shared issuer for model 55 tests (tax_regime = Normal)
 fn make_issuer_normal() -> IssuerData {
-    IssuerData {
-        tax_id: "58716523000119".into(),
-        state_tax_id: "111222333444".into(),
-        company_name: "Empresa Teste".into(),
-        trade_name: None,
-        tax_regime: TaxRegime::Normal,
-        state_code: "SP".into(),
-        city_code: IbgeCode("3550308".into()),
-        city_name: "Sao Paulo".into(),
-        street: "Rua Teste".into(),
-        street_number: "100".into(),
-        district: "Centro".into(),
-        zip_code: "01001000".into(),
-        address_complement: None,
-    }
+    IssuerData::new(
+        "58716523000119", "111222333444", "Empresa Teste",
+        TaxRegime::Normal, "SP",
+        IbgeCode("3550308".into()), "Sao Paulo",
+        "Rua Teste", "100", "Centro", "01001000",
+    )
 }
 
 /// Shared issuer for NFC-e with trade_name and Simples Nacional
 fn make_issuer_simples() -> IssuerData {
-    IssuerData {
-        tax_id: "58716523000119".into(),
-        state_tax_id: "111222333444".into(),
-        company_name: "Empresa Teste".into(),
-        trade_name: None,
-        tax_regime: TaxRegime::SimplesNacional,
-        state_code: "SP".into(),
-        city_code: IbgeCode("3550308".into()),
-        city_name: "Sao Paulo".into(),
-        street: "Rua Teste".into(),
-        street_number: "100".into(),
-        district: "Centro".into(),
-        zip_code: "01001000".into(),
-        address_complement: None,
-    }
+    IssuerData::new(
+        "58716523000119", "111222333444", "Empresa Teste",
+        TaxRegime::SimplesNacional, "SP",
+        IbgeCode("3550308".into()), "Sao Paulo",
+        "Rua Teste", "100", "Centro", "01001000",
+    )
 }
 
 /// Base item for ICMS CST 00 with PIS/COFINS CST 01
@@ -210,54 +192,17 @@ mod render_complete_nfe_55 {
                 state_code: "SP".into(),
                 zip_code: None,
             })
-            .authorized_xml(vec![AuthorizedXml {
-                tax_id: "12345678000195".into(),
-            }])
-            .billing(BillingData {
-                invoice: Some(BillingInvoice {
-                    number: "001".into(),
-                    original_value: Cents(10000),
-                    discount_value: None,
-                    net_value: Cents(10000),
-                }),
-                installments: Some(vec![Installment {
-                    number: "001".into(),
-                    due_date: "2025-02-15".into(),
-                    value: Cents(10000),
-                }]),
-            })
-            .transport(TransportData {
-                freight_mode: "0".into(),
-                carrier: Some(CarrierData {
-                    tax_id: Some("12345678000195".into()),
-                    name: Some("Transportadora".into()),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })
-            .intermediary(IntermediaryData {
-                tax_id: "55667788000199".into(),
-                id_cad_int_tran: None,
-            })
-            .additional_info(AdditionalInfo {
-                taxpayer_note: Some("Nota teste".into()),
-                ..Default::default()
-            })
-            .export(ExportData {
-                exit_state: "SP".into(),
-                export_location: "Porto de Santos".into(),
-                dispatch_location: None,
-            })
-            .purchase(PurchaseData {
-                order_number: Some("PED-001".into()),
-                ..Default::default()
-            })
-            .tech_responsible(TechResponsibleData {
-                tax_id: "11223344000155".into(),
-                contact: "Suporte".into(),
-                email: "suporte@teste.com".into(),
-                phone: None,
-            })
+            .authorized_xml(vec![AuthorizedXml::new("12345678000195")])
+            .billing(BillingData::new()
+                .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
+                .installments(vec![Installment::new("001", "2025-02-15", Cents(10000))]))
+            .transport(TransportData::new("0")
+                .carrier(CarrierData::new().tax_id("12345678000195").name("Transportadora")))
+            .intermediary(IntermediaryData::new("55667788000199"))
+            .additional_info(AdditionalInfo::new().taxpayer_note("Nota teste"))
+            .export(ExportData::new("SP", "Porto de Santos"))
+            .purchase(PurchaseData::new().order_number("PED-001"))
+            .tech_responsible(TechResponsibleData::new("11223344000155", "Suporte", "suporte@teste.com"))
             .references(vec![ReferenceDoc::Nfe {
                 access_key: "35170358716523000119550010000000291000000291".into(),
             }])

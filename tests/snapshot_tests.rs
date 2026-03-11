@@ -399,69 +399,38 @@ fn snapshot_create_icms_totals() {
 #[test]
 fn snapshot_merge_icms_totals() {
     let mut target = create_icms_totals();
-    let source = IcmsTotals {
-        v_bc: Cents(10000),
-        v_icms: Cents(1800),
-        v_icms_deson: Cents(0),
-        v_bc_st: Cents(5000),
-        v_st: Cents(900),
-        v_fcp: Cents(200),
-        v_fcp_st: Cents(100),
-        v_fcp_st_ret: Cents(50),
-        v_fcp_uf_dest: Cents(300),
-        v_icms_uf_dest: Cents(600),
-        v_icms_uf_remet: Cents(0),
-        q_bc_mono: 0,
-        v_icms_mono: Cents(0),
-        q_bc_mono_reten: 0,
-        v_icms_mono_reten: Cents(0),
-        q_bc_mono_ret: 0,
-        v_icms_mono_ret: Cents(0),
-    };
+    let mut source = IcmsTotals::new();
+    source.v_bc = Cents(10000);
+    source.v_icms = Cents(1800);
+    source.v_bc_st = Cents(5000);
+    source.v_st = Cents(900);
+    source.v_fcp = Cents(200);
+    source.v_fcp_st = Cents(100);
+    source.v_fcp_st_ret = Cents(50);
+    source.v_fcp_uf_dest = Cents(300);
+    source.v_icms_uf_dest = Cents(600);
     merge_icms_totals(&mut target, &source);
     assert_debug_snapshot!(target);
 }
 
 #[test]
 fn snapshot_merge_icms_totals_accumulates() {
-    let mut target = IcmsTotals {
-        v_bc: Cents(10000),
-        v_icms: Cents(1800),
-        v_icms_deson: Cents(100),
-        v_bc_st: Cents(0),
-        v_st: Cents(0),
-        v_fcp: Cents(200),
-        v_fcp_st: Cents(0),
-        v_fcp_st_ret: Cents(0),
-        v_fcp_uf_dest: Cents(0),
-        v_icms_uf_dest: Cents(0),
-        v_icms_uf_remet: Cents(0),
-        q_bc_mono: 0,
-        v_icms_mono: Cents(0),
-        q_bc_mono_reten: 0,
-        v_icms_mono_reten: Cents(0),
-        q_bc_mono_ret: 0,
-        v_icms_mono_ret: Cents(0),
-    };
-    let source = IcmsTotals {
-        v_bc: Cents(20000),
-        v_icms: Cents(3600),
-        v_icms_deson: Cents(200),
-        v_bc_st: Cents(5000),
-        v_st: Cents(900),
-        v_fcp: Cents(400),
-        v_fcp_st: Cents(100),
-        v_fcp_st_ret: Cents(50),
-        v_fcp_uf_dest: Cents(0),
-        v_icms_uf_dest: Cents(0),
-        v_icms_uf_remet: Cents(0),
-        q_bc_mono: 1000,
-        v_icms_mono: Cents(500),
-        q_bc_mono_reten: 0,
-        v_icms_mono_reten: Cents(0),
-        q_bc_mono_ret: 0,
-        v_icms_mono_ret: Cents(0),
-    };
+    let mut target = IcmsTotals::new();
+    target.v_bc = Cents(10000);
+    target.v_icms = Cents(1800);
+    target.v_icms_deson = Cents(100);
+    target.v_fcp = Cents(200);
+    let mut source = IcmsTotals::new();
+    source.v_bc = Cents(20000);
+    source.v_icms = Cents(3600);
+    source.v_icms_deson = Cents(200);
+    source.v_bc_st = Cents(5000);
+    source.v_st = Cents(900);
+    source.v_fcp = Cents(400);
+    source.v_fcp_st = Cents(100);
+    source.v_fcp_st_ret = Cents(50);
+    source.q_bc_mono = 1000;
+    source.v_icms_mono = Cents(500);
     merge_icms_totals(&mut target, &source);
     assert_debug_snapshot!(target);
 }

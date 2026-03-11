@@ -63,16 +63,16 @@ mod build_access_key_tests {
     use pretty_assertions::assert_eq;
 
     fn base_params() -> AccessKeyParams {
-        AccessKeyParams {
-            state_code: IbgeCode("35".to_string()),
-            year_month: "2601".to_string(),
-            tax_id: "12345678000199".to_string(),
-            model: InvoiceModel::Nfce,
-            series: 1,
-            number: 1,
-            emission_type: EmissionType::Normal,
-            numeric_code: "12345678".to_string(),
-        }
+        AccessKeyParams::new(
+            IbgeCode("35".to_string()),
+            "2601",
+            "12345678000199",
+            InvoiceModel::Nfce,
+            1,
+            1,
+            EmissionType::Normal,
+            "12345678",
+        )
     }
 
     #[test]
@@ -84,11 +84,11 @@ mod build_access_key_tests {
 
     #[test]
     fn pads_fields_correctly() {
-        let params = AccessKeyParams {
-            number: 42,
-            numeric_code: "00000001".to_string(),
-            ..base_params()
-        };
+        let params = AccessKeyParams::new(
+            IbgeCode("35".to_string()),
+            "2601", "12345678000199",
+            InvoiceModel::Nfce, 1, 42, EmissionType::Normal, "00000001",
+        );
         let key = build_access_key(&params).unwrap();
 
         // cUF=35
@@ -121,14 +121,12 @@ mod build_access_key_tests {
 
     #[test]
     fn different_inputs_produce_different_keys() {
-        let key1 = build_access_key(&AccessKeyParams {
-            number: 1,
-            ..base_params()
-        }).unwrap();
-        let key2 = build_access_key(&AccessKeyParams {
-            number: 2,
-            ..base_params()
-        }).unwrap();
+        let mut p1 = base_params();
+        p1.number = 1;
+        let key1 = build_access_key(&p1).unwrap();
+        let mut p2 = base_params();
+        p2.number = 2;
+        let key2 = build_access_key(&p2).unwrap();
         assert_ne!(key1, key2);
     }
 }
@@ -140,103 +138,24 @@ mod build_invoice_xml_tests {
     use pretty_assertions::assert_eq;
 
     fn sample_issuer() -> IssuerData {
-        IssuerData {
-            tax_id: "12345678000199".to_string(),
-            state_tax_id: "123456789".to_string(),
-            company_name: "Test Company".to_string(),
-            trade_name: Some("Test".to_string()),
-            tax_regime: TaxRegime::SimplesNacional,
-            state_code: "SP".to_string(),
-            city_code: IbgeCode("3550308".to_string()),
-            city_name: "Sao Paulo".to_string(),
-            street: "Av Paulista".to_string(),
-            street_number: "1000".to_string(),
-            district: "Bela Vista".to_string(),
-            zip_code: "01310100".to_string(),
-            address_complement: None,
-        }
+        IssuerData::new(
+            "12345678000199", "123456789", "Test Company",
+            TaxRegime::SimplesNacional, "SP",
+            IbgeCode("3550308".to_string()), "Sao Paulo",
+            "Av Paulista", "1000", "Bela Vista", "01310100",
+        ).trade_name("Test")
     }
 
     fn sample_item() -> InvoiceItemData {
-        InvoiceItemData {
-            item_number: 1,
-            product_code: "1".to_string(),
-            description: "Product A".to_string(),
-            ncm: "84715010".to_string(),
-            cfop: "5102".to_string(),
-            unit_of_measure: "UN".to_string(),
-            quantity: 2.0,
-            unit_price: Cents(1000),
-            total_price: Cents(2000),
-            c_ean: None,
-            c_ean_trib: None,
-            cest: None,
-            v_frete: None,
-            v_seg: None,
-            v_desc: None,
-            v_outro: None,
-            orig: None,
-            icms_cst: "102".to_string(),
-            icms_rate: Rate(0),
-            icms_amount: Cents(0),
-            icms_mod_bc: None,
-            icms_red_bc: None,
-            icms_mod_bc_st: None,
-            icms_p_mva_st: None,
-            icms_red_bc_st: None,
-            icms_v_bc_st: None,
-            icms_p_icms_st: None,
-            icms_v_icms_st: None,
-            icms_v_icms_deson: None,
-            icms_mot_des_icms: None,
-            icms_p_fcp: None,
-            icms_v_fcp: None,
-            icms_v_bc_fcp: None,
-            icms_p_fcp_st: None,
-            icms_v_fcp_st: None,
-            icms_v_bc_fcp_st: None,
-            icms_p_cred_sn: None,
-            icms_v_cred_icms_sn: None,
-            icms_v_icms_substituto: None,
-            pis_cst: "99".to_string(),
-            pis_v_bc: None,
-            pis_p_pis: None,
-            pis_v_pis: None,
-            pis_q_bc_prod: None,
-            pis_v_aliq_prod: None,
-            cofins_cst: "99".to_string(),
-            cofins_v_bc: None,
-            cofins_p_cofins: None,
-            cofins_v_cofins: None,
-            cofins_q_bc_prod: None,
-            cofins_v_aliq_prod: None,
-            ipi_cst: None,
-            ipi_c_enq: None,
-            ipi_v_bc: None,
-            ipi_p_ipi: None,
-            ipi_v_ipi: None,
-            ipi_q_unid: None,
-            ipi_v_unid: None,
-            ii_v_bc: None,
-            ii_v_desp_adu: None,
-            ii_v_ii: None,
-            ii_v_iof: None,
-            rastro: None,
-            veic_prod: None,
-            med: None,
-            arma: None,
-            n_recopi: None,
-            inf_ad_prod: None,
-            obs_item: None,
-            dfe_referenciado: None,
-        }
+        InvoiceItemData::new(
+            1, "1", "Product A", "84715010", "5102", "UN",
+            2.0, Cents(1000), Cents(2000),
+            "102", Rate(0), Cents(0), "99", "99",
+        )
     }
 
     fn sample_payment() -> PaymentData {
-        PaymentData {
-            method: "01".to_string(),
-            amount: Cents(2000),
-        }
+        PaymentData::new("01", Cents(2000))
     }
 
     fn issued_at() -> chrono::DateTime<FixedOffset> {
@@ -344,19 +263,7 @@ mod build_invoice_xml_tests {
     #[test]
     fn includes_recipient_when_provided() {
         let built = sample_builder()
-            .recipient(RecipientData {
-                tax_id: "12345678901".to_string(),
-                name: "John Doe".to_string(),
-                state_code: None,
-                state_tax_id: None,
-                street: None,
-                street_number: None,
-                district: None,
-                city_code: None,
-                city_name: None,
-                zip_code: None,
-                complement: None,
-            })
+            .recipient(RecipientData::new("12345678901", "John Doe"))
             .build()
             .unwrap();
         let xml = built.xml();
@@ -377,11 +284,7 @@ mod build_invoice_xml_tests {
         let now = chrono::Utc::now().with_timezone(&offset);
 
         let built = sample_builder()
-            .contingency(ContingencyData {
-                contingency_type: ContingencyType::Offline,
-                reason: "SEFAZ unavailable".to_string(),
-                at: now,
-            })
+            .contingency(ContingencyData::new(ContingencyType::Offline, "SEFAZ unavailable", now))
             .build()
             .unwrap();
         let xml = built.xml();

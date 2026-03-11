@@ -43,6 +43,7 @@ impl From<IcmsCsosn> for IcmsVariant {
 
 /// Data for building the ICMSPart XML group (partition between states).
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct IcmsPartData {
     pub orig: String,
     pub cst: String,
@@ -69,6 +70,7 @@ pub struct IcmsPartData {
 
 /// Data for building the ICMSST XML group (ST repasse).
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct IcmsStData {
     pub orig: String,
     pub cst: String,
@@ -89,6 +91,7 @@ pub struct IcmsStData {
 
 /// Data for building the ICMSUFDest XML group (interstate destination).
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct IcmsUfDestData {
     pub v_bc_uf_dest: Cents,
     pub v_bc_fcp_uf_dest: Option<Cents>,
@@ -100,8 +103,28 @@ pub struct IcmsUfDestData {
     pub v_icms_uf_remet: Option<Cents>,
 }
 
+impl IcmsUfDestData {
+    /// Create a new `IcmsUfDestData` with required fields.
+    pub fn new(v_bc_uf_dest: Cents, p_icms_uf_dest: Rate, p_icms_inter: Rate, v_icms_uf_dest: Cents) -> Self {
+        Self {
+            v_bc_uf_dest, v_bc_fcp_uf_dest: None, p_fcp_uf_dest: None,
+            p_icms_uf_dest, p_icms_inter, v_fcp_uf_dest: None,
+            v_icms_uf_dest, v_icms_uf_remet: None,
+        }
+    }
+    /// Set the FCP base value for destination.
+    pub fn v_bc_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_bc_fcp_uf_dest = Some(v); self }
+    /// Set the FCP rate for destination.
+    pub fn p_fcp_uf_dest(mut self, v: Rate) -> Self { self.p_fcp_uf_dest = Some(v); self }
+    /// Set the FCP value for destination.
+    pub fn v_fcp_uf_dest(mut self, v: Cents) -> Self { self.v_fcp_uf_dest = Some(v); self }
+    /// Set the ICMS value for origin state.
+    pub fn v_icms_uf_remet(mut self, v: Cents) -> Self { self.v_icms_uf_remet = Some(v); self }
+}
+
 /// Accumulated ICMS totals across all items.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct IcmsTotals {
     pub v_bc: Cents,
     pub v_icms: Cents,
@@ -120,6 +143,13 @@ pub struct IcmsTotals {
     pub v_icms_mono_reten: Cents,
     pub q_bc_mono_ret: i64,
     pub v_icms_mono_ret: Cents,
+}
+
+impl IcmsTotals {
+    /// Create a new zeroed-out `IcmsTotals`.
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// Create a zeroed-out ICMS totals.

@@ -477,9 +477,9 @@ proptest! {
         c_icms in reasonable_cents(),
         c_st in reasonable_cents(),
     ) {
-        let a = IcmsTotals { v_bc: Cents(a_bc), v_icms: Cents(a_icms), v_st: Cents(a_st), ..Default::default() };
-        let b = IcmsTotals { v_bc: Cents(b_bc), v_icms: Cents(b_icms), v_st: Cents(b_st), ..Default::default() };
-        let c = IcmsTotals { v_bc: Cents(c_bc), v_icms: Cents(c_icms), v_st: Cents(c_st), ..Default::default() };
+        let a = IcmsTotals { v_bc: Cents(a_bc), v_icms: Cents(a_icms), v_st: Cents(a_st), ..IcmsTotals::new() };
+        let b = IcmsTotals { v_bc: Cents(b_bc), v_icms: Cents(b_icms), v_st: Cents(b_st), ..IcmsTotals::new() };
+        let c = IcmsTotals { v_bc: Cents(c_bc), v_icms: Cents(c_icms), v_st: Cents(c_st), ..IcmsTotals::new() };
 
         // (a + b) + c
         let mut left = a.clone();

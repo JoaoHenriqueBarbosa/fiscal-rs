@@ -7,6 +7,7 @@ use crate::tax_element::{filter_fields, optional_field, serialize_tax_element, T
 /// the IS schema uses mixed decimal precisions that don't map to a
 /// single cents/rate convention.
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct IsData {
     /// IS tax situation code
     pub cst_is: String,

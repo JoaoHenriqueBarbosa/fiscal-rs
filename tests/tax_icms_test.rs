@@ -443,16 +443,12 @@ mod icms_uf_dest {
 
     #[test]
     fn builds_interstate_destination_icms() {
-        let (xml, _totals) = build_icms_uf_dest_xml(&IcmsUfDestData {
-            v_bc_uf_dest: Cents(10000),
-            v_bc_fcp_uf_dest: None,
-            p_fcp_uf_dest: Some(Rate(200)),
-            p_icms_uf_dest: Rate(1800),
-            p_icms_inter: Rate(1200),
-            v_fcp_uf_dest: Some(Cents(200)),
-            v_icms_uf_dest: Cents(600),
-            v_icms_uf_remet: Some(Cents(1200)),
-        }).unwrap();
+        let (xml, _totals) = build_icms_uf_dest_xml(
+            &IcmsUfDestData::new(Cents(10000), Rate(1800), Rate(1200), Cents(600))
+                .p_fcp_uf_dest(Rate(200))
+                .v_fcp_uf_dest(Cents(200))
+                .v_icms_uf_remet(Cents(1200)),
+        ).unwrap();
         assert!(xml.contains("<ICMSUFDest>"));
         assert!(xml.contains("<vBCUFDest>100.00</vBCUFDest>"));
     }
