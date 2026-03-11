@@ -41,4 +41,7 @@ pub enum FiscalError {
 
     #[error("Wrong document: {0}")]
     WrongDocument(String),
+
+    #[error("Network error: {0}")]
+    Network(String),
 }
