@@ -316,6 +316,7 @@ dependencies = [
  "fiscal-crypto",
  "fiscal-sefaz",
  "insta",
+ "openssl",
  "pretty_assertions",
  "proptest",
  "rstest",

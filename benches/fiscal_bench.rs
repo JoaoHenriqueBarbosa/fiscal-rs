@@ -6,8 +6,13 @@ use fiscal::format_utils::{
 };
 use fiscal::xml_utils::{escape_xml, extract_xml_tag_value, tag, TagContent};
 use fiscal::tax_element::{TaxElement, TaxField, filter_fields, serialize_tax_element};
-use fiscal::tax_icms::{IcmsTotals, create_icms_totals, merge_icms_totals};
-use fiscal::tax_icms::{IcmsData, build_icms_xml, build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml};
+use fiscal::tax_icms::{
+    IcmsTotals, IcmsCst, IcmsCsosn, IcmsVariant,
+    IcmsPartData, IcmsStData, IcmsUfDestData,
+    create_icms_totals, merge_icms_totals,
+    build_icms_xml, build_icms_part_xml, build_icms_st_xml, build_icms_uf_dest_xml,
+};
+use fiscal::newtypes::{Cents, Rate, Rate4, AccessKey, StateCode, IbgeCode};
 use fiscal::tax_pis_cofins_ipi::{
     PisData, PisStData, CofinsData, CofinsStData, IpiData, IiData,
     build_pis_xml, build_pis_st_xml, build_cofins_xml, build_cofins_st_xml, build_ipi_xml, build_ii_xml,
@@ -18,23 +23,19 @@ use fiscal::gtin::{is_valid_gtin, calculate_check_digit};
 use fiscal::state_codes::{get_state_code, get_state_by_code};
 use fiscal::xml_builder::access_key::{build_access_key, calculate_mod11, generate_numeric_code, format_year_month};
 use fiscal::xml_builder::tax_id::TaxId;
-use fiscal::xml_builder::build_invoice_xml;
-use fiscal::xml_builder::ide::{build_ide, format_datetime_nfe};
-use fiscal::xml_builder::emit::{build_emit, build_address_fields};
-use fiscal::xml_builder::dest::build_dest;
-use fiscal::xml_builder::det::build_det;
+use fiscal::xml_builder::InvoiceBuilder;
+use fiscal::xml_builder::ide::format_datetime_nfe;
+use fiscal::xml_builder::emit::build_address_fields;
 use fiscal::xml_builder::total::{build_total, OtherTotals};
-use fiscal::xml_builder::transp::build_transp;
 use fiscal::xml_builder::pag::build_pag;
 use fiscal::xml_builder::optional::{
-    build_cobr, build_inf_adic, build_intermediary, build_tech_responsible,
+    build_cobr, build_intermediary, build_tech_responsible,
     build_purchase, build_export, build_withdrawal, build_delivery, build_aut_xml,
 };
 use fiscal::types::{
-    AccessKeyParams, InvoiceBuildData, InvoiceModel, EmissionType,
+    AccessKeyParams, InvoiceModel, EmissionType,
     SefazEnvironment, TaxRegime, IssuerData, RecipientData, InvoiceItemData,
-    PaymentData, TransportData, CarrierData, VehicleData,
-    VolumeData, BillingData, BillingInvoice, Installment, LocationData,
+    PaymentData, BillingData, BillingInvoice, Installment, LocationData,
     IntermediaryData, TechResponsibleData, PurchaseData, ExportData,
     AuthorizedXml, NfceQrCodeParams, PutQRTagParams, QrCodeVersion,
     ContingencyType,
@@ -46,16 +47,67 @@ use fiscal::sefaz::request_builders::{
     build_autorizacao_request, build_status_request, build_consulta_request,
     build_cancela_request, build_inutilizacao_request, build_cce_request,
     build_dist_dfe_request, build_cadastro_request,
+    build_consulta_recibo_request, build_manifesta_request,
 };
 use fiscal::sefaz::urls::{get_sefaz_url, get_nfce_consult_url as get_nfce_consult_url_sefaz};
 use fiscal::sefaz::response_parsers::{
     parse_autorizacao_response, parse_status_response, parse_cancellation_response,
 };
+use fiscal::sefaz::services::SefazService;
 use fiscal::standardize::{identify_xml_type, xml_to_json};
 use fiscal::certificate::sign_xml;
 
 fn main() {
     divan::main();
+}
+
+// ── Newtypes ────────────────────────────────────────────────────────────────
+
+#[divan::bench]
+fn bench_cents_from_i64(bencher: divan::Bencher) {
+    bencher.bench(|| Cents::from(divan::black_box(15000_i64)));
+}
+
+#[divan::bench]
+fn bench_cents_display(bencher: divan::Bencher) {
+    let c = Cents(15000);
+    bencher.bench(|| divan::black_box(&c).to_string());
+}
+
+#[divan::bench]
+fn bench_rate_display(bencher: divan::Bencher) {
+    let r = Rate(1800);
+    bencher.bench(|| divan::black_box(&r).to_string());
+}
+
+#[divan::bench]
+fn bench_rate4_display(bencher: divan::Bencher) {
+    let r = Rate4(16500);
+    bencher.bench(|| divan::black_box(&r).to_string());
+}
+
+#[divan::bench]
+fn bench_access_key_new_valid(bencher: divan::Bencher) {
+    bencher.bench(|| {
+        AccessKey::new(divan::black_box("43250304123456789012550010000000011000000010"))
+    });
+}
+
+#[divan::bench]
+fn bench_access_key_new_invalid(bencher: divan::Bencher) {
+    bencher.bench(|| {
+        AccessKey::new(divan::black_box("1234"))
+    });
+}
+
+#[divan::bench]
+fn bench_state_code_new_valid(bencher: divan::Bencher) {
+    bencher.bench(|| StateCode::new(divan::black_box("PR")));
+}
+
+#[divan::bench]
+fn bench_state_code_new_invalid(bencher: divan::Bencher) {
+    bencher.bench(|| StateCode::new(divan::black_box("XX")));
 }
 
 // ── Format Utils ─────────────────────────────────────────────────────────────
@@ -88,6 +140,41 @@ fn bench_format_cents_or_zero_some(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_format_cents_or_zero_none(bencher: divan::Bencher) {
     bencher.bench(|| format_cents_or_zero(divan::black_box(None), 2));
+}
+
+#[divan::bench]
+fn bench_format_cents_10(bencher: divan::Bencher) {
+    bencher.bench(|| format_cents_10(divan::black_box(150_00)));
+}
+
+#[divan::bench]
+fn bench_format_decimal(bencher: divan::Bencher) {
+    bencher.bench(|| format_decimal(divan::black_box(1.5678), 4));
+}
+
+#[divan::bench]
+fn bench_format_rate(bencher: divan::Bencher) {
+    bencher.bench(|| format_rate(divan::black_box(1800), 4));
+}
+
+#[divan::bench]
+fn bench_format_cents_or_none_some(bencher: divan::Bencher) {
+    bencher.bench(|| format_cents_or_none(divan::black_box(Some(9999)), 2));
+}
+
+#[divan::bench]
+fn bench_format_cents_or_none_none(bencher: divan::Bencher) {
+    bencher.bench(|| format_cents_or_none(divan::black_box(None), 2));
+}
+
+#[divan::bench]
+fn bench_format_rate4_or_zero_some(bencher: divan::Bencher) {
+    bencher.bench(|| format_rate4_or_zero(divan::black_box(Some(16500))));
+}
+
+#[divan::bench]
+fn bench_format_rate4_or_zero_none(bencher: divan::Bencher) {
+    bencher.bench(|| format_rate4_or_zero(divan::black_box(None)));
 }
 
 // ── XML Utils ────────────────────────────────────────────────────────────────
@@ -164,6 +251,18 @@ fn bench_tag_empty(bencher: divan::Bencher) {
     bencher.bench(|| tag("Signature", &[], TagContent::None));
 }
 
+#[divan::bench]
+fn bench_extract_xml_tag_value(bencher: divan::Bencher) {
+    let xml = "<nfeProc><protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado</xMotivo></infProt></protNFe></nfeProc>";
+    bencher.bench(|| extract_xml_tag_value(divan::black_box(xml), divan::black_box("cStat")));
+}
+
+#[divan::bench]
+fn bench_extract_xml_tag_value_not_found(bencher: divan::Bencher) {
+    let xml = "<nfe><infNFe><ide><cUF>41</cUF></ide></infNFe></nfe>";
+    bencher.bench(|| extract_xml_tag_value(divan::black_box(xml), divan::black_box("missing")));
+}
+
 // ── Tax Element ──────────────────────────────────────────────────────────────
 
 #[divan::bench]
@@ -216,6 +315,22 @@ fn bench_serialize_no_outer(bencher: divan::Bencher) {
     bencher.bench(|| serialize_tax_element(divan::black_box(&element)));
 }
 
+#[divan::bench]
+fn bench_filter_fields_mixed(bencher: divan::Bencher) {
+    bencher.bench(|| {
+        let fields: Vec<Option<TaxField>> = vec![
+            Some(TaxField::new("orig", "0")),
+            None,
+            Some(TaxField::new("CST", "00")),
+            None,
+            Some(TaxField::new("modBC", "0")),
+            None,
+            Some(TaxField::new("vBC", "150.00")),
+        ];
+        filter_fields(divan::black_box(fields))
+    });
+}
+
 // ── ICMS Totals ──────────────────────────────────────────────────────────────
 
 #[divan::bench]
@@ -225,25 +340,13 @@ fn bench_create_icms_totals(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_merge_icms_totals(bencher: divan::Bencher) {
-    let source = IcmsTotals {
-        v_bc: 10000,
-        v_icms: 1800,
-        v_icms_deson: 0,
-        v_bc_st: 5000,
-        v_st: 900,
-        v_fcp: 200,
-        v_fcp_st: 100,
-        v_fcp_st_ret: 0,
-        v_fcp_uf_dest: 0,
-        v_icms_uf_dest: 0,
-        v_icms_uf_remet: 0,
-        q_bc_mono: 0,
-        v_icms_mono: 0,
-        q_bc_mono_reten: 0,
-        v_icms_mono_reten: 0,
-        q_bc_mono_ret: 0,
-        v_icms_mono_ret: 0,
-    };
+    let source = IcmsTotals::new()
+        .v_bc(Cents(10000))
+        .v_icms(Cents(1800))
+        .v_bc_st(Cents(5000))
+        .v_st(Cents(900))
+        .v_fcp(Cents(200))
+        .v_fcp_st(Cents(100));
     bencher.bench(|| {
         let mut target = create_icms_totals();
         merge_icms_totals(&mut target, divan::black_box(&source));
@@ -253,13 +356,10 @@ fn bench_merge_icms_totals(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_merge_icms_totals_10_items(bencher: divan::Bencher) {
-    let source = IcmsTotals {
-        v_bc: 10000, v_icms: 1800, v_icms_deson: 0, v_bc_st: 0,
-        v_st: 0, v_fcp: 200, v_fcp_st: 0, v_fcp_st_ret: 0,
-        v_fcp_uf_dest: 0, v_icms_uf_dest: 0, v_icms_uf_remet: 0,
-        q_bc_mono: 0, v_icms_mono: 0, q_bc_mono_reten: 0,
-        v_icms_mono_reten: 0, q_bc_mono_ret: 0, v_icms_mono_ret: 0,
-    };
+    let source = IcmsTotals::new()
+        .v_bc(Cents(10000))
+        .v_icms(Cents(1800))
+        .v_fcp(Cents(200));
     bencher.bench(|| {
         let mut target = create_icms_totals();
         for _ in 0..10 {
@@ -273,158 +373,146 @@ fn bench_merge_icms_totals_10_items(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_icms_xml_cst00(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 3,
+    let variant = IcmsVariant::from(IcmsCst::Cst00 {
         orig: "0".into(),
-        cst: Some("00".into()),
-        mod_bc: Some("0".into()),
-        v_bc: Some(15000),
-        p_icms: Some(1800),
-        v_icms: Some(2700),
-        ..Default::default()
-    };
-    bencher.bench(|| build_icms_xml(divan::black_box(&data)));
+        mod_bc: "0".into(),
+        v_bc: Cents(15000),
+        p_icms: Rate(1800),
+        v_icms: Cents(2700),
+        p_fcp: None,
+        v_fcp: None,
+    });
+    bencher.bench(|| {
+        let mut totals = create_icms_totals();
+        build_icms_xml(divan::black_box(&variant), &mut totals)
+    });
 }
 
 #[divan::bench]
 fn bench_build_icms_xml_cst10_full(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 3,
+    let variant = IcmsVariant::from(IcmsCst::Cst10 {
         orig: "0".into(),
-        cst: Some("10".into()),
-        mod_bc: Some("0".into()),
-        v_bc: Some(15000),
-        p_icms: Some(1800),
-        v_icms: Some(2700),
-        mod_bc_st: Some("4".into()),
-        p_mva_st: Some(4000),
-        v_bc_st: Some(21000),
-        p_icms_st: Some(1800),
-        v_icms_st: Some(1080),
-        v_bc_fcp: Some(15000),
-        p_fcp: Some(200),
-        v_fcp: Some(300),
-        v_bc_fcp_st: Some(21000),
-        p_fcp_st: Some(200),
-        v_fcp_st: Some(420),
-        ..Default::default()
-    };
-    bencher.bench(|| build_icms_xml(divan::black_box(&data)));
+        mod_bc: "0".into(),
+        v_bc: Cents(15000),
+        p_icms: Rate(1800),
+        v_icms: Cents(2700),
+        v_bc_fcp: Some(Cents(15000)),
+        p_fcp: Some(Rate(200)),
+        v_fcp: Some(Cents(300)),
+        mod_bc_st: "4".into(),
+        p_mva_st: Some(Rate(4000)),
+        p_red_bc_st: None,
+        v_bc_st: Cents(21000),
+        p_icms_st: Rate(1800),
+        v_icms_st: Cents(1080),
+        v_bc_fcp_st: Some(Cents(21000)),
+        p_fcp_st: Some(Rate(200)),
+        v_fcp_st: Some(Cents(420)),
+        v_icms_st_deson: None,
+        mot_des_icms_st: None,
+    });
+    bencher.bench(|| {
+        let mut totals = create_icms_totals();
+        build_icms_xml(divan::black_box(&variant), &mut totals)
+    });
 }
 
 #[divan::bench]
 fn bench_build_icms_xml_csosn102(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 1,
+    let variant = IcmsVariant::from(IcmsCsosn::Csosn102 {
         orig: "0".into(),
-        csosn: Some("102".into()),
-        ..Default::default()
-    };
-    bencher.bench(|| build_icms_xml(divan::black_box(&data)));
+        csosn: "102".into(),
+    });
+    bencher.bench(|| {
+        let mut totals = create_icms_totals();
+        build_icms_xml(divan::black_box(&variant), &mut totals)
+    });
 }
 
 #[divan::bench]
 fn bench_build_icms_part_xml(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 3,
-        orig: "0".into(),
-        cst: Some("10".into()),
-        mod_bc: Some("0".into()),
-        v_bc: Some(10000),
-        p_icms: Some(1200),
-        v_icms: Some(1200),
-        mod_bc_st: Some("4".into()),
-        v_bc_st: Some(14000),
-        p_icms_st: Some(1800),
-        v_icms_st: Some(720),
-        p_bc_op: Some(10000),
-        uf_st: Some("SP".into()),
-        ..Default::default()
-    };
+    let data = IcmsPartData::new(
+        "0", "10", "0",
+        Cents(10000), Rate(1200), Cents(1200),
+        "4", Cents(14000), Rate(1800), Cents(720),
+        Rate(10000), "SP",
+    );
     bencher.bench(|| build_icms_part_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_icms_uf_dest_xml(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 3,
-        v_bc_uf_dest: Some(10000),
-        p_icms_uf_dest: Some(1800),
-        p_icms_inter: Some(1200),
-        v_icms_uf_dest: Some(600),
-        v_icms_uf_remet: Some(0),
-        v_fcp_uf_dest: Some(200),
-        v_bc_fcp_uf_dest: Some(10000),
-        p_fcp_uf_dest: Some(200),
-        ..Default::default()
-    };
+    let data = IcmsUfDestData::new(
+        Cents(10000), Rate(1800), Rate(1200), Cents(600),
+    )
+    .v_bc_fcp_uf_dest(Cents(10000))
+    .p_fcp_uf_dest(Rate(200))
+    .v_fcp_uf_dest(Cents(200))
+    .v_icms_uf_remet(Cents(0));
     bencher.bench(|| build_icms_uf_dest_xml(divan::black_box(&data)));
+}
+
+#[divan::bench]
+fn bench_build_icms_st_xml(bencher: divan::Bencher) {
+    let data = IcmsStData::new(
+        "0", "60",
+        Cents(15000), Cents(2700),
+        Cents(12000), Cents(2160),
+    )
+    .v_bc_fcp_st_ret(Cents(15000))
+    .p_fcp_st_ret(Rate(200))
+    .v_fcp_st_ret(Cents(300));
+    bencher.bench(|| build_icms_st_xml(divan::black_box(&data)));
 }
 
 // ── PIS/COFINS/IPI/II ────────────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_build_pis_xml_aliq(bencher: divan::Bencher) {
-    let data = PisData {
-        cst: "01".to_string(),
-        v_bc: Some(10000),
-        p_pis: Some(16500),
-        v_pis: Some(165),
-        ..Default::default()
-    };
+    let data = PisData::new("01")
+        .v_bc(Cents(10000))
+        .p_pis(Rate4(16500))
+        .v_pis(Cents(165));
     bencher.bench(|| build_pis_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_cofins_xml_aliq(bencher: divan::Bencher) {
-    let data = CofinsData {
-        cst: "01".to_string(),
-        v_bc: Some(10000),
-        p_cofins: Some(76000),
-        v_cofins: Some(760),
-        ..Default::default()
-    };
+    let data = CofinsData::new("01")
+        .v_bc(Cents(10000))
+        .p_cofins(Rate4(76000))
+        .v_cofins(Cents(760));
     bencher.bench(|| build_cofins_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_ipi_xml_trib(bencher: divan::Bencher) {
-    let data = IpiData {
-        cst: "50".to_string(),
-        c_enq: "999".to_string(),
-        v_bc: Some(10000),
-        p_ipi: Some(50000),
-        v_ipi: Some(500),
-        ..Default::default()
-    };
+    let data = IpiData::new("50", "999")
+        .v_bc(Cents(10000))
+        .p_ipi(Rate(50000))
+        .v_ipi(Cents(500));
     bencher.bench(|| build_ipi_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_ii_xml(bencher: divan::Bencher) {
-    let data = IiData { v_bc: 100000, v_desp_adu: 5000, v_ii: 10000, v_iof: 1000 };
+    let data = IiData::new(Cents(100000), Cents(5000), Cents(10000), Cents(1000));
     bencher.bench(|| build_ii_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_pis_st_xml(bencher: divan::Bencher) {
-    let data = PisStData {
-        v_bc: Some(10000),
-        p_pis: Some(16500),
-        v_pis: 165,
-        ..Default::default()
-    };
+    let data = PisStData::new(Cents(165))
+        .v_bc(Cents(10000))
+        .p_pis(Rate4(16500));
     bencher.bench(|| build_pis_st_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
 fn bench_build_cofins_st_xml(bencher: divan::Bencher) {
-    let data = CofinsStData {
-        v_bc: Some(10000),
-        p_cofins: Some(76000),
-        v_cofins: 760,
-        ..Default::default()
-    };
+    let data = CofinsStData::new(Cents(760))
+        .v_bc(Cents(10000))
+        .p_cofins(Rate4(76000));
     bencher.bench(|| build_cofins_st_xml(divan::black_box(&data)));
 }
 
@@ -432,27 +520,36 @@ fn bench_build_cofins_st_xml(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_issqn_xml(bencher: divan::Bencher) {
-    let data = IssqnData {
-        v_bc: 50000,
-        v_aliq: 500,
-        v_issqn: 2500,
-        c_mun_fg: "4106902".to_string(),
-        c_list_serv: "14.01".to_string(),
-        ..Default::default()
-    };
+    let data = IssqnData::new(50000, 500, 2500, "4106902", "14.01");
     bencher.bench(|| build_issqn_xml(divan::black_box(&data)));
 }
 
 #[divan::bench]
+fn bench_build_issqn_xml_with_totals(bencher: divan::Bencher) {
+    let data = IssqnData::new(50000, 500, 2500, "4106902", "14.01")
+        .v_deducao(1000)
+        .v_iss_ret(500);
+    bencher.bench(|| {
+        let mut totals = create_issqn_totals();
+        build_issqn_xml_with_totals(divan::black_box(&data), &mut totals)
+    });
+}
+
+#[divan::bench]
+fn bench_create_issqn_totals(bencher: divan::Bencher) {
+    bencher.bench(|| create_issqn_totals());
+}
+
+#[divan::bench]
+fn bench_build_imposto_devol(bencher: divan::Bencher) {
+    bencher.bench(|| build_imposto_devol(divan::black_box(10000), divan::black_box(500)));
+}
+
+#[divan::bench]
 fn bench_build_is_xml(bencher: divan::Bencher) {
-    let data = IsData {
-        cst_is: "01".to_string(),
-        c_class_trib_is: "1234567".to_string(),
-        v_bc_is: Some("500.00".to_string()),
-        p_is: Some("5.0000".to_string()),
-        v_is: "25.00".to_string(),
-        ..Default::default()
-    };
+    let data = IsData::new("01", "1234567", "25.00")
+        .v_bc_is("500.00")
+        .p_is("5.0000");
     bencher.bench(|| build_is_xml(divan::black_box(&data)));
 }
 
@@ -466,6 +563,11 @@ fn bench_gtin_valid(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_gtin_sem_gtin(bencher: divan::Bencher) {
     bencher.bench(|| is_valid_gtin(divan::black_box("SEM GTIN")));
+}
+
+#[divan::bench]
+fn bench_gtin_calculate_check_digit(bencher: divan::Bencher) {
+    bencher.bench(|| calculate_check_digit(divan::black_box("7891234567895")));
 }
 
 // ── State Codes ──────────────────────────────────────────────────────────────
@@ -494,146 +596,20 @@ fn bench_state_code_all_27(bencher: divan::Bencher) {
     });
 }
 
-// ── Format Utils (missing) ──────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_format_cents_10(bencher: divan::Bencher) {
-    bencher.bench(|| format_cents_10(divan::black_box(150_00)));
-}
-
-#[divan::bench]
-fn bench_format_decimal(bencher: divan::Bencher) {
-    bencher.bench(|| format_decimal(divan::black_box(1.5678), 4));
-}
-
-#[divan::bench]
-fn bench_format_rate(bencher: divan::Bencher) {
-    bencher.bench(|| format_rate(divan::black_box(1800), 4));
-}
-
-#[divan::bench]
-fn bench_format_cents_or_none_some(bencher: divan::Bencher) {
-    bencher.bench(|| format_cents_or_none(divan::black_box(Some(9999)), 2));
-}
-
-#[divan::bench]
-fn bench_format_cents_or_none_none(bencher: divan::Bencher) {
-    bencher.bench(|| format_cents_or_none(divan::black_box(None), 2));
-}
-
-#[divan::bench]
-fn bench_format_rate4_or_zero_some(bencher: divan::Bencher) {
-    bencher.bench(|| format_rate4_or_zero(divan::black_box(Some(16500))));
-}
-
-#[divan::bench]
-fn bench_format_rate4_or_zero_none(bencher: divan::Bencher) {
-    bencher.bench(|| format_rate4_or_zero(divan::black_box(None)));
-}
-
-// ── XML Utils (missing) ─────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_extract_xml_tag_value(bencher: divan::Bencher) {
-    let xml = "<nfeProc><protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado</xMotivo></infProt></protNFe></nfeProc>";
-    bencher.bench(|| extract_xml_tag_value(divan::black_box(xml), divan::black_box("cStat")));
-}
-
-#[divan::bench]
-fn bench_extract_xml_tag_value_not_found(bencher: divan::Bencher) {
-    let xml = "<nfe><infNFe><ide><cUF>41</cUF></ide></infNFe></nfe>";
-    bencher.bench(|| extract_xml_tag_value(divan::black_box(xml), divan::black_box("missing")));
-}
-
-// ── Tax Element (missing) ───────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_filter_fields_mixed(bencher: divan::Bencher) {
-    bencher.bench(|| {
-        let fields: Vec<Option<TaxField>> = vec![
-            Some(TaxField::new("orig", "0")),
-            None,
-            Some(TaxField::new("CST", "00")),
-            None,
-            Some(TaxField::new("modBC", "0")),
-            None,
-            Some(TaxField::new("vBC", "150.00")),
-        ];
-        filter_fields(divan::black_box(fields))
-    });
-}
-
-// ── ICMS ST Builder (missing) ───────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_icms_st_xml(bencher: divan::Bencher) {
-    let data = IcmsData {
-        tax_regime: 3,
-        orig: "0".into(),
-        cst: Some("60".into()),
-        v_bc_st_ret: Some(15000),
-        v_icms_st_ret: Some(2700),
-        v_bc_st_dest: Some(12000),
-        v_icms_st_dest: Some(2160),
-        v_bc_fcp_st_ret: Some(15000),
-        p_fcp_st_ret: Some(200),
-        v_fcp_st_ret: Some(300),
-        ..Default::default()
-    };
-    bencher.bench(|| build_icms_st_xml(divan::black_box(&data)));
-}
-
-// ── ISSQN (missing) ─────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_issqn_xml_with_totals(bencher: divan::Bencher) {
-    let data = IssqnData {
-        v_bc: 50000,
-        v_aliq: 500,
-        v_issqn: 2500,
-        c_mun_fg: "4106902".to_string(),
-        c_list_serv: "14.01".to_string(),
-        v_deducao: Some(1000),
-        v_iss_ret: Some(500),
-        ..Default::default()
-    };
-    bencher.bench(|| {
-        let mut totals = create_issqn_totals();
-        build_issqn_xml_with_totals(divan::black_box(&data), &mut totals)
-    });
-}
-
-#[divan::bench]
-fn bench_create_issqn_totals(bencher: divan::Bencher) {
-    bencher.bench(|| create_issqn_totals());
-}
-
-#[divan::bench]
-fn bench_build_imposto_devol(bencher: divan::Bencher) {
-    bencher.bench(|| build_imposto_devol(divan::black_box(10000), divan::black_box(500)));
-}
-
-// ── GTIN (missing) ──────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_gtin_calculate_check_digit(bencher: divan::Bencher) {
-    bencher.bench(|| calculate_check_digit(divan::black_box("7891234567895")));
-}
-
 // ── Access Key ──────────────────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_build_access_key(bencher: divan::Bencher) {
-    let params = AccessKeyParams {
-        state_code: "41".to_string(),
-        year_month: "2603".to_string(),
-        tax_id: "04123456000190".to_string(),
-        model: InvoiceModel::Nfe,
-        series: 1,
-        number: 123,
-        emission_type: EmissionType::Normal,
-        numeric_code: "12345678".to_string(),
-    };
+    let params = AccessKeyParams::new(
+        IbgeCode("41".to_string()),
+        "2603",
+        "04123456000190",
+        InvoiceModel::Nfe,
+        1,
+        123,
+        EmissionType::Normal,
+        "12345678",
+    );
     bencher.bench(|| build_access_key(divan::black_box(&params)));
 }
 
@@ -690,7 +666,7 @@ fn bench_tax_id_to_xml_tag(bencher: divan::Bencher) {
     });
 }
 
-// ── IDE Builder ─────────────────────────────────────────────────────────────
+// ── IDE / format_datetime_nfe ────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_format_datetime_nfe(bencher: divan::Bencher) {
@@ -701,27 +677,7 @@ fn bench_format_datetime_nfe(bencher: divan::Bencher) {
     bencher.bench(|| format_datetime_nfe(divan::black_box(&dt), divan::black_box("PR")));
 }
 
-#[divan::bench]
-fn bench_build_ide(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    let access_key = "41260304123456000190550010000001231123456780";
-    bencher.bench(|| {
-        build_ide(
-            divan::black_box(&data),
-            divan::black_box("41"),
-            divan::black_box("12345678"),
-            divan::black_box(access_key),
-        )
-    });
-}
-
-// ── Emit Builder ────────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_emit(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    bencher.bench(|| build_emit(divan::black_box(&data)));
-}
+// ── Emit / Address Fields ───────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_build_address_fields(bencher: divan::Bencher) {
@@ -740,43 +696,13 @@ fn bench_build_address_fields(bencher: divan::Bencher) {
     });
 }
 
-// ── Dest Builder ────────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_dest_nfe(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    bencher.bench(|| build_dest(divan::black_box(&data)));
-}
-
-#[divan::bench]
-fn bench_build_dest_nfce(bencher: divan::Bencher) {
-    let mut data = make_sample_invoice_data();
-    data.model = InvoiceModel::Nfce;
-    bencher.bench(|| build_dest(divan::black_box(&data)));
-}
-
-// ── Det Builder ─────────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_det_simple(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    let item = &data.items[0];
-    bencher.bench(|| build_det(divan::black_box(item), divan::black_box(&data)));
-}
-
 // ── Total Builder ───────────────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_build_total(bencher: divan::Bencher) {
-    let icms = IcmsTotals {
-        v_bc: 15000, v_icms: 2700, v_icms_deson: 0,
-        v_bc_st: 0, v_st: 0, v_fcp: 0, v_fcp_st: 0,
-        v_fcp_st_ret: 0, v_fcp_uf_dest: 0,
-        v_icms_uf_dest: 0, v_icms_uf_remet: 0,
-        q_bc_mono: 0, v_icms_mono: 0,
-        q_bc_mono_reten: 0, v_icms_mono_reten: 0,
-        q_bc_mono_ret: 0, v_icms_mono_ret: 0,
-    };
+    let icms = IcmsTotals::new()
+        .v_bc(Cents(15000))
+        .v_icms(Cents(2700));
     let other = OtherTotals { v_ipi: 500, v_pis: 165, v_cofins: 760, v_ii: 0 };
     bencher.bench(|| {
         build_total(
@@ -788,26 +714,11 @@ fn bench_build_total(bencher: divan::Bencher) {
     });
 }
 
-// ── Transp Builder ──────────────────────────────────────────────────────────
-
-#[divan::bench]
-fn bench_build_transp_no_transport(bencher: divan::Bencher) {
-    let mut data = make_sample_invoice_data();
-    data.transport = None;
-    bencher.bench(|| build_transp(divan::black_box(&data)));
-}
-
-#[divan::bench]
-fn bench_build_transp_with_carrier(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data_with_transport();
-    bencher.bench(|| build_transp(divan::black_box(&data)));
-}
-
 // ── Pag Builder ─────────────────────────────────────────────────────────────
 
 #[divan::bench]
 fn bench_build_pag_cash(bencher: divan::Bencher) {
-    let payments = vec![PaymentData { method: "01".to_string(), amount: 15000 }];
+    let payments = vec![PaymentData::new("01", Cents(15000))];
     bencher.bench(|| {
         build_pag(divan::black_box(&payments), divan::black_box(None), divan::black_box(None))
     });
@@ -815,11 +726,11 @@ fn bench_build_pag_cash(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_pag_with_change(bencher: divan::Bencher) {
-    let payments = vec![PaymentData { method: "01".to_string(), amount: 20000 }];
+    let payments = vec![PaymentData::new("01", Cents(20000))];
     bencher.bench(|| {
         build_pag(
             divan::black_box(&payments),
-            divan::black_box(Some(5000)),
+            divan::black_box(Some(Cents(5000))),
             divan::black_box(None),
         )
     });
@@ -837,64 +748,45 @@ fn bench_build_pag_empty(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_cobr(bencher: divan::Bencher) {
-    let billing = BillingData {
-        invoice: Some(BillingInvoice {
-            number: "001".to_string(),
-            original_value: 15000,
-            discount_value: Some(500),
-            net_value: 14500,
-        }),
-        installments: Some(vec![
-            Installment { number: "001".to_string(), due_date: "2026-04-11".to_string(), value: 7250 },
-            Installment { number: "002".to_string(), due_date: "2026-05-11".to_string(), value: 7250 },
-        ]),
-    };
+    let billing = BillingData::new()
+        .invoice(
+            BillingInvoice::new("001", Cents(15000), Cents(14500))
+                .discount_value(Cents(500)),
+        )
+        .installments(vec![
+            Installment::new("001", "2026-04-11", Cents(7250)),
+            Installment::new("002", "2026-05-11", Cents(7250)),
+        ]);
     bencher.bench(|| build_cobr(divan::black_box(&billing)));
 }
 
 #[divan::bench]
-fn bench_build_inf_adic_homologation(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    bencher.bench(|| build_inf_adic(divan::black_box(&data)));
-}
-
-#[divan::bench]
 fn bench_build_intermediary(bencher: divan::Bencher) {
-    let intermed = IntermediaryData {
-        tax_id: "04123456000190".to_string(),
-        id_cad_int_tran: Some("ABC12345".to_string()),
-    };
+    let intermed = IntermediaryData::new("04123456000190")
+        .id_cad_int_tran("ABC12345");
     bencher.bench(|| build_intermediary(divan::black_box(&intermed)));
 }
 
 #[divan::bench]
 fn bench_build_tech_responsible(bencher: divan::Bencher) {
-    let tech = TechResponsibleData {
-        tax_id: "14363848000190".to_string(),
-        contact: "Solusys".to_string(),
-        email: "contato@solusys.com.br".to_string(),
-        phone: Some("4332341234".to_string()),
-    };
+    let tech = TechResponsibleData::new("14363848000190", "Solusys", "contato@solusys.com.br")
+        .phone("4332341234");
     bencher.bench(|| build_tech_responsible(divan::black_box(&tech)));
 }
 
 #[divan::bench]
 fn bench_build_purchase(bencher: divan::Bencher) {
-    let purchase = PurchaseData {
-        order_number: Some("PO-2026-001".to_string()),
-        contract_number: Some("CT-999".to_string()),
-        purchase_note: Some("NE-123".to_string()),
-    };
+    let purchase = PurchaseData::new()
+        .order_number("PO-2026-001")
+        .contract_number("CT-999")
+        .purchase_note("NE-123");
     bencher.bench(|| build_purchase(divan::black_box(&purchase)));
 }
 
 #[divan::bench]
 fn bench_build_export(bencher: divan::Bencher) {
-    let exp = ExportData {
-        exit_state: "PR".to_string(),
-        export_location: "Porto de Paranagua".to_string(),
-        dispatch_location: Some("Terminal de Cargas".to_string()),
-    };
+    let exp = ExportData::new("PR", "Porto de Paranagua")
+        .dispatch_location("Terminal de Cargas");
     bencher.bench(|| build_export(divan::black_box(&exp)));
 }
 
@@ -912,22 +804,71 @@ fn bench_build_delivery(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_aut_xml(bencher: divan::Bencher) {
-    let auth = AuthorizedXml { tax_id: "04123456000190".to_string() };
+    let auth = AuthorizedXml::new("04123456000190");
     bencher.bench(|| build_aut_xml(divan::black_box(&auth)));
 }
 
-// ── Full Invoice XML Builder ────────────────────────────────────────────────
+// ── InvoiceBuilder ──────────────────────────────────────────────────────────
 
 #[divan::bench]
-fn bench_build_invoice_xml_simple(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data();
-    bencher.bench(|| build_invoice_xml(divan::black_box(&data)));
+fn bench_invoice_builder_simple(bencher: divan::Bencher) {
+    let issuer = make_sample_issuer();
+    let recipient = make_sample_recipient();
+    let item = make_sample_item(1);
+    let payment = PaymentData::new("01", Cents(15000));
+    bencher.bench(|| {
+        InvoiceBuilder::new(
+            divan::black_box(issuer.clone()),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .series(1)
+        .invoice_number(123)
+        .recipient(divan::black_box(recipient.clone()))
+        .add_item(divan::black_box(item.clone()))
+        .payments(vec![divan::black_box(payment.clone())])
+        .build()
+    });
 }
 
 #[divan::bench]
-fn bench_build_invoice_xml_10_items(bencher: divan::Bencher) {
-    let data = make_sample_invoice_data_10_items();
-    bencher.bench(|| build_invoice_xml(divan::black_box(&data)));
+fn bench_invoice_builder_10_items(bencher: divan::Bencher) {
+    let issuer = make_sample_issuer();
+    let recipient = make_sample_recipient();
+    let items: Vec<InvoiceItemData> = (1..=10).map(|n| make_sample_item(n)).collect();
+    let payment = PaymentData::new("01", Cents(150000));
+    bencher.bench(|| {
+        InvoiceBuilder::new(
+            divan::black_box(issuer.clone()),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .series(1)
+        .invoice_number(123)
+        .recipient(divan::black_box(recipient.clone()))
+        .items(divan::black_box(items.clone()))
+        .payments(vec![divan::black_box(payment.clone())])
+        .build()
+    });
+}
+
+#[divan::bench]
+fn bench_invoice_builder_nfce(bencher: divan::Bencher) {
+    let issuer = make_sample_issuer();
+    let item = make_sample_item(1);
+    let payment = PaymentData::new("01", Cents(15000));
+    bencher.bench(|| {
+        InvoiceBuilder::new(
+            divan::black_box(issuer.clone()),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfce,
+        )
+        .series(1)
+        .invoice_number(123)
+        .add_item(divan::black_box(item.clone()))
+        .payments(vec![divan::black_box(payment.clone())])
+        .build()
+    });
 }
 
 // ── Complement ──────────────────────────────────────────────────────────────
@@ -1029,41 +970,27 @@ fn bench_attach_b2b(bencher: divan::Bencher) {
 
 #[divan::bench]
 fn bench_build_nfce_qr_code_url_v300_online(bencher: divan::Bencher) {
-    let params = NfceQrCodeParams {
-        access_key: "41260304123456000190650010000001231123456780".to_string(),
-        version: QrCodeVersion::V300,
-        environment: SefazEnvironment::Homologation,
-        emission_type: EmissionType::Normal,
-        qr_code_base_url: "http://www.fazenda.pr.gov.br/nfce/qrcode".to_string(),
-        csc_token: None,
-        csc_id: None,
-        issued_at: None,
-        total_value: None,
-        total_icms: None,
-        digest_value: None,
-        dest_document: None,
-        dest_id_type: None,
-    };
+    let params = NfceQrCodeParams::new(
+        "41260304123456000190650010000001231123456780",
+        QrCodeVersion::V300,
+        SefazEnvironment::Homologation,
+        EmissionType::Normal,
+        "http://www.fazenda.pr.gov.br/nfce/qrcode",
+    );
     bencher.bench(|| build_nfce_qr_code_url(divan::black_box(&params)));
 }
 
 #[divan::bench]
 fn bench_build_nfce_qr_code_url_v200_online(bencher: divan::Bencher) {
-    let params = NfceQrCodeParams {
-        access_key: "41260304123456000190650010000001231123456780".to_string(),
-        version: QrCodeVersion::V200,
-        environment: SefazEnvironment::Homologation,
-        emission_type: EmissionType::Normal,
-        qr_code_base_url: "http://www.fazenda.pr.gov.br/nfce/qrcode".to_string(),
-        csc_token: Some("000001".to_string()),
-        csc_id: Some("ABCDEF0123456789ABCDEF0123456789".to_string()),
-        issued_at: None,
-        total_value: None,
-        total_icms: None,
-        digest_value: None,
-        dest_document: None,
-        dest_id_type: None,
-    };
+    let params = NfceQrCodeParams::new(
+        "41260304123456000190650010000001231123456780",
+        QrCodeVersion::V200,
+        SefazEnvironment::Homologation,
+        EmissionType::Normal,
+        "http://www.fazenda.pr.gov.br/nfce/qrcode",
+    )
+    .csc_token("000001")
+    .csc_id("ABCDEF0123456789ABCDEF0123456789");
     bencher.bench(|| build_nfce_qr_code_url(divan::black_box(&params)));
 }
 
@@ -1081,14 +1008,14 @@ fn bench_build_nfce_consult_url(bencher: divan::Bencher) {
 #[divan::bench]
 fn bench_put_qr_tag(bencher: divan::Bencher) {
     let xml = make_sample_nfce_signed_xml();
-    let params = PutQRTagParams {
-        xml: xml.clone(),
-        csc_token: String::new(),
-        csc_id: String::new(),
-        version: "300".to_string(),
-        qr_code_base_url: "http://www.fazenda.pr.gov.br/nfce/qrcode".to_string(),
-        url_chave: "http://www.fazenda.pr.gov.br/nfce/consulta".to_string(),
-    };
+    let params = PutQRTagParams::new(
+        xml.clone(),
+        "",
+        "",
+        "300",
+        "http://www.fazenda.pr.gov.br/nfce/qrcode",
+        "http://www.fazenda.pr.gov.br/nfce/consulta",
+    );
     bencher.bench(|| put_qr_tag(divan::black_box(&params)));
 }
 
@@ -1135,6 +1062,18 @@ fn bench_adjust_nfe_contingency(bencher: divan::Bencher) {
             divan::black_box(&contingency),
         )
     });
+}
+
+// ── SEFAZ Services ──────────────────────────────────────────────────────────
+
+#[divan::bench]
+fn bench_sefaz_service_status_meta(bencher: divan::Bencher) {
+    bencher.bench(|| SefazService::StatusServico.meta());
+}
+
+#[divan::bench]
+fn bench_sefaz_service_autorizacao_url_key(bencher: divan::Bencher) {
+    bencher.bench(|| SefazService::Autorizacao.url_key());
 }
 
 // ── SEFAZ Request Builders ──────────────────────────────────────────────────
@@ -1235,6 +1174,30 @@ fn bench_build_cadastro_request(bencher: divan::Bencher) {
         build_cadastro_request(
             divan::black_box("PR"),
             divan::black_box("CNPJ"),
+            divan::black_box("04123456000190"),
+        )
+    });
+}
+
+#[divan::bench]
+fn bench_build_consulta_recibo_request(bencher: divan::Bencher) {
+    bencher.bench(|| {
+        build_consulta_recibo_request(
+            divan::black_box("141260000012345"),
+            divan::black_box(SefazEnvironment::Homologation),
+        )
+    });
+}
+
+#[divan::bench]
+fn bench_build_manifesta_request(bencher: divan::Bencher) {
+    bencher.bench(|| {
+        build_manifesta_request(
+            divan::black_box("41260304123456000190550010000001231123456780"),
+            divan::black_box("210200"),
+            divan::black_box(None),
+            divan::black_box(1),
+            divan::black_box(SefazEnvironment::Homologation),
             divan::black_box("04123456000190"),
         )
     });
@@ -1418,208 +1381,73 @@ fn bench_sign_xml(bencher: divan::Bencher) {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 fn make_sample_issuer() -> IssuerData {
-    IssuerData {
-        tax_id: "04123456000190".to_string(),
-        state_tax_id: "9012345678".to_string(),
-        company_name: "Auto Eletrica Barbosa LTDA".to_string(),
-        trade_name: Some("Auto Eletrica Barbosa".to_string()),
-        tax_regime: TaxRegime::Normal,
-        state_code: "PR".to_string(),
-        city_code: "4106902".to_string(),
-        city_name: "Curitiba".to_string(),
-        street: "Rua XV de Novembro".to_string(),
-        street_number: "1000".to_string(),
-        district: "Centro".to_string(),
-        zip_code: "80020310".to_string(),
-        address_complement: None,
-    }
+    IssuerData::new(
+        "04123456000190",
+        "9012345678",
+        "Auto Eletrica Barbosa LTDA",
+        TaxRegime::Normal,
+        "PR",
+        IbgeCode("4106902".to_string()),
+        "Curitiba",
+        "Rua XV de Novembro",
+        "1000",
+        "Centro",
+        "80020310",
+    )
+    .trade_name("Auto Eletrica Barbosa")
 }
 
 fn make_sample_recipient() -> RecipientData {
-    RecipientData {
-        tax_id: "12345678901234".to_string(),
-        name: "Cliente Teste LTDA".to_string(),
-        state_code: Some("PR".to_string()),
-        state_tax_id: Some("1234567890".to_string()),
-        street: Some("Rua das Flores".to_string()),
-        street_number: Some("500".to_string()),
-        district: Some("Batel".to_string()),
-        city_code: Some("4106902".to_string()),
-        city_name: Some("Curitiba".to_string()),
-        zip_code: Some("80420120".to_string()),
-        complement: None,
-    }
+    RecipientData::new("12345678901234", "Cliente Teste LTDA")
+        .state_code("PR")
+        .state_tax_id("1234567890")
+        .street("Rua das Flores")
+        .street_number("500")
+        .district("Batel")
+        .city_code(IbgeCode("4106902".to_string()))
+        .city_name("Curitiba")
+        .zip_code("80420120")
 }
 
 fn make_sample_item(n: u32) -> InvoiceItemData {
-    InvoiceItemData {
-        item_number: n,
-        product_code: format!("{n:03}"),
-        description: "Servico de eletrica automotiva".to_string(),
-        ncm: "00000000".to_string(),
-        cfop: "5102".to_string(),
-        unit_of_measure: "UN".to_string(),
-        quantity: 1.0,
-        unit_price: 15000,
-        total_price: 15000,
-        c_ean: None,
-        c_ean_trib: None,
-        cest: None,
-        v_frete: None,
-        v_seg: None,
-        v_desc: None,
-        v_outro: None,
-        orig: Some("0".to_string()),
-        icms_cst: "00".to_string(),
-        icms_rate: 1800,
-        icms_amount: 2700,
-        icms_mod_bc: Some(0),
-        icms_red_bc: None,
-        icms_mod_bc_st: None,
-        icms_p_mva_st: None,
-        icms_red_bc_st: None,
-        icms_v_bc_st: None,
-        icms_p_icms_st: None,
-        icms_v_icms_st: None,
-        icms_v_icms_deson: None,
-        icms_mot_des_icms: None,
-        icms_p_fcp: None,
-        icms_v_fcp: None,
-        icms_v_bc_fcp: None,
-        icms_p_fcp_st: None,
-        icms_v_fcp_st: None,
-        icms_v_bc_fcp_st: None,
-        icms_p_cred_sn: None,
-        icms_v_cred_icms_sn: None,
-        icms_v_icms_substituto: None,
-        pis_cst: "01".to_string(),
-        pis_v_bc: Some(15000),
-        pis_p_pis: Some(16500),
-        pis_v_pis: Some(248),
-        pis_q_bc_prod: None,
-        pis_v_aliq_prod: None,
-        cofins_cst: "01".to_string(),
-        cofins_v_bc: Some(15000),
-        cofins_p_cofins: Some(76000),
-        cofins_v_cofins: Some(1140),
-        cofins_q_bc_prod: None,
-        cofins_v_aliq_prod: None,
-        ipi_cst: None,
-        ipi_c_enq: None,
-        ipi_v_bc: None,
-        ipi_p_ipi: None,
-        ipi_v_ipi: None,
-        ipi_q_unid: None,
-        ipi_v_unid: None,
-        ii_v_bc: None,
-        ii_v_desp_adu: None,
-        ii_v_ii: None,
-        ii_v_iof: None,
-        rastro: None,
-        veic_prod: None,
-        med: None,
-        arma: None,
-        n_recopi: None,
-        inf_ad_prod: None,
-        obs_item: None,
-        dfe_referenciado: None,
-    }
-}
-
-fn make_sample_invoice_data() -> InvoiceBuildData {
-    let dt = chrono::FixedOffset::west_opt(3 * 3600)
-        .unwrap()
-        .with_ymd_and_hms(2026, 3, 11, 10, 30, 0)
-        .unwrap();
-
-    InvoiceBuildData {
-        model: InvoiceModel::Nfe,
-        series: 1,
-        number: 123,
-        emission_type: EmissionType::Normal,
-        environment: SefazEnvironment::Homologation,
-        issued_at: dt,
-        operation_nature: "VENDA".to_string(),
-        issuer: make_sample_issuer(),
-        recipient: Some(make_sample_recipient()),
-        items: vec![make_sample_item(1)],
-        payments: vec![PaymentData { method: "01".to_string(), amount: 15000 }],
-        change_amount: None,
-        payment_card_details: None,
-        contingency: None,
-        operation_type: Some(1),
-        purpose_code: Some(1),
-        intermediary_indicator: None,
-        emission_process: None,
-        consumer_type: None,
-        buyer_presence: None,
-        print_format: None,
-        references: None,
-        transport: None,
-        billing: None,
-        withdrawal: None,
-        delivery: None,
-        authorized_xml: None,
-        additional_info: None,
-        intermediary: None,
-        ret_trib: None,
-        tech_responsible: None,
-        purchase: None,
-        export: None,
-    }
-}
-
-fn make_sample_invoice_data_10_items() -> InvoiceBuildData {
-    let mut data = make_sample_invoice_data();
-    data.items = (1..=10).map(|n| make_sample_item(n)).collect();
-    data.payments = vec![PaymentData { method: "01".to_string(), amount: 150000 }];
-    data
-}
-
-fn make_sample_invoice_data_with_transport() -> InvoiceBuildData {
-    let mut data = make_sample_invoice_data();
-    data.transport = Some(TransportData {
-        freight_mode: "0".to_string(),
-        carrier: Some(CarrierData {
-            tax_id: Some("04123456000190".to_string()),
-            name: Some("Transportadora ABC".to_string()),
-            state_tax_id: Some("1234567890".to_string()),
-            state_code: Some("PR".to_string()),
-            address: Some("Rua dos Transportes 100".to_string()),
-        }),
-        vehicle: Some(VehicleData {
-            plate: "ABC1D23".to_string(),
-            state_code: "PR".to_string(),
-            rntc: Some("12345".to_string()),
-        }),
-        trailers: None,
-        volumes: Some(vec![VolumeData {
-            quantity: Some(1),
-            species: Some("CAIXA".to_string()),
-            brand: Some("MARCA".to_string()),
-            number: None,
-            net_weight: Some(10.5),
-            gross_weight: Some(12.0),
-            seals: None,
-        }]),
-        retained_icms: None,
-    });
-    data
+    InvoiceItemData::new(
+        n,
+        format!("{n:03}"),
+        "Servico de eletrica automotiva",
+        "00000000",
+        "5102",
+        "UN",
+        1.0,
+        Cents(15000),
+        Cents(15000),
+        "00",
+        Rate(1800),
+        Cents(2700),
+        "01",
+        "01",
+    )
+    .orig("0")
+    .icms_mod_bc(0)
+    .pis_v_bc(Cents(15000))
+    .pis_p_pis(Rate4(16500))
+    .pis_v_pis(Cents(248))
+    .cofins_v_bc(Cents(15000))
+    .cofins_p_cofins(Rate4(76000))
+    .cofins_v_cofins(Cents(1140))
 }
 
 fn make_sample_location() -> LocationData {
-    LocationData {
-        tax_id: "04123456000190".to_string(),
-        name: Some("Deposito Central".to_string()),
-        street: "Rua do Deposito".to_string(),
-        number: "200".to_string(),
-        complement: None,
-        district: "Industrial".to_string(),
-        city_code: "4106902".to_string(),
-        city_name: "Curitiba".to_string(),
-        state_code: "PR".to_string(),
-        zip_code: Some("81000000".to_string()),
-    }
+    LocationData::new(
+        "04123456000190",
+        "Rua do Deposito",
+        "200",
+        "Industrial",
+        IbgeCode("4106902".to_string()),
+        "Curitiba",
+        "PR",
+    )
+    .name("Deposito Central")
+    .zip_code("81000000")
 }
 
 fn make_sample_signed_nfe_xml() -> String {
