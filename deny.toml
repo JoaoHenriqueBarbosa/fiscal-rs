@@ -1,0 +1,68 @@
+# cargo-deny configuration for the fiscal-rs workspace.
+# Run: cargo deny check
+
+[licenses]
+# Licenses verified against Cargo.lock as of workspace snapshot.
+# Key crates and their licenses:
+#   MIT/Apache-2.0 dual: serde, chrono, thiserror, quick-xml, sha1, base64,
+#                        openssl (crate), rand, regex, bitflags, hashbrown,
+#                        indexmap, memchr, libc, once_cell, syn, proc-macro2,
+#                        quote, tempfile, rustix, semver, anyhow, log, ...
+#   MIT only:            heck, insta, similar, diff, yansi, console, anstyle,
+#                        clap, divan, proptest, rstest, pretty_assertions, ...
+#   Apache-2.0 only:     unicode-ident (dual Apache-2.0/MIT-0; covered below)
+#   BSD-2-Clause:        zerocopy, zerocopy-derive
+#   BSD-3-Clause:        (none currently, kept for future transitive deps)
+#   ISC:                 (none currently, kept for future transitive deps)
+#   Unicode-3.0:         unicode-ident (Unicode License Agreement v3)
+#   Unicode-DFS-2016:    unicode-ident (Unicode data files)
+#   OpenSSL:             openssl-sys (links against system libssl/libcrypto)
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "OpenSSL",
+    # MIT-0 is used by some unicode crates as a permissive fallback
+    "MIT-0",
+    # Zlib is used by several compression/utility crates
+    "Zlib",
+]
+# Minimum confidence threshold for license detection. A score below this
+# causes cargo-deny to treat the detection as uncertain and emit a warning.
+confidence-threshold = 0.8
+
+[bans]
+# Warn (not deny) when multiple versions of the same crate are resolved.
+# This workspace currently has legitimate duplicates (e.g. windows-sys
+# 0.59/0.60/0.61, getrandom 0.3/0.4) pulled in by transitive deps.
+multiple-versions = "warn"
+# Deny wildcard (`*`) version requirements in direct dependencies.
+wildcards = "deny"
+# Deny crates that are explicitly prohibited workspace-wide.
+deny = []
+
+[advisories]
+# Deny crates with known security vulnerabilities.
+vulnerability = "deny"
+# Warn on unmaintained crates; consider replacing if a maintained fork exists.
+unmaintained = "warn"
+# Warn on crates marked "unsound" in the RustSec advisory database.
+unsound = "warn"
+# Warn on crates that have been yanked from crates.io.
+yanked = "warn"
+# Path to the local copy of the RustSec advisory database. Leave unset to
+# fetch it automatically at check time.
+# db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+[sources]
+# Allow packages from crates.io and path-based workspace members only.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

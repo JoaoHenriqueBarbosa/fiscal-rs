@@ -1,0 +1,46 @@
+version: 2
+
+updates:
+  # Keep Cargo dependencies up to date.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    # Open PRs against master (the sole long-lived branch).
+    target-branch: master
+    # Group all patch and minor bumps into a single PR to reduce noise; each
+    # major-version bump gets its own PR so it can be reviewed in isolation.
+    groups:
+      patch-and-minor:
+        update-types:
+          - minor
+          - patch
+    # Limit concurrent open dependency PRs to keep the queue manageable.
+    open-pull-requests-limit: 10
+    # Prefix PR titles so they are easy to filter in the GitHub UI.
+    commit-message:
+      prefix: "deps"
+      include: scope
+    labels:
+      - dependencies
+      - rust
+
+  # Keep GitHub Actions up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    target-branch: master
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: scope
+    labels:
+      - dependencies
+      - github-actions

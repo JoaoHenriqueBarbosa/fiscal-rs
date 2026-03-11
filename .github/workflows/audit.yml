@@ -1,0 +1,45 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [master]
+    paths:
+      # Re-run on any dependency or audit-config change.
+      - Cargo.toml
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - deny.toml
+  schedule:
+    # Run daily at 06:00 UTC so advisories published overnight are caught
+    # before the workday begins.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deny:
+    name: cargo-deny (licenses + bans + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          # Check all four categories in one pass.
+          command: check licenses bans advisories sources
+          # Use the deny.toml at the workspace root.
+          manifest-path: Cargo.toml
+
+  audit:
+    name: cargo-audit (RustSec)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo-audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
