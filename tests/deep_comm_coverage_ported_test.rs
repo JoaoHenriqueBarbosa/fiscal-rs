@@ -247,21 +247,12 @@ mod deep_coverage_test {
 
         #[test]
         fn render_error_handling_stores_errors() {
-            let issuer = IssuerData {
-                tax_id: "58716523000119".to_string(),
-                state_tax_id: "123456789012".to_string(),
-                company_name: "EMPRESA TESTE LTDA".to_string(),
-                trade_name: Some("EMPRESA TESTE".to_string()),
-                tax_regime: TaxRegime::Normal,
-                state_code: "XX".to_string(), // Invalid state
-                city_code: IbgeCode("3550308".to_string()),
-                city_name: "Sao Paulo".to_string(),
-                street: "Rua Teste".to_string(),
-                street_number: "100".to_string(),
-                district: "Centro".to_string(),
-                zip_code: "01001000".to_string(),
-                address_complement: None,
-            };
+            let issuer = IssuerData::new(
+                "58716523000119", "123456789012", "EMPRESA TESTE LTDA",
+                TaxRegime::Normal, "XX", // Invalid state
+                IbgeCode("3550308".to_string()), "Sao Paulo",
+                "Rua Teste", "100", "Centro", "01001000",
+            ).trade_name("EMPRESA TESTE");
             let result = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
                 .series(1)
                 .invoice_number(30)
@@ -334,64 +325,30 @@ mod deep_coverage_test {
 
             let built = minimal_nfe55(42)
                 .items(vec![item])
-                .withdrawal(LocationData {
-                    tax_id: "99887766000100".to_string(),
-                    name: None,
-                    street: "Rua R".to_string(),
-                    number: "1".to_string(),
-                    complement: None,
-                    district: "D".to_string(),
-                    city_code: IbgeCode("4106902".to_string()),
-                    city_name: "Curitiba".to_string(),
-                    state_code: "PR".to_string(),
-                    zip_code: None,
-                })
-                .delivery(LocationData {
-                    tax_id: "11222333000181".to_string(),
-                    name: None,
-                    street: "Rua E".to_string(),
-                    number: "2".to_string(),
-                    complement: None,
-                    district: "D".to_string(),
-                    city_code: IbgeCode("3550308".to_string()),
-                    city_name: "Sao Paulo".to_string(),
-                    state_code: "SP".to_string(),
-                    zip_code: None,
-                })
-                .authorized_xml(vec![AuthorizedXml { tax_id: "12345678000195".to_string() }])
-                .billing(BillingData {
-                    invoice: Some(BillingInvoice {
-                        number: "001".to_string(),
-                        original_value: Cents(10000),
-                        discount_value: None,
-                        net_value: Cents(10000),
-                    }),
-                    installments: Some(vec![Installment {
-                        number: "001".to_string(),
-                        due_date: "2025-04-01".to_string(),
-                        value: Cents(10000),
-                    }]),
-                })
-                .intermediary(IntermediaryData {
-                    tax_id: "55667788000199".to_string(),
-                    id_cad_int_tran: Some("CAD001".to_string()),
-                })
-                .export(ExportData {
-                    exit_state: "SP".to_string(),
-                    export_location: "Porto de Santos".to_string(),
-                    dispatch_location: None,
-                })
-                .purchase(PurchaseData {
-                    order_number: Some("PED-001".to_string()),
-                    contract_number: Some("CONT-001".to_string()),
-                    purchase_note: None,
-                })
-                .tech_responsible(TechResponsibleData {
-                    tax_id: "11223344000155".to_string(),
-                    contact: "Suporte".to_string(),
-                    email: "suporte@teste.com".to_string(),
-                    phone: Some("1133334444".to_string()),
-                })
+                .withdrawal(LocationData::new(
+                    "99887766000100", "Rua R", "1", "D",
+                    IbgeCode("4106902".to_string()), "Curitiba", "PR",
+                ))
+                .delivery(LocationData::new(
+                    "11222333000181", "Rua E", "2", "D",
+                    IbgeCode("3550308".to_string()), "Sao Paulo", "SP",
+                ))
+                .authorized_xml(vec![AuthorizedXml::new("12345678000195")])
+                .billing(BillingData::new()
+                    .invoice(BillingInvoice::new("001", Cents(10000), Cents(10000)))
+                    .installments(vec![Installment::new("001", "2025-04-01", Cents(10000))])
+                )
+                .intermediary(IntermediaryData::new("55667788000199")
+                    .id_cad_int_tran("CAD001")
+                )
+                .export(ExportData::new("SP", "Porto de Santos"))
+                .purchase(PurchaseData::new()
+                    .order_number("PED-001")
+                    .contract_number("CONT-001")
+                )
+                .tech_responsible(TechResponsibleData::new("11223344000155", "Suporte", "suporte@teste.com")
+                    .phone("1133334444")
+                )
                 .build()
                 .expect("build failed");
             let xml = built.xml();
@@ -1088,49 +1045,31 @@ mod deep_coverage_test {
 
         #[test]
         fn throws_on_missing_csc() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35170358716523000119650010000000011000000015".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-                csc_token: Some("".to_string()),
-                csc_id: Some("000001".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35170358716523000119650010000000011000000015",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx",
+            ).csc_token("").csc_id("000001"));
             assert!(result.is_err());
         }
 
         #[test]
         fn throws_on_missing_csc_id() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35170358716523000119650010000000011000000015".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-                csc_token: Some("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string()),
-                csc_id: Some("".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35170358716523000119650010000000011000000015",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx",
+            ).csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id(""));
             assert!(result.is_err());
         }
 
         #[test]
         fn malformed_url_when_base_url_empty() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35170358716523000119650010000000011000000015".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "".to_string(),
-                csc_token: Some("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string()),
-                csc_id: Some("000001".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35170358716523000119650010000000011000000015",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "",
+            ).csc_token("GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G").csc_id("000001"));
             match result {
                 Ok(url) => assert!(url.starts_with("?p=")),
                 Err(_) => {}
@@ -1757,14 +1696,13 @@ mod communication_coverage_test {
                 "</Reference></SignedInfo>",
                 "</Signature></NFe>"
             );
-            let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams {
-                xml: nfce_xml.to_string(),
-                csc_token: "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string(),
-                csc_id: "000001".to_string(),
-                version: "200".to_string(),
-                qr_code_base_url: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx".to_string(),
-                url_chave: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx".to_string(),
-            }).expect("put_qr_tag failed");
+            let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams::new(
+                nfce_xml,
+                "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G",
+                "000001", "200",
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx",
+                "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx",
+            )).expect("put_qr_tag failed");
             assert!(result.contains("infNFeSupl"));
             assert!(result.contains("<qrCode>"));
             assert!(result.contains("<urlChave>"));
@@ -1772,49 +1710,31 @@ mod communication_coverage_test {
 
         #[test]
         fn sem_token_throws() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35200505730928000145650010000000121000000129".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "https://example.com".to_string(),
-                csc_token: Some("".to_string()),
-                csc_id: Some("000001".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35200505730928000145650010000000121000000129",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://example.com",
+            ).csc_token("").csc_id("000001"));
             assert!(result.is_err());
         }
 
         #[test]
         fn sem_idtoken_throws() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35200505730928000145650010000000121000000129".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "https://example.com".to_string(),
-                csc_token: Some("TOKENXYZ".to_string()),
-                csc_id: Some("".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35200505730928000145650010000000121000000129",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "https://example.com",
+            ).csc_token("TOKENXYZ").csc_id(""));
             assert!(result.is_err());
         }
 
         #[test]
         fn sem_url_produces_malformed() {
-            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams {
-                access_key: "35200505730928000145650010000000121000000129".to_string(),
-                version: QrCodeVersion::V200,
-                environment: SefazEnvironment::Homologation,
-                emission_type: EmissionType::Normal,
-                qr_code_base_url: "".to_string(),
-                csc_token: Some("TOKENXYZ".to_string()),
-                csc_id: Some("000001".to_string()),
-                issued_at: None, total_value: None, total_icms: None,
-                digest_value: None, dest_document: None, dest_id_type: None,
-            });
+            let result = fiscal::qrcode::build_nfce_qr_code_url(&NfceQrCodeParams::new(
+                "35200505730928000145650010000000121000000129",
+                QrCodeVersion::V200, SefazEnvironment::Homologation, EmissionType::Normal,
+                "",
+            ).csc_token("TOKENXYZ").csc_id("000001"));
             match result {
                 Ok(url) => assert!(url.starts_with("?p=")),
                 Err(_) => {}
@@ -1837,14 +1757,13 @@ mod communication_coverage_test {
                 "<DigestValue>m9ZrQTKMxv7A1Blnf/nmNGVX+N8=</DigestValue>",
                 "</Reference></SignedInfo></Signature></NFe>"
             );
-            let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams {
-                xml: nfce_xml.to_string(),
-                csc_token: "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G".to_string(),
-                csc_id: "000001".to_string(),
-                version: "".to_string(),
-                qr_code_base_url: "https://example.com/qrcode".to_string(),
-                url_chave: "https://example.com/chave".to_string(),
-            }).expect("put_qr_tag failed");
+            let result = fiscal::qrcode::put_qr_tag(&PutQRTagParams::new(
+                nfce_xml,
+                "GPB0JBWLUR6HWFTVEAS6RJ69GPCROFPBBB8G",
+                "000001", "",
+                "https://example.com/qrcode",
+                "https://example.com/chave",
+            )).expect("put_qr_tag failed");
             assert!(result.contains("infNFeSupl"));
         }
     }

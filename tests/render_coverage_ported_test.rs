@@ -173,10 +173,7 @@ mod render_nfce_model_65 {
             .buyer_presence("1")
             .print_format("4")
             .items(vec![item])
-            .payments(vec![PaymentData {
-                method: "01".into(),
-                amount: Cents(5000),
-            }])
+            .payments(vec![PaymentData::new("01", Cents(5000))])
             .build()
             .unwrap();
 
@@ -321,15 +318,15 @@ mod trait_tag_total_ret_trib {
     #[test]
     fn test_tag_ret_trib_should_be_inside_total_section_in_rendered_xml() {
         let built = make_base_builder()
-            .ret_trib(RetTribData {
-                v_ret_pis: Some(Cents(1000)),
-                v_ret_cofins: Some(Cents(4600)),
-                v_ret_csll: Some(Cents(500)),
-                v_bc_irrf: Some(Cents(10000)),
-                v_irrf: Some(Cents(1500)),
-                v_bc_ret_prev: Some(Cents(20000)),
-                v_ret_prev: Some(Cents(2200)),
-            })
+            .ret_trib(RetTribData::new()
+                .v_ret_pis(Cents(1000))
+                .v_ret_cofins(Cents(4600))
+                .v_ret_csll(Cents(500))
+                .v_bc_irrf(Cents(10000))
+                .v_irrf(Cents(1500))
+                .v_bc_ret_prev(Cents(20000))
+                .v_ret_prev(Cents(2200))
+            )
             .build()
             .unwrap();
 
@@ -503,13 +500,8 @@ mod trait_tag_det_prod {
         let mut item = make_base_item();
         item.description = "Produto Completo".into();
         item.inf_ad_prod = Some("Informacao adicional do produto item 1".into());
-        item.obs_item = Some(ObsItemData {
-            obs_cont: Some(ObsField {
-                x_campo: "CampoTeste".into(),
-                x_texto: "ValorTeste".into(),
-            }),
-            obs_fisco: None,
-        });
+        item.obs_item = Some(ObsItemData::new()
+            .obs_cont(ObsField::new("CampoTeste", "ValorTeste")));
 
         let built = make_base_builder()
             .items(vec![item])
@@ -544,20 +536,9 @@ mod trait_tag_det_options {
     fn test_tag_rastro_batch_tracking() {
         let mut item = make_base_item();
         item.rastro = Some(vec![
-            RastroData {
-                n_lote: "LOTE2025A".into(),
-                q_lote: 100.0,
-                d_fab: "2025-01-15".into(),
-                d_val: "2026-01-15".into(),
-                c_agreg: Some("AGR001".into()),
-            },
-            RastroData {
-                n_lote: "LOTE2025B".into(),
-                q_lote: 50.0,
-                d_fab: "2025-02-10".into(),
-                d_val: "2026-02-10".into(),
-                c_agreg: None,
-            },
+            RastroData::new("LOTE2025A", 100.0, "2025-01-15", "2026-01-15")
+                .c_agreg("AGR001"),
+            RastroData::new("LOTE2025B", 50.0, "2025-02-10", "2026-02-10"),
         ]);
 
         let built = make_base_builder()
@@ -592,32 +573,11 @@ mod trait_tag_det_options {
     #[test]
     fn test_tag_veic_prod_vehicle() {
         let mut item = make_base_item();
-        item.veic_prod = Some(VeicProdData {
-            tp_op: "1".into(),
-            chassi: "9BWSU19F08B302158".into(),
-            c_cor: "1".into(),
-            x_cor: "BRANCA".into(),
-            pot: "150".into(),
-            cilin: "1600".into(),
-            peso_l: "1200".into(),
-            peso_b: "1350".into(),
-            n_serie: "AAA111222".into(),
-            tp_comb: "16".into(),
-            n_motor: "MOT12345".into(),
-            cmt: "1800.0000".into(),
-            dist: "2600".into(),
-            ano_mod: "2025".into(),
-            ano_fab: "2024".into(),
-            tp_pint: "M".into(),
-            tp_veic: "06".into(),
-            esp_veic: "1".into(),
-            vin: "R".into(),
-            cond_veic: "1".into(),
-            c_mod: "123456".into(),
-            c_cor_denatran: "01".into(),
-            lota: "5".into(),
-            tp_rest: "0".into(),
-        });
+        item.veic_prod = Some(VeicProdData::new(
+            "1", "9BWSU19F08B302158", "1", "BRANCA", "150", "1600", "1200", "1350",
+            "AAA111222", "16", "MOT12345", "1800.0000", "2600", "2025", "2024",
+            "M", "06", "1", "R", "1", "123456", "01", "5", "0",
+        ));
 
         let built = make_base_builder()
             .items(vec![item])
@@ -648,11 +608,8 @@ mod trait_tag_det_options {
     #[test]
     fn test_tag_med_medicine() {
         let mut item = make_base_item();
-        item.med = Some(MedData {
-            c_prod_anvisa: Some("1234567890123".into()),
-            x_motivo_isencao: None,
-            v_pmc: Cents(4990),
-        });
+        item.med = Some(MedData::new(Cents(4990))
+            .c_prod_anvisa("1234567890123"));
 
         let built = make_base_builder()
             .items(vec![item])
@@ -678,12 +635,7 @@ mod trait_tag_det_options {
     #[test]
     fn test_tag_arma_weapon() {
         let mut item = make_base_item();
-        item.arma = Some(vec![ArmaData {
-            tp_arma: "0".into(),
-            n_serie: "SR12345".into(),
-            n_cano: "CN67890".into(),
-            descr: "REVOLVER CALIBRE 38".into(),
-        }]);
+        item.arma = Some(vec![ArmaData::new("0", "SR12345", "CN67890", "REVOLVER CALIBRE 38")]);
 
         let built = make_base_builder()
             .items(vec![item])
@@ -748,10 +700,8 @@ mod trait_tag_det_options {
     #[test]
     fn test_tag_dfe_referenciado() {
         let mut item = make_base_item();
-        item.dfe_referenciado = Some(DFeReferenciadoData {
-            chave_acesso: "35170358716523000119550010000000291000000291".into(),
-            n_item: Some("1".into()),
-        });
+        item.dfe_referenciado = Some(DFeReferenciadoData::new("35170358716523000119550010000000291000000291")
+            .n_item("1"));
 
         let built = make_base_builder()
             .items(vec![item])
@@ -1092,10 +1042,7 @@ mod trait_calculations {
 
         let built = make_base_builder()
             .items(vec![item1, item2])
-            .payments(vec![PaymentData {
-                method: "01".into(),
-                amount: Cents(50000),
-            }])
+            .payments(vec![PaymentData::new("01", Cents(50000))])
             .build()
             .unwrap();
 
@@ -1127,10 +1074,7 @@ mod trait_calculations {
         let built = make_base_builder()
             .invoice_number(2)
             .items(vec![item])
-            .payments(vec![PaymentData {
-                method: "01".into(),
-                amount: Cents(26400),
-            }])
+            .payments(vec![PaymentData::new("01", Cents(26400))])
             .build()
             .unwrap();
 
