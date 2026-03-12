@@ -1,2 +1,5 @@
 target/
 *.tmp
+
+# Manual test scripts (contain sensitive data: PFX paths, passwords, access keys)
+manual-*.rs
