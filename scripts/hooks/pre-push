@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-push hook: runs the same checks as the CI pipeline locally.
+# Blocks the push if any step fails.
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+step() {
+    echo -e "${YELLOW}=> $1${NC}"
+}
+
+fail() {
+    echo -e "${RED}FALHOU: $1${NC}"
+    echo -e "${RED}Push bloqueado. Corrija os erros acima antes de enviar.${NC}"
+    exit 1
+}
+
+ok() {
+    echo -e "${GREEN}OK${NC}"
+}
+
+# 1. rustfmt
+step "Verificando formatacao (cargo fmt)"
+cargo fmt --all --check || fail "cargo fmt"
+ok
+
+# 2. clippy
+step "Verificando lints (cargo clippy)"
+cargo clippy --all-targets --all-features -- -D warnings || fail "cargo clippy"
+ok
+
+# 3. testes (nextest se disponivel, senao cargo test)
+step "Executando testes"
+if command -v cargo-nextest &>/dev/null; then
+    cargo nextest run --all-features || fail "cargo nextest"
+else
+    cargo test --all-features || fail "cargo test"
+fi
+ok
+
+# 4. doc tests
+step "Executando doc tests"
+cargo test --doc --all-features || fail "cargo test --doc"
+ok
+
+# 5. documentacao
+step "Verificando documentacao (cargo doc)"
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features || fail "cargo doc"
+ok
+
+# 6. cargo-deny (se instalado)
+if command -v cargo-deny &>/dev/null; then
+    step "Verificando licencas e advisories (cargo deny)"
+    cargo deny check licenses bans advisories sources || fail "cargo deny"
+    ok
+else
+    echo -e "${YELLOW}=> cargo-deny nao instalado, pulando verificacao de licencas${NC}"
+fi
+
+echo -e "${GREEN}Todas as verificacoes passaram!${NC}"
