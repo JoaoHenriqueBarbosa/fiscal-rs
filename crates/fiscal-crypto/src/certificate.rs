@@ -1,3 +1,5 @@
+use std::sync::Once;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use openssl::hash::MessageDigest;
 use openssl::pkcs12::Pkcs12;
@@ -7,6 +9,136 @@ use sha1::{Digest, Sha1};
 
 use fiscal_core::FiscalError;
 use fiscal_core::types::{CertificateData, CertificateInfo};
+
+/// Load OpenSSL legacy provider (needed for RC2-40-CBC in old PFX files on OpenSSL 3.x).
+fn ensure_legacy_provider() {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        let _ = openssl::provider::Provider::try_load(None, "legacy", true);
+    });
+}
+
+/// Ensure a PFX buffer uses modern encryption algorithms.
+///
+/// Brazilian A1 certificates are commonly issued with legacy encryption
+/// (RC2-40-CBC) which OpenSSL 3.x rejects by default. This function
+/// detects legacy PFX files and converts them automatically via the
+/// system `openssl` CLI, returning modern-encrypted PFX bytes.
+///
+/// If the PFX is already modern, the original bytes are returned as-is.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if conversion fails or if the
+/// system `openssl` CLI is not available.
+pub fn ensure_modern_pfx(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>, FiscalError> {
+    ensure_legacy_provider();
+
+    let pkcs12 = Pkcs12::from_der(pfx_buffer)
+        .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
+
+    match pkcs12.parse2(passphrase) {
+        Ok(_) => Ok(pfx_buffer.to_vec()),
+        Err(e) => {
+            let msg = e.to_string();
+            if !msg.contains("unsupported") && !msg.contains("RC2") {
+                return Err(FiscalError::Certificate(format!(
+                    "Failed to parse PFX (wrong password?): {e}"
+                )));
+            }
+            convert_legacy_pfx_bytes(pfx_buffer, passphrase)
+        }
+    }
+}
+
+fn parse_pfx(
+    pfx_buffer: &[u8],
+    passphrase: &str,
+) -> Result<openssl::pkcs12::ParsedPkcs12_2, FiscalError> {
+    let modern = ensure_modern_pfx(pfx_buffer, passphrase)?;
+    let pkcs12 = Pkcs12::from_der(&modern)
+        .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
+    pkcs12
+        .parse2(passphrase)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to parse PFX: {e}")))
+}
+
+/// Convert a legacy-encrypted PFX to modern algorithms via the system `openssl` CLI.
+fn convert_legacy_pfx_bytes(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>, FiscalError> {
+    use std::process::Command;
+
+    let dir = std::env::temp_dir().join("fiscal-rs-pfx-convert");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to create temp dir: {e}")))?;
+
+    let legacy_path = dir.join("legacy.pfx");
+    let modern_path = dir.join("modern.pfx");
+    let pem_path = dir.join("cert.pem");
+
+    std::fs::write(&legacy_path, pfx_buffer)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to write temp PFX: {e}")))?;
+
+    // Step 1: PFX → PEM (with -legacy flag)
+    let output = Command::new("openssl")
+        .args([
+            "pkcs12",
+            "-in",
+            legacy_path.to_str().unwrap(),
+            "-out",
+            pem_path.to_str().unwrap(),
+            "-passin",
+            &format!("pass:{passphrase}"),
+            "-passout",
+            &format!("pass:{passphrase}"),
+            "-legacy",
+        ])
+        .output()
+        .map_err(|e| {
+            FiscalError::Certificate(format!(
+                "Legacy PFX detected (RC2-40-CBC). Automatic conversion requires the `openssl` CLI \
+             to be installed. Install it with: sudo apt-get install openssl. Error: {e}"
+            ))
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err(FiscalError::Certificate(format!(
+            "Failed to convert legacy PFX to PEM: {stderr}"
+        )));
+    }
+
+    // Step 2: PEM → modern PFX
+    let output = Command::new("openssl")
+        .args([
+            "pkcs12",
+            "-export",
+            "-in",
+            pem_path.to_str().unwrap(),
+            "-out",
+            modern_path.to_str().unwrap(),
+            "-passin",
+            &format!("pass:{passphrase}"),
+            "-passout",
+            &format!("pass:{passphrase}"),
+        ])
+        .output()
+        .map_err(|e| FiscalError::Certificate(format!("Failed to re-export PFX: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err(FiscalError::Certificate(format!(
+            "Failed to convert PEM back to modern PFX: {stderr}"
+        )));
+    }
+
+    let modern_bytes = std::fs::read(&modern_path)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to read converted PFX: {e}")))?;
+
+    let _ = std::fs::remove_dir_all(&dir);
+    Ok(modern_bytes)
+}
 
 /// Extract private key and certificate PEM strings from a PKCS#12/PFX buffer.
 ///
@@ -24,12 +156,8 @@ pub fn load_certificate(
     pfx_buffer: &[u8],
     passphrase: &str,
 ) -> Result<CertificateData, FiscalError> {
-    let pkcs12 = Pkcs12::from_der(pfx_buffer)
-        .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
-
-    let parsed = pkcs12.parse2(passphrase).map_err(|e| {
-        FiscalError::Certificate(format!("Failed to parse PFX (wrong password?): {e}"))
-    })?;
+    ensure_legacy_provider();
+    let parsed = parse_pfx(pfx_buffer, passphrase)?;
 
     let pkey = parsed
         .pkey
@@ -74,12 +202,8 @@ pub fn get_certificate_info(
     pfx_buffer: &[u8],
     passphrase: &str,
 ) -> Result<CertificateInfo, FiscalError> {
-    let pkcs12 = Pkcs12::from_der(pfx_buffer)
-        .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
-
-    let parsed = pkcs12
-        .parse2(passphrase)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to parse PFX: {e}")))?;
+    ensure_legacy_provider();
+    let parsed = parse_pfx(pfx_buffer, passphrase)?;
 
     let cert = parsed
         .cert

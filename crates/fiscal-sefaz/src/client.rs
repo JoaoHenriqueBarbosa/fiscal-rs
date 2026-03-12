@@ -84,7 +84,8 @@ impl SefazClient {
     ///
     /// Returns [`FiscalError::Network`] if the HTTP client cannot be built.
     pub fn new(pfx_buffer: &[u8], passphrase: &str) -> Result<Self, FiscalError> {
-        let identity = Identity::from_pkcs12_der(pfx_buffer, passphrase)
+        let modern_pfx = fiscal_crypto::certificate::ensure_modern_pfx(pfx_buffer, passphrase)?;
+        let identity = Identity::from_pkcs12_der(&modern_pfx, passphrase)
             .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
 
         let http = Client::builder()
