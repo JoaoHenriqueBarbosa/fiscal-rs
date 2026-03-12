@@ -800,7 +800,8 @@ fn bench_build_intermediary(bencher: divan::Bencher) {
 fn bench_build_tech_responsible(bencher: divan::Bencher) {
     let tech = TechResponsibleData::new("14363848000190", "Solusys", "contato@solusys.com.br")
         .phone("4332341234");
-    bencher.bench(|| build_tech_responsible(divan::black_box(&tech)));
+    let access_key = "41260308943553000190551000000000011720378151";
+    bencher.bench(|| build_tech_responsible(divan::black_box(&tech), divan::black_box(access_key)));
 }
 
 #[divan::bench]

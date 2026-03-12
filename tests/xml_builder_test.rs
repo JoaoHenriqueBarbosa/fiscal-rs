@@ -508,7 +508,7 @@ fn extract_all_tag_names(xml: &str) -> Vec<String> {
             continue;
         }
         let end = remaining
-            .find(|c: char| c == '>' || c == ' ')
+            .find(['>', ' '])
             .unwrap_or(remaining.len());
         let tag_name = &remaining[..end];
         if !tag_name.is_empty() {
