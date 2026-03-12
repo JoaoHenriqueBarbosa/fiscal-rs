@@ -507,9 +507,7 @@ fn extract_all_tag_names(xml: &str) -> Vec<String> {
         if remaining.starts_with('/') || remaining.starts_with('?') || remaining.starts_with('!') {
             continue;
         }
-        let end = remaining
-            .find(['>', ' '])
-            .unwrap_or(remaining.len());
+        let end = remaining.find(['>', ' ']).unwrap_or(remaining.len());
         let tag_name = &remaining[..end];
         if !tag_name.is_empty() {
             tags.push(tag_name.to_string());
