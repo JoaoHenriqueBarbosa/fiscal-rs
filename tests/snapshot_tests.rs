@@ -236,7 +236,9 @@ fn snapshot_format_cents_1_cent() {
 
 #[test]
 fn snapshot_format_decimal() {
-    assert_snapshot!(format_decimal(3.14159, 4), @"3.1416");
+    #[allow(clippy::approx_constant)]
+    let pi_approx = 3.14159;
+    assert_snapshot!(format_decimal(pi_approx, 4), @"3.1416");
 }
 
 #[test]

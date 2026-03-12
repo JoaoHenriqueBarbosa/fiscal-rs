@@ -478,7 +478,7 @@ mod contingency_nfe_test {
     #[test]
     fn adjusts_nfe_xml_with_contingency_data() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfe_layout4.xml",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/xml/nfe_layout4.xml"),
         )
         .expect("Failed to read nfe_layout4.xml");
 
@@ -500,7 +500,7 @@ mod contingency_nfe_test {
     #[test]
     fn does_not_alter_xml_already_configured_for_contingency() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfe_layout4_contingencia_sem_assinatura.xml"
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/xml/nfe_layout4_contingencia_sem_assinatura.xml")
         ).expect("Failed to read contingency XML");
 
         let mut cont = fiscal::contingency::Contingency::new();
@@ -517,7 +517,7 @@ mod contingency_nfe_test {
     #[test]
     fn throws_when_adjusting_nfce_xml_for_contingency() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfce.xml",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/xml/nfce.xml"),
         )
         .expect("Failed to read nfce.xml");
 
@@ -548,7 +548,7 @@ mod qrcode_test {
     #[test]
     fn inserts_qr_code_and_url_chave_tags_into_nfce_xml() {
         let xml = std::fs::read_to_string(
-            "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/xml/nfce_sem_qrcode.xml"
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/xml/nfce_sem_qrcode.xml")
         ).expect("Failed to read nfce_sem_qrcode.xml");
 
         let result = fiscal::qrcode::put_qr_tag(

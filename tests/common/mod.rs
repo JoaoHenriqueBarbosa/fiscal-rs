@@ -152,6 +152,5 @@ pub fn sample_invoice_builder() -> InvoiceBuilder {
     .payments(vec![sample_payment()])
 }
 
-/// Fixtures directory path for sped-nfe PHP reference files.
-pub const FIXTURES_PATH: &str =
-    "/home/john/projects/FinOpenPOS/.reference/sped-nfe/tests/fixtures/";
+/// Fixtures directory path (copied from sped-nfe PHP reference files).
+pub const FIXTURES_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/");

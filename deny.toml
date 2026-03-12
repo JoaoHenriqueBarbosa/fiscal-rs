@@ -47,18 +47,13 @@ wildcards = "deny"
 deny = []
 
 [advisories]
-# Deny crates with known security vulnerabilities.
-vulnerability = "deny"
-# Warn on unmaintained crates; consider replacing if a maintained fork exists.
-unmaintained = "warn"
-# Warn on crates marked "unsound" in the RustSec advisory database.
-unsound = "warn"
-# Warn on crates that have been yanked from crates.io.
-yanked = "warn"
-# Path to the local copy of the RustSec advisory database. Leave unset to
-# fetch it automatically at check time.
-# db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
+# Scope for unmaintained crate advisories: check workspace deps only.
+unmaintained = "workspace"
+# Scope for unsound crate advisories: check all deps.
+unsound = "all"
+# Warn on yanked crates.
+yanked = "warn"
 
 [sources]
 # Allow packages from crates.io and path-based workspace members only.
