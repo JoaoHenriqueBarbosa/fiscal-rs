@@ -1,0 +1,49 @@
+name: Feature Request
+description: Sugerir uma funcionalidade para o fiscal-rs
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pela sugestão! Descreva o que você gostaria de ver no fiscal-rs.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: Qual problema essa funcionalidade resolve?
+      placeholder: "Preciso de... porque..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução proposta
+      description: Como você imagina que isso funcionaria?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Você considerou outras abordagens?
+
+  - type: dropdown
+    id: crate
+    attributes:
+      label: Crate relacionado
+      options:
+        - fiscal (facade)
+        - fiscal-core
+        - fiscal-crypto
+        - fiscal-sefaz
+        - Não sei / Todos
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto adicional
+      description: Links, exemplos, referências do sped-nfe, etc.

@@ -1,0 +1,76 @@
+name: Bug Report
+description: Reportar um bug no fiscal-rs
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Preencha o máximo de informação possível.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição
+      description: O que aconteceu?
+      placeholder: Descreva o bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passos para reproduzir
+      description: Como podemos reproduzir o problema?
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+      description: O que deveria ter acontecido?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento atual
+      description: O que aconteceu de fato?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão do fiscal-rs
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: rust-version
+    attributes:
+      label: Versão do Rust
+      placeholder: "rustc 1.85.0"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operacional
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Outro
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto adicional
+      description: Logs, screenshots, XML de exemplo, etc.
