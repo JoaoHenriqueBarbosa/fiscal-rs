@@ -12,4 +12,4 @@ client = ["dep:reqwest"]
 [dependencies]
 fiscal-core = { path = "../fiscal-core" }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.12", features = ["native-tls"], optional = true }
+reqwest = { version = "0.13", features = ["native-tls"], optional = true }
