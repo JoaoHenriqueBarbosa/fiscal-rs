@@ -13,6 +13,7 @@ edition = "2024"
 rust-version = "1.85"
 description = "Brazilian fiscal document library (NF-e/NFC-e) — Rust port of sped-nfe"
 license = "MIT"
+repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
 
 [dependencies]
 fiscal-core = { path = "crates/fiscal-core", version = "0.1.0" }

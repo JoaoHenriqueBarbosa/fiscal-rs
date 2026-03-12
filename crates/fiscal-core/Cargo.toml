@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.85"
 description = "Core types, tax calculations, and XML builder for Brazilian fiscal documents"
 license = "MIT"
+repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
 
 [dependencies]
 quick-xml = { version = "0.39", features = ["serialize"] }
