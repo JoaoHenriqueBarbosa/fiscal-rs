@@ -5,8 +5,16 @@ use std::process::Command;
 
 /// Generate a self-signed PFX certificate for testing.
 /// Returns (pfx_bytes, passphrase).
+///
+/// Uses unique file paths per invocation to avoid race conditions
+/// when tests run in parallel.
 fn generate_test_pfx() -> (Vec<u8>, String) {
     let passphrase = "test123".to_string();
+    let id = std::thread::current().id();
+    let uid = format!("{id:?}").replace(['(', ')'], "");
+    let key_path = format!("/tmp/fiscal-rs-test-{uid}-key.pem");
+    let cert_path = format!("/tmp/fiscal-rs-test-{uid}-cert.pem");
+    let pfx_path = format!("/tmp/fiscal-rs-test-{uid}.pfx");
 
     // Generate private key and self-signed certificate
     let _ = Command::new("openssl")
@@ -16,9 +24,9 @@ fn generate_test_pfx() -> (Vec<u8>, String) {
             "-newkey",
             "rsa:2048",
             "-keyout",
-            "/tmp/fiscal-rs-test-key.pem",
+            &key_path,
             "-out",
-            "/tmp/fiscal-rs-test-cert.pem",
+            &cert_path,
             "-days",
             "365",
             "-nodes",
@@ -35,11 +43,11 @@ fn generate_test_pfx() -> (Vec<u8>, String) {
             "pkcs12",
             "-export",
             "-out",
-            "/tmp/fiscal-rs-test-cert.pfx",
+            &pfx_path,
             "-inkey",
-            "/tmp/fiscal-rs-test-key.pem",
+            &key_path,
             "-in",
-            "/tmp/fiscal-rs-test-cert.pem",
+            &cert_path,
             "-passout",
             &format!("pass:{passphrase}"),
         ])
@@ -47,7 +55,13 @@ fn generate_test_pfx() -> (Vec<u8>, String) {
         .output()
         .expect("openssl pkcs12 failed");
 
-    let pfx_bytes = std::fs::read("/tmp/fiscal-rs-test-cert.pfx").expect("Failed to read PFX file");
+    let pfx_bytes = std::fs::read(&pfx_path).expect("Failed to read PFX file");
+
+    // Cleanup temp files
+    let _ = std::fs::remove_file(&key_path);
+    let _ = std::fs::remove_file(&cert_path);
+    let _ = std::fs::remove_file(&pfx_path);
+
     (pfx_bytes, passphrase)
 }
 
