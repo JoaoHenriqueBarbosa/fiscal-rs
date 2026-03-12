@@ -369,6 +369,63 @@ mod build_invoice_xml_tests {
     }
 
     #[test]
+    fn build_tech_responsible_without_key_omits_csrt() {
+        use fiscal::xml_builder::optional::build_tech_responsible;
+
+        let tech = TechResponsibleData::new("14363848000190", "Solusys", "contato@solusys.com.br")
+            .phone("4334771000")
+            .csrt("G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO", "01");
+
+        // build_tech_responsible (1 param, backward-compatible) omits CSRT
+        let xml = build_tech_responsible(&tech);
+        assert!(xml.contains("<CNPJ>14363848000190</CNPJ>"));
+        assert!(xml.contains("<fone>4334771000</fone>"));
+        assert!(!xml.contains("<idCSRT>"), "1-param version must omit CSRT");
+        assert!(
+            !xml.contains("<hashCSRT>"),
+            "1-param version must omit hashCSRT"
+        );
+    }
+
+    #[test]
+    fn build_tech_responsible_with_key_includes_csrt_and_exact_hash() {
+        use fiscal::xml_builder::optional::build_tech_responsible_with_key;
+
+        let tech = TechResponsibleData::new("14363848000190", "Solusys", "contato@solusys.com.br")
+            .phone("4334771000")
+            .csrt("G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO", "01");
+
+        let access_key = "35200612345678000199550010000000011123456789";
+        let xml = build_tech_responsible_with_key(&tech, access_key);
+
+        assert!(xml.contains("<idCSRT>01</idCSRT>"));
+        assert!(xml.contains("<hashCSRT>"));
+
+        // Verify exact hash value matches PHP: base64(sha1(CSRT + chNFe, raw))
+        use base64::Engine as _;
+        use sha1::{Digest, Sha1};
+        let combined = format!("G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO{access_key}");
+        let mut hasher = Sha1::new();
+        hasher.update(combined.as_bytes());
+        let expected_hash = base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
+
+        let expected_tag = format!("<hashCSRT>{expected_hash}</hashCSRT>");
+        assert!(
+            xml.contains(&expected_tag),
+            "hashCSRT must be {expected_hash}, got: {xml}"
+        );
+
+        // Verify tag order: CNPJ, xContato, email, fone, idCSRT, hashCSRT
+        let cnpj_pos = xml.find("<CNPJ>").unwrap();
+        let fone_pos = xml.find("<fone>").unwrap();
+        let id_pos = xml.find("<idCSRT>").unwrap();
+        let hash_pos = xml.find("<hashCSRT>").unwrap();
+        assert!(cnpj_pos < fone_pos);
+        assert!(fone_pos < id_pos);
+        assert!(id_pos < hash_pos);
+    }
+
+    #[test]
     fn csrt_hash_matches_php_algorithm() {
         // Verify the hashCSRT algorithm matches PHP sped-nfe:
         // hashCSRT = base64(sha1(CSRT + chNFe, raw_binary))
