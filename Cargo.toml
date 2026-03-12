@@ -20,7 +20,7 @@ fiscal-sefaz = { path = "crates/fiscal-sefaz" }
 
 [dev-dependencies]
 pretty_assertions = "1"
-rstest = "0.25"
+rstest = "0.26"
 proptest = "1"
 insta = { version = "1", features = ["yaml"] }
 chrono = { version = "0.4", features = ["serde"] }
