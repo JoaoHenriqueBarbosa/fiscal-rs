@@ -148,7 +148,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
         inf_children.push(optional::build_purchase(purchase));
     }
     if let Some(ref tech) = data.tech_responsible {
-        inf_children.push(optional::build_tech_responsible(tech, &access_key));
+        inf_children.push(optional::build_tech_responsible_with_key(tech, &access_key));
     }
 
     // Matches PHP sped-nfe: no xmlns on infNFe (inherited from NFe parent),

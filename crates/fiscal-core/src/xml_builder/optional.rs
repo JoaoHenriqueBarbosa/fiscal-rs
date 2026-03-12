@@ -139,7 +139,16 @@ pub fn build_intermediary(intermed: &IntermediaryData) -> String {
 /// When both `csrt` and `csrt_id` are present, generates `<idCSRT>` and
 /// `<hashCSRT>` tags. The hash follows the PHP sped-nfe algorithm:
 /// `base64(sha1(CSRT + chNFe, raw_binary))`.
-pub fn build_tech_responsible(tech: &TechResponsibleData, access_key: &str) -> String {
+pub fn build_tech_responsible(tech: &TechResponsibleData) -> String {
+    build_tech_responsible_with_key(tech, "")
+}
+
+/// Build `<infRespTec>` element with access key for CSRT hash computation.
+///
+/// When both `csrt` and `csrt_id` are present on `tech`, generates `<idCSRT>` and
+/// `<hashCSRT>` tags. The hash follows the PHP sped-nfe algorithm:
+/// `base64(sha1(CSRT + chNFe, raw_binary))`.
+pub fn build_tech_responsible_with_key(tech: &TechResponsibleData, access_key: &str) -> String {
     let mut children = vec![
         tag("CNPJ", &[], TagContent::Text(&tech.tax_id)),
         tag("xContato", &[], TagContent::Text(&tech.contact)),
@@ -149,9 +158,11 @@ pub fn build_tech_responsible(tech: &TechResponsibleData, access_key: &str) -> S
         children.push(tag("fone", &[], TagContent::Text(phone)));
     }
     if let (Some(csrt), Some(csrt_id)) = (&tech.csrt, &tech.csrt_id) {
-        children.push(tag("idCSRT", &[], TagContent::Text(csrt_id)));
-        let hash = compute_hash_csrt(csrt, access_key);
-        children.push(tag("hashCSRT", &[], TagContent::Text(&hash)));
+        if !access_key.is_empty() {
+            children.push(tag("idCSRT", &[], TagContent::Text(csrt_id)));
+            let hash = compute_hash_csrt(csrt, access_key);
+            children.push(tag("hashCSRT", &[], TagContent::Text(&hash)));
+        }
     }
     tag("infRespTec", &[], TagContent::Children(children))
 }
