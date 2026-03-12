@@ -142,6 +142,10 @@ cargo test                   # 739+ testes
 
 Usamos [conventional commits](https://www.conventionalcommits.org/) e [release-plz](https://release-plz.ieni.dev/) para releases automaticos. Veja o [guia completo de contribuicao](https://fiscal-rs-docs.vercel.app/docs/contributing).
 
+## Agradecimentos
+
+Um agradecimento enorme a [**@robmachado**](https://github.com/robmachado) — criador e mantenedor do sped-nfe — e [**@gersonfs**](https://github.com/gersonfs), contribuidor ativo do projeto. Ambos me receberam de bracos abertos nos PRs, consideraram minhas contribuicoes com seriedade e geraram discussoes que melhoraram tanto o sped-nfe quanto o fiscal-rs. O fiscal-rs so existe porque o sped-nfe pavimentou o caminho por mais de uma decada. Obrigado por manter o ecossistema fiscal brasileiro vivo e aberto.
+
 ## Projetos relacionados
 
 - [sped-nfe](https://github.com/nfephp-org/sped-nfe) — Implementacao PHP de referencia (2.400+ stars)
