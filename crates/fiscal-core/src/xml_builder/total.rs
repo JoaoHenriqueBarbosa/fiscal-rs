@@ -27,54 +27,46 @@ pub fn build_total(
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
-    let icms_tot = tag(
-        "ICMSTot",
-        &[],
-        TagContent::Children(vec![
-            tag("vBC", &[], TagContent::Text(&fc2(icms.v_bc.0))),
-            tag("vICMS", &[], TagContent::Text(&fc2(icms.v_icms.0))),
-            tag(
-                "vICMSDeson",
-                &[],
-                TagContent::Text(&fc2(icms.v_icms_deson.0)),
-            ),
-            tag(
-                "vFCPUFDest",
-                &[],
-                TagContent::Text(&fc2(icms.v_fcp_uf_dest.0)),
-            ),
-            tag(
-                "vICMSUFDest",
-                &[],
-                TagContent::Text(&fc2(icms.v_icms_uf_dest.0)),
-            ),
-            tag(
-                "vICMSUFRemet",
-                &[],
-                TagContent::Text(&fc2(icms.v_icms_uf_remet.0)),
-            ),
-            tag("vFCP", &[], TagContent::Text(&fc2(icms.v_fcp.0))),
-            tag("vBCST", &[], TagContent::Text(&fc2(icms.v_bc_st.0))),
-            tag("vST", &[], TagContent::Text(&fc2(icms.v_st.0))),
-            tag("vFCPST", &[], TagContent::Text(&fc2(icms.v_fcp_st.0))),
-            tag(
-                "vFCPSTRet",
-                &[],
-                TagContent::Text(&fc2(icms.v_fcp_st_ret.0)),
-            ),
-            tag("vProd", &[], TagContent::Text(&fc2(total_products))),
-            tag("vFrete", &[], TagContent::Text("0.00")),
-            tag("vSeg", &[], TagContent::Text("0.00")),
-            tag("vDesc", &[], TagContent::Text("0.00")),
-            tag("vII", &[], TagContent::Text(&fc2(other.v_ii))),
-            tag("vIPI", &[], TagContent::Text(&fc2(other.v_ipi))),
-            tag("vIPIDevol", &[], TagContent::Text("0.00")),
-            tag("vPIS", &[], TagContent::Text(&fc2(other.v_pis))),
-            tag("vCOFINS", &[], TagContent::Text(&fc2(other.v_cofins))),
-            tag("vOutro", &[], TagContent::Text("0.00")),
-            tag("vNF", &[], TagContent::Text(&fc2(total_products))),
-        ]),
-    );
+    // Optional ICMSTot fields — PHP sped-nfe omits these when <= 0
+    let mut icms_children = vec![
+        tag("vBC", &[], TagContent::Text(&fc2(icms.v_bc.0))),
+        tag("vICMS", &[], TagContent::Text(&fc2(icms.v_icms.0))),
+        tag(
+            "vICMSDeson",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_deson.0)),
+        ),
+    ];
+    // vFCPUFDest, vICMSUFDest, vICMSUFRemet: only included when > 0 (matches PHP)
+    if icms.v_fcp_uf_dest.0 > 0 {
+        icms_children.push(tag("vFCPUFDest", &[], TagContent::Text(&fc2(icms.v_fcp_uf_dest.0))));
+    }
+    if icms.v_icms_uf_dest.0 > 0 {
+        icms_children.push(tag("vICMSUFDest", &[], TagContent::Text(&fc2(icms.v_icms_uf_dest.0))));
+    }
+    if icms.v_icms_uf_remet.0 > 0 {
+        icms_children.push(tag("vICMSUFRemet", &[], TagContent::Text(&fc2(icms.v_icms_uf_remet.0))));
+    }
+    icms_children.push(tag("vFCP", &[], TagContent::Text(&fc2(icms.v_fcp.0))));
+    icms_children.extend([
+        tag("vBCST", &[], TagContent::Text(&fc2(icms.v_bc_st.0))),
+        tag("vST", &[], TagContent::Text(&fc2(icms.v_st.0))),
+        tag("vFCPST", &[], TagContent::Text(&fc2(icms.v_fcp_st.0))),
+        tag("vFCPSTRet", &[], TagContent::Text(&fc2(icms.v_fcp_st_ret.0))),
+        tag("vProd", &[], TagContent::Text(&fc2(total_products))),
+        tag("vFrete", &[], TagContent::Text("0.00")),
+        tag("vSeg", &[], TagContent::Text("0.00")),
+        tag("vDesc", &[], TagContent::Text("0.00")),
+        tag("vII", &[], TagContent::Text(&fc2(other.v_ii))),
+        tag("vIPI", &[], TagContent::Text(&fc2(other.v_ipi))),
+        tag("vIPIDevol", &[], TagContent::Text("0.00")),
+        tag("vPIS", &[], TagContent::Text(&fc2(other.v_pis))),
+        tag("vCOFINS", &[], TagContent::Text(&fc2(other.v_cofins))),
+        tag("vOutro", &[], TagContent::Text("0.00")),
+        tag("vNF", &[], TagContent::Text(&fc2(total_products))),
+    ]);
+
+    let icms_tot = tag("ICMSTot", &[], TagContent::Children(icms_children));
 
     let mut total_children = vec![icms_tot];
 

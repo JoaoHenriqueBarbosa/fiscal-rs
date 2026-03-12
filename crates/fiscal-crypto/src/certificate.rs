@@ -291,8 +291,14 @@ fn sign_xml_generic(
     // 3. Apply enveloped-signature transform: remove any existing <Signature> from the content
     let without_sig = remove_signature_element(&signed_element);
 
-    // 4. Canonicalize the signed element (basic C14N without comments)
-    let canonical = canonicalize_xml(&without_sig);
+    // 4. In C14N inclusive, inherited namespaces from ancestor elements must
+    //    appear on the root element of the canonicalized subset. If the signed
+    //    element doesn't explicitly declare xmlns but the parent does, we must
+    //    add it — this matches what PHP's DOMDocument C14N does automatically.
+    let with_inherited_ns = ensure_inherited_namespace(&without_sig, xml, signed_tag);
+
+    // 5. Canonicalize the signed element (C14N 1.0 — sorts attributes)
+    let canonical = canonicalize_xml(&with_inherited_ns);
 
     // 5. SHA-1 digest of the canonical form
     let digest = {
@@ -301,11 +307,19 @@ fn sign_xml_generic(
         BASE64.encode(hasher.finalize())
     };
 
-    // 6. Build the SignedInfo XML
+    // 6. Build the SignedInfo XML (without xmlns — it inherits from parent Signature)
     let signed_info = build_signed_info(&id, &digest);
 
-    // 7. Canonicalize the SignedInfo
-    let canonical_signed_info = canonicalize_xml(&signed_info);
+    // 7. Canonicalize the SignedInfo for signing.
+    //    In C14N inclusive, when SignedInfo is canonicalized as a subset of
+    //    <Signature xmlns="...">, the in-scope namespace is included on
+    //    SignedInfo even though it's inherited. We must sign this form so
+    //    SEFAZ can verify against the same canonical representation.
+    let canonical_signed_info = signed_info.replacen(
+        "<SignedInfo>",
+        "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+        1,
+    );
 
     // 8. RSA-SHA1 sign the canonical SignedInfo
     let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
@@ -376,6 +390,43 @@ fn extract_element_id(xml: &str, tag_name: &str) -> Result<String, FiscalError> 
     Ok(tag_content[id_value_start..id_value_start + id_value_end].to_string())
 }
 
+/// Ensure the signed element includes inherited xmlns from ancestor elements.
+///
+/// In C14N inclusive canonicalization, the root element of the subset must
+/// include all in-scope namespace declarations from ancestors. If `<infNFe>`
+/// doesn't explicitly declare `xmlns` but the parent `<NFe>` does, we add it.
+/// This matches PHP DOMDocument's C14N behavior.
+fn ensure_inherited_namespace(element: &str, full_xml: &str, tag_name: &str) -> String {
+    // Check if the element already has xmlns
+    let open_end = element.find('>').unwrap_or(element.len());
+    let open_tag = &element[..open_end];
+    if open_tag.contains("xmlns=") {
+        return element.to_string();
+    }
+
+    // Find xmlns from the closest ancestor in the full XML
+    let tag_pos = full_xml.find(&format!("<{tag_name}")).unwrap_or(0);
+    let before = &full_xml[..tag_pos];
+
+    // Search backwards for xmlns="..." in ancestor tags
+    if let Some(ns_start) = before.rfind("xmlns=\"") {
+        let ns_val_start = ns_start + 7; // skip xmlns="
+        if let Some(ns_val_end) = full_xml[ns_val_start..].find('"') {
+            let ns_value = &full_xml[ns_val_start..ns_val_start + ns_val_end];
+            // Insert xmlns after the tag name
+            let insert_pos = element.find(|c: char| c.is_ascii_whitespace() || c == '>')
+                .unwrap_or(open_end);
+            return format!(
+                "{} xmlns=\"{ns_value}\"{}",
+                &element[..insert_pos],
+                &element[insert_pos..],
+            );
+        }
+    }
+
+    element.to_string()
+}
+
 /// Extract the full element (from `<tag_name ...>` to `</tag_name>`) from the XML.
 fn extract_element(xml: &str, tag_name: &str) -> Option<String> {
     let open_pattern = format!("<{tag_name}");
@@ -398,36 +449,169 @@ fn remove_signature_element(xml: &str) -> String {
     xml.to_string()
 }
 
-/// Basic XML Canonicalization (C14N 1.0 without comments).
+/// XML Canonicalization (C14N 1.0 without comments).
 ///
-/// For NF-e purposes this is a simplified implementation that:
-/// - Ensures consistent attribute ordering (already handled by our XML generation)
-/// - Removes the XML declaration
-/// - Normalizes whitespace in a basic way
-///
-/// NF-e XML is typically generated without extra whitespace, making full C14N
-/// largely a no-op beyond removing the XML declaration.
+/// Implements the subset of Canonical XML 1.0 needed for NF-e signing:
+/// - Removes the XML declaration (`<?xml ...?>`)
+/// - Sorts attributes on each opening tag: namespace declarations first
+///   (sorted by prefix, default namespace first), then regular attributes
+///   sorted alphabetically by local name
+/// - Expands self-closing tags (`<foo/>` → `<foo></foo>`)
 fn canonicalize_xml(xml: &str) -> String {
-    let mut result = xml.to_string();
+    let mut input = xml;
 
     // Remove XML declaration if present
-    if let Some(decl_start) = result.find("<?xml") {
-        if let Some(decl_end) = result[decl_start..].find("?>") {
-            result = format!(
-                "{}{}",
-                &result[..decl_start],
-                result[decl_start + decl_end + 2..].trim_start()
-            );
+    if let Some(decl_start) = input.find("<?xml") {
+        if let Some(decl_end) = input[decl_start..].find("?>") {
+            input = input[decl_start + decl_end + 2..].trim_start();
+        }
+    }
+
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '<' {
+            // Collect everything up to '>'
+            let mut tag = String::from('<');
+            for c in chars.by_ref() {
+                tag.push(c);
+                if c == '>' {
+                    break;
+                }
+            }
+
+            // Skip processing instructions, closing tags, comments, CDATA
+            if tag.starts_with("</") || tag.starts_with("<?") || tag.starts_with("<!") {
+                result.push_str(&tag);
+                continue;
+            }
+
+            // Opening tag — sort attributes
+            let self_closing = tag.ends_with("/>");
+            let tag_content = if self_closing {
+                &tag[1..tag.len() - 2] // strip < and />
+            } else {
+                &tag[1..tag.len() - 1] // strip < and >
+            };
+
+            let (tag_name, attrs_str) = match tag_content.find(|c: char| c.is_ascii_whitespace()) {
+                Some(pos) => (&tag_content[..pos], tag_content[pos..].trim()),
+                None => (tag_content, ""),
+            };
+
+            if attrs_str.is_empty() {
+                if self_closing {
+                    // C14N expands self-closing to <tag></tag>
+                    result.push('<');
+                    result.push_str(tag_name);
+                    result.push_str("></");
+                    result.push_str(tag_name);
+                    result.push('>');
+                } else {
+                    result.push_str(&tag);
+                }
+                continue;
+            }
+
+            // Parse attributes
+            let attrs = parse_attributes(attrs_str);
+
+            // Separate namespace declarations from regular attributes
+            let mut ns_attrs: Vec<(&str, &str)> = Vec::new();
+            let mut reg_attrs: Vec<(&str, &str)> = Vec::new();
+
+            for (name, value) in &attrs {
+                if *name == "xmlns" || name.starts_with("xmlns:") {
+                    ns_attrs.push((name, value));
+                } else {
+                    reg_attrs.push((name, value));
+                }
+            }
+
+            // Sort namespace declarations: default namespace first, then by prefix
+            ns_attrs.sort_by(|a, b| {
+                match (a.0, b.0) {
+                    ("xmlns", _) => std::cmp::Ordering::Less,
+                    (_, "xmlns") => std::cmp::Ordering::Greater,
+                    _ => a.0.cmp(b.0),
+                }
+            });
+
+            // Sort regular attributes by local name
+            reg_attrs.sort_by(|a, b| a.0.cmp(b.0));
+
+            // Rebuild tag
+            result.push('<');
+            result.push_str(tag_name);
+            for (name, value) in ns_attrs.iter().chain(reg_attrs.iter()) {
+                result.push(' ');
+                result.push_str(name);
+                result.push_str("=\"");
+                result.push_str(value);
+                result.push('"');
+            }
+            if self_closing {
+                result.push_str("></");
+                result.push_str(tag_name);
+                result.push('>');
+            } else {
+                result.push('>');
+            }
+        } else {
+            result.push(ch);
         }
     }
 
     result
 }
 
+/// Parse attributes from a tag's attribute string.
+///
+/// Returns a vector of (name, value) pairs. Handles both single and double
+/// quoted attribute values.
+fn parse_attributes(attrs_str: &str) -> Vec<(&str, &str)> {
+    let mut attrs = Vec::new();
+    let mut remaining = attrs_str.trim();
+
+    while !remaining.is_empty() {
+        // Find attribute name (up to '=')
+        let eq_pos = match remaining.find('=') {
+            Some(pos) => pos,
+            None => break,
+        };
+        let name = remaining[..eq_pos].trim();
+        remaining = remaining[eq_pos + 1..].trim();
+
+        // Find quoted value
+        let quote = match remaining.chars().next() {
+            Some(q @ ('"' | '\'')) => q,
+            _ => break,
+        };
+        remaining = &remaining[1..]; // skip opening quote
+        let end_pos = match remaining.find(quote) {
+            Some(pos) => pos,
+            None => break,
+        };
+        let value = &remaining[..end_pos];
+        remaining = remaining[end_pos + 1..].trim();
+
+        attrs.push((name, value));
+    }
+
+    attrs
+}
+
 /// Build the `<SignedInfo>` element for XML-DSig.
+///
+/// The `xmlns` is intentionally omitted here because `<SignedInfo>` inherits
+/// its namespace from the parent `<Signature xmlns="...">`. In C14N 1.0,
+/// redundant namespace declarations are suppressed, so both the signing and
+/// verification sides must use the same canonical form (without `xmlns` on
+/// `<SignedInfo>`).
 fn build_signed_info(reference_id: &str, digest_value: &str) -> String {
     let mut s = String::with_capacity(1024);
-    s.push_str("<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">");
+    s.push_str("<SignedInfo>");
     s.push_str("<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></CanonicalizationMethod>");
     s.push_str("<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod>");
     s.push_str("<Reference URI=\"#");

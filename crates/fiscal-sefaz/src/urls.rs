@@ -367,6 +367,62 @@ static SVAN: AuthorizerServices = AuthorizerServices {
     },
 };
 
+// ── NFC-e authorizers (model 65) ──────────────────────────────────────────
+
+static PR_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeStatusServico4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeRetAutorizacao4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeInutilizacao4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
+        homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
+    },
+};
+
+static SVRS_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NFeConsulta4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsulta4.asmx",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeInutilizacao/NFeInutilizacao4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeInutilizacao/NFeInutilizacao4.asmx",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeRecepcaoEvento/NFeRecepcaoEvento4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRecepcaoEvento/NFeRecepcaoEvento4.asmx",
+    },
+};
+
 /// Get the authorizer for a given state (NF-e model 55).
 fn get_state_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
     match uf {
@@ -389,7 +445,8 @@ fn get_state_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
     }
 }
 
-/// Get the SEFAZ service URL for a given state, environment, and service name.
+/// Get the SEFAZ service URL for a given state, environment, service name,
+/// and invoice model (55 for NF-e, 65 for NFC-e).
 ///
 /// The `service` parameter must be one of:
 /// `"NfeStatusServico"`, `"NfeAutorizacao"`, `"NfeRetAutorizacao"`,
@@ -405,8 +462,25 @@ pub fn get_sefaz_url(
     environment: SefazEnvironment,
     service: &str,
 ) -> Result<String, FiscalError> {
-    let authorizer =
-        get_state_authorizer(uf).ok_or_else(|| FiscalError::InvalidStateCode(uf.to_string()))?;
+    get_sefaz_url_for_model(uf, environment, service, 55)
+}
+
+/// Get the SEFAZ service URL for a specific invoice model.
+///
+/// Use model `55` for NF-e and `65` for NFC-e. NFC-e uses dedicated endpoints
+/// (PR has its own, other states use SVRS NFC-e).
+pub fn get_sefaz_url_for_model(
+    uf: &str,
+    environment: SefazEnvironment,
+    service: &str,
+    model: u8,
+) -> Result<String, FiscalError> {
+    let authorizer = if model == 65 {
+        get_state_nfce_authorizer(uf)
+    } else {
+        get_state_authorizer(uf)
+    }
+    .ok_or_else(|| FiscalError::InvalidStateCode(uf.to_string()))?;
 
     authorizer
         .get_url(service, environment)
@@ -414,6 +488,19 @@ pub fn get_sefaz_url(
         .ok_or_else(|| {
             FiscalError::XmlGeneration(format!("Service '{service}' not found for state {uf}"))
         })
+}
+
+/// Get the NFC-e authorizer for a given state (model 65).
+/// PR has its own NFC-e endpoints; all others use SVRS NFC-e.
+fn get_state_nfce_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
+    match uf {
+        "PR" => Some(&PR_NFCE),
+        // All other states use SVRS NFC-e
+        "AC" | "AL" | "AM" | "AP" | "BA" | "CE" | "DF" | "ES" | "GO" | "MA" | "MG" | "MS"
+        | "MT" | "PA" | "PB" | "PE" | "PI" | "RJ" | "RN" | "RO" | "RR" | "RS" | "SC"
+        | "SE" | "SP" | "TO" => Some(&SVRS_NFCE),
+        _ => None,
+    }
 }
 
 // ── NFC-e consultation URIs (urlChave) ──────────────────────────────────────

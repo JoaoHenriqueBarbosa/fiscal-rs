@@ -17,4 +17,4 @@ client = ["dep:reqwest"]
 fiscal-core = { path = "../fiscal-core", version = "0.1.1" }
 fiscal-crypto = { path = "../fiscal-crypto", version = "0.1.1" }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.13", features = ["native-tls"], optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["native-tls"], optional = true }

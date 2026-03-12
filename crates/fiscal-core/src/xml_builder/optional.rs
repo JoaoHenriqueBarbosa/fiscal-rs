@@ -1,6 +1,7 @@
 //! Build optional XML groups: cobr, infAdic, infIntermed, exporta, compra,
 //! infRespTec, retirada, entrega, autXML.
 
+use base64::Engine as _;
 use super::emit::build_address_fields;
 use super::tax_id::TaxId;
 use crate::format_utils::format_cents;
@@ -134,7 +135,11 @@ pub fn build_intermediary(intermed: &IntermediaryData) -> String {
 }
 
 /// Build `<infRespTec>` element.
-pub fn build_tech_responsible(tech: &TechResponsibleData) -> String {
+///
+/// When both `csrt` and `csrt_id` are present, generates `<idCSRT>` and
+/// `<hashCSRT>` tags. The hash follows the PHP sped-nfe algorithm:
+/// `base64(sha1(CSRT + chNFe, raw_binary))`.
+pub fn build_tech_responsible(tech: &TechResponsibleData, access_key: &str) -> String {
     let mut children = vec![
         tag("CNPJ", &[], TagContent::Text(&tech.tax_id)),
         tag("xContato", &[], TagContent::Text(&tech.contact)),
@@ -143,7 +148,25 @@ pub fn build_tech_responsible(tech: &TechResponsibleData) -> String {
     if let Some(ref phone) = tech.phone {
         children.push(tag("fone", &[], TagContent::Text(phone)));
     }
+    if let (Some(csrt), Some(csrt_id)) = (&tech.csrt, &tech.csrt_id) {
+        children.push(tag("idCSRT", &[], TagContent::Text(csrt_id)));
+        let hash = compute_hash_csrt(csrt, access_key);
+        children.push(tag("hashCSRT", &[], TagContent::Text(&hash)));
+    }
     tag("infRespTec", &[], TagContent::Children(children))
+}
+
+/// Compute hashCSRT as defined by the SEFAZ specification.
+///
+/// Algorithm: `base64(sha1(CSRT + chNFe))` — matching PHP's
+/// `base64_encode(sha1($CSRT . $this->chNFe, true))`.
+fn compute_hash_csrt(csrt: &str, access_key: &str) -> String {
+    use sha1::{Digest, Sha1};
+    let combined = format!("{csrt}{access_key}");
+    let mut hasher = Sha1::new();
+    hasher.update(combined.as_bytes());
+    let raw_hash = hasher.finalize();
+    base64::engine::general_purpose::STANDARD.encode(raw_hash)
 }
 
 /// Build `<compra>` (purchase) element.

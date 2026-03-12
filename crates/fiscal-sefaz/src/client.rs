@@ -38,7 +38,7 @@ use crate::request_builders;
 use crate::response_parsers::{self, AuthorizationResponse, CancellationResponse, StatusResponse};
 use crate::services::SefazService;
 use crate::soap;
-use crate::urls::get_sefaz_url;
+use crate::urls::get_sefaz_url_for_model;
 
 /// Default timeout for connecting to a SEFAZ endpoint.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -89,7 +89,9 @@ impl SefazClient {
             .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
 
         let http = Client::builder()
+            .use_native_tls()
             .identity(identity)
+            .danger_accept_invalid_certs(true)
             .min_tls_version(reqwest::tls::Version::TLS_1_2)
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
@@ -122,7 +124,20 @@ impl SefazClient {
         environment: SefazEnvironment,
         request_xml: &str,
     ) -> Result<String, FiscalError> {
-        let url = get_sefaz_url(uf, environment, service.url_key())?;
+        self.send_model(service, uf, environment, request_xml, 55).await
+    }
+
+    /// Send a raw request XML to a SEFAZ service for a specific invoice model
+    /// (55 = NF-e, 65 = NFC-e) and return the raw response XML.
+    pub async fn send_model(
+        &self,
+        service: SefazService,
+        uf: &str,
+        environment: SefazEnvironment,
+        request_xml: &str,
+        model: u8,
+    ) -> Result<String, FiscalError> {
+        let url = get_sefaz_url_for_model(uf, environment, service.url_key(), model)?;
         let meta = service.meta();
         let envelope = soap::build_envelope(request_xml, uf, &meta)?;
         let action = soap::build_action(&meta);
@@ -197,6 +212,24 @@ impl SefazClient {
             request_builders::build_autorizacao_request(signed_xml, lot_id, true, false);
         let raw = self
             .send(SefazService::Autorizacao, uf, environment, &request_xml)
+            .await?;
+        response_parsers::parse_autorizacao_response(&raw)
+    }
+
+    /// Submit a signed NFC-e (model 65) for authorization.
+    ///
+    /// Same as [`authorize`] but routes to the NFC-e endpoint.
+    pub async fn authorize_nfce(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        signed_xml: &str,
+        lot_id: &str,
+    ) -> Result<AuthorizationResponse, FiscalError> {
+        let request_xml =
+            request_builders::build_autorizacao_request(signed_xml, lot_id, true, false);
+        let raw = self
+            .send_model(SefazService::Autorizacao, uf, environment, &request_xml, 65)
             .await?;
         response_parsers::parse_autorizacao_response(&raw)
     }

@@ -1172,6 +1172,11 @@ pub struct TechResponsibleData {
     pub email: String,
     /// Contact phone number (`fone`). Optional.
     pub phone: Option<String>,
+    /// CSRT token provided by the fiscal authority. Optional.
+    /// When present along with `csrt_id`, generates `<idCSRT>` and `<hashCSRT>` tags.
+    pub csrt: Option<String>,
+    /// CSRT identifier (typically `"01"`). Optional.
+    pub csrt_id: Option<String>,
 }
 
 impl TechResponsibleData {
@@ -1186,12 +1191,25 @@ impl TechResponsibleData {
             contact: contact.into(),
             email: email.into(),
             phone: None,
+            csrt: None,
+            csrt_id: None,
         }
     }
 
     /// Set the phone number.
     pub fn phone(mut self, v: impl Into<String>) -> Self {
         self.phone = Some(v.into());
+        self
+    }
+
+    /// Set the CSRT token and identifier.
+    ///
+    /// The CSRT (Código de Segurança do Responsável Técnico) is a token
+    /// provided by the fiscal authority. When set, `<idCSRT>` and `<hashCSRT>`
+    /// tags are generated in the XML. The hash is `base64(sha1(CSRT + chNFe))`.
+    pub fn csrt(mut self, token: impl Into<String>, id: impl Into<String>) -> Self {
+        self.csrt = Some(token.into());
+        self.csrt_id = Some(id.into());
         self
     }
 }

@@ -148,13 +148,14 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
         inf_children.push(optional::build_purchase(purchase));
     }
     if let Some(ref tech) = data.tech_responsible {
-        inf_children.push(optional::build_tech_responsible(tech));
+        inf_children.push(optional::build_tech_responsible(tech, &access_key));
     }
 
+    // Matches PHP sped-nfe: no xmlns on infNFe (inherited from NFe parent),
+    // Id attribute before versao
     let inf_nfe = tag(
         "infNFe",
         &[
-            ("xmlns", NFE_NAMESPACE),
             ("versao", NFE_VERSION),
             ("Id", &inf_nfe_id),
         ],

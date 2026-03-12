@@ -13,22 +13,16 @@ const NFE_PORTAL: &str = "http://www.portalfiscal.inf.br/nfe";
 
 /// Build the SOAP 1.2 envelope that wraps a SEFAZ request body.
 ///
-/// The envelope follows the SEFAZ NF-e 4.00 specification:
+/// The envelope matches PHP sped-nfe format exactly:
 ///
 /// ```xml
-/// <soap12:Envelope xmlns:soap12="…/soap-envelope">
-///   <soap12:Header>
-///     <nfeCabecMsg xmlns="…/wsdl/{operation}">
-///       <cUF>{state_ibge_code}</cUF>
-///       <versaoDados>{version}</versaoDados>
-///     </nfeCabecMsg>
-///   </soap12:Header>
-///   <soap12:Body>
+/// <soap:Envelope xmlns:xsi="…" xmlns:xsd="…" xmlns:soap="…/soap-envelope">
+///   <soap:Body>
 ///     <nfeDadosMsg xmlns="…/wsdl/{operation}">
 ///       {request_xml}
 ///     </nfeDadosMsg>
-///   </soap12:Body>
-/// </soap12:Envelope>
+///   </soap:Body>
+/// </soap:Envelope>
 /// ```
 ///
 /// # Errors
@@ -40,38 +34,30 @@ pub(crate) fn build_envelope(
     uf: &str,
     meta: &ServiceMeta,
 ) -> Result<String, FiscalError> {
-    let cuf = get_state_code(uf)?;
+    let _cuf = get_state_code(uf)?; // validates state code
     let namespace = format!("{NFE_PORTAL}/wsdl/{}", meta.operation);
 
-    let mut s = String::with_capacity(request_xml.len() + 600);
+    let mut s = String::with_capacity(request_xml.len() + 400);
 
-    // Envelope open
-    s.push_str("<soap12:Envelope xmlns:soap12=\"");
+    // Envelope open — matches PHP sped-nfe exactly:
+    // <soap:Envelope xmlns:xsi="..." xmlns:xsd="..." xmlns:soap="...">
+    s.push_str("<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"");
     s.push_str(SOAP_NS);
     s.push_str("\">");
 
-    // Header
-    s.push_str("<soap12:Header>");
-    s.push_str("<nfeCabecMsg xmlns=\"");
-    s.push_str(&namespace);
-    s.push_str("\"><cUF>");
-    s.push_str(cuf);
-    s.push_str("</cUF><versaoDados>");
-    s.push_str(meta.version);
-    s.push_str("</versaoDados></nfeCabecMsg>");
-    s.push_str("</soap12:Header>");
+    // No <soap:Header> — PHP omits it entirely in NF-e 4.00
 
     // Body
-    s.push_str("<soap12:Body>");
+    s.push_str("<soap:Body>");
     s.push_str("<nfeDadosMsg xmlns=\"");
     s.push_str(&namespace);
     s.push_str("\">");
     s.push_str(request_xml);
     s.push_str("</nfeDadosMsg>");
-    s.push_str("</soap12:Body>");
+    s.push_str("</soap:Body>");
 
     // Envelope close
-    s.push_str("</soap12:Envelope>");
+    s.push_str("</soap:Envelope>");
 
     Ok(s)
 }
@@ -89,21 +75,26 @@ mod tests {
     use crate::services::SefazService;
 
     #[test]
-    fn envelope_contains_all_required_elements() {
+    fn envelope_matches_php_sped_nfe_format() {
         let meta = SefazService::StatusServico.meta();
         let body = "<consStatServ><tpAmb>2</tpAmb></consStatServ>";
         let envelope = build_envelope(body, "SP", &meta).unwrap();
 
-        // Outer structure
-        assert!(envelope.starts_with("<soap12:Envelope"));
-        assert!(envelope.ends_with("</soap12:Envelope>"));
-        assert!(envelope.contains("xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\""));
+        // Must use soap: prefix (not soap12:) — matches PHP sped-nfe
+        assert!(envelope.starts_with("<soap:Envelope"));
+        assert!(envelope.ends_with("</soap:Envelope>"));
 
-        // Header with correct cUF for SP
-        assert!(envelope.contains("<cUF>35</cUF>"));
-        assert!(envelope.contains("<versaoDados>4.00</versaoDados>"));
+        // Must include xsi, xsd, and soap namespace declarations — matches PHP
+        assert!(envelope.contains("xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""));
+        assert!(envelope.contains("xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""));
+        assert!(envelope.contains("xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\""));
+
+        // No <soap:Header> at all — PHP omits it in NF-e 4.00
+        assert!(!envelope.contains("<soap:Header"), "Header must be omitted like PHP");
 
         // Body wraps the request XML untouched
+        assert!(envelope.contains("<soap:Body>"));
+        assert!(envelope.contains("</soap:Body>"));
         assert!(envelope.contains("<nfeDadosMsg"));
         assert!(envelope.contains(body));
     }
@@ -115,7 +106,6 @@ mod tests {
 
         let expected_ns = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4";
         assert!(envelope.contains(expected_ns));
-        assert!(envelope.contains("<cUF>43</cUF>")); // RS = 43
     }
 
     #[test]
@@ -123,6 +113,28 @@ mod tests {
         let meta = SefazService::StatusServico.meta();
         let err = build_envelope("<test/>", "XX", &meta).unwrap_err();
         assert!(matches!(err, FiscalError::InvalidStateCode(_)));
+    }
+
+    #[test]
+    fn envelope_exact_string_matches_php() {
+        // Verify the exact envelope string to catch any subtle formatting differences
+        let meta = SefazService::StatusServico.meta();
+        let body = "<consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>2</tpAmb><cUF>35</cUF><xServ>STATUS</xServ></consStatServ>";
+        let envelope = build_envelope(body, "SP", &meta).unwrap();
+
+        let expected = concat!(
+            "<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" ",
+            "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" ",
+            "xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\">",
+            "<soap:Body>",
+            "<nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\">",
+            "<consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\">",
+            "<tpAmb>2</tpAmb><cUF>35</cUF><xServ>STATUS</xServ></consStatServ>",
+            "</nfeDadosMsg>",
+            "</soap:Body>",
+            "</soap:Envelope>",
+        );
+        assert_eq!(envelope, expected, "Envelope must match PHP sped-nfe format exactly");
     }
 
     #[test]

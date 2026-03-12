@@ -209,21 +209,170 @@ mod sign_xml {
 
     #[test]
     fn signed_xml_can_be_verified() {
-        // In TS this uses xml-crypto to verify the signature.
-        // In Rust we verify the signed XML has the expected structure for verification.
         let (pfx_bytes, passphrase) = generate_test_pfx();
         let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
         let signed =
             fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
                 .unwrap();
 
-        // Verify the signature block exists and is well-formed
-        assert!(signed.contains("<Signature"));
+        // Verify complete signature structure
+        assert!(signed.contains("<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"));
         assert!(signed.contains("</Signature>"));
-        // The signed XML should contain the X509 certificate for verification
         assert!(signed.contains("<X509Certificate>"));
         assert!(signed.contains("<DigestValue>"));
         assert!(signed.contains("<SignatureValue>"));
+
+        // SignedInfo must NOT have its own xmlns (inherits from Signature)
+        assert!(
+            !signed.contains("<SignedInfo xmlns="),
+            "SignedInfo must not have redundant xmlns declaration"
+        );
+        assert!(signed.contains("<SignedInfo>"));
+    }
+
+    #[test]
+    fn c14n_sorts_attributes_alphabetically() {
+        // The sample XML has: versao="4.00" Id="NFe..."
+        // C14N requires: Id="NFe..." versao="4.00" (alphabetical order)
+        let (pfx_bytes, passphrase) = generate_test_pfx();
+        let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
+
+        // The DigestValue must be computed from the C14N canonical form where
+        // attributes are sorted. We verify this by checking the same XML signed
+        // twice with different attribute order gives the SAME DigestValue.
+        let xml_alt_order = sample_xml().replace(
+            r#"versao="4.00" Id="NFe35260112345678000199650010000000011123456780""#,
+            r#"Id="NFe35260112345678000199650010000000011123456780" versao="4.00""#,
+        );
+        let signed_alt =
+            fiscal::certificate::sign_xml(&xml_alt_order, &cert.private_key, &cert.certificate)
+                .unwrap();
+
+        let extract_digest = |xml: &str| -> String {
+            let start = xml.find("<DigestValue>").unwrap() + "<DigestValue>".len();
+            let end = xml[start..].find("</DigestValue>").unwrap() + start;
+            xml[start..end].to_string()
+        };
+
+        assert_eq!(
+            extract_digest(&signed),
+            extract_digest(&signed_alt),
+            "C14N must produce identical DigestValue regardless of attribute order in input"
+        );
+    }
+
+    #[test]
+    fn c14n_preserves_namespace_before_attributes() {
+        // In C14N, xmlns declarations come before regular attributes.
+        // Verify the signed XML has correct attribute order on infNFe.
+        let (pfx_bytes, passphrase) = generate_test_pfx();
+        let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
+        let signed =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
+
+        // The infNFe in the output should still have xmlns before Id/versao
+        // (it's the output XML, not the canonical form, but the original input preserves this)
+        let inf_start = signed.find("<infNFe").unwrap();
+        let inf_tag_end = signed[inf_start..].find('>').unwrap() + inf_start;
+        let tag = &signed[inf_start..=inf_tag_end];
+
+        let xmlns_pos = tag.find("xmlns=").expect("xmlns not found on infNFe");
+        let id_pos = tag.find("Id=").expect("Id not found on infNFe");
+        assert!(
+            xmlns_pos < id_pos,
+            "xmlns must appear before Id in the output tag"
+        );
+    }
+
+    #[test]
+    fn deterministic_digest_for_known_xml() {
+        // Sign the same XML with the same key and verify the DigestValue
+        // is deterministic (digest depends only on canonical content).
+        let (pfx_bytes, passphrase) = generate_test_pfx();
+        let cert = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
+
+        let signed1 =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
+        let signed2 =
+            fiscal::certificate::sign_xml(&sample_xml(), &cert.private_key, &cert.certificate)
+                .unwrap();
+
+        let extract_digest = |xml: &str| -> String {
+            let start = xml.find("<DigestValue>").unwrap() + "<DigestValue>".len();
+            let end = xml[start..].find("</DigestValue>").unwrap() + start;
+            xml[start..end].to_string()
+        };
+
+        assert_eq!(
+            extract_digest(&signed1),
+            extract_digest(&signed2),
+            "DigestValue must be deterministic for same input"
+        );
+
+        // SignatureValue must also be deterministic (RSA with PKCS#1 v1.5 is deterministic)
+        let extract_sigval = |xml: &str| -> String {
+            let start = xml.find("<SignatureValue>").unwrap() + "<SignatureValue>".len();
+            let end = xml[start..].find("</SignatureValue>").unwrap() + start;
+            xml[start..end].to_string()
+        };
+
+        assert_eq!(
+            extract_sigval(&signed1),
+            extract_sigval(&signed2),
+            "SignatureValue must be deterministic for same input and key"
+        );
+    }
+
+    #[test]
+    fn self_verifies_signature_with_openssl() {
+        // Independently verify the RSA-SHA1 SignatureValue using OpenSSL.
+        // This proves the signing round-trip is correct: the SignatureValue
+        // can be verified against the canonical SignedInfo using the same key.
+        use openssl::base64;
+        use openssl::hash::MessageDigest;
+        use openssl::pkey::PKey;
+        use openssl::sign::Verifier;
+
+        let (pfx_bytes, passphrase) = generate_test_pfx();
+        let cert_data = fiscal::certificate::load_certificate(&pfx_bytes, &passphrase).unwrap();
+        let signed = fiscal::certificate::sign_xml(
+            &sample_xml(),
+            &cert_data.private_key,
+            &cert_data.certificate,
+        )
+        .unwrap();
+
+        // Extract SignedInfo (without xmlns) and reconstruct canonical form
+        // (with xmlns, as SEFAZ does during verification — C14N includes
+        // in-scope namespace from parent <Signature xmlns="...">)
+        let si_start = signed.find("<SignedInfo>").unwrap();
+        let si_end = signed.find("</SignedInfo>").unwrap() + "</SignedInfo>".len();
+        let signed_info = &signed[si_start..si_end];
+        let canonical_si = signed_info.replacen(
+            "<SignedInfo>",
+            "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+            1,
+        );
+
+        // Extract SignatureValue
+        let sigval_start = signed.find("<SignatureValue>").unwrap() + "<SignatureValue>".len();
+        let sigval_end =
+            signed[sigval_start..].find("</SignatureValue>").unwrap() + sigval_start;
+        let signature_bytes = base64::decode_block(&signed[sigval_start..sigval_end]).unwrap();
+
+        // Verify RSA-SHA1 signature
+        let pkey = PKey::private_key_from_pem(cert_data.private_key.as_bytes()).unwrap();
+        let mut verifier = Verifier::new(MessageDigest::sha1(), &pkey).unwrap();
+        verifier.update(canonical_si.as_bytes()).unwrap();
+        assert!(
+            verifier.verify(&signature_bytes).unwrap(),
+            "RSA-SHA1 signature must verify against canonical SignedInfo"
+        );
     }
 
     #[test]
