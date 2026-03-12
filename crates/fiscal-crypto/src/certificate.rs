@@ -11,10 +11,16 @@ use fiscal_core::FiscalError;
 use fiscal_core::types::{CertificateData, CertificateInfo};
 
 /// Load OpenSSL legacy provider (needed for RC2-40-CBC in old PFX files on OpenSSL 3.x).
+///
+/// The provider must stay loaded for the entire process lifetime. We use
+/// `std::mem::forget` to prevent `Drop` from calling `OSSL_PROVIDER_unload`.
+/// `try_load(None, "legacy", true)` keeps the default provider as fallback.
 fn ensure_legacy_provider() {
     static INIT: Once = Once::new();
     INIT.call_once(|| {
-        let _ = openssl::provider::Provider::try_load(None, "legacy", true);
+        if let Ok(provider) = openssl::provider::Provider::try_load(None, "legacy", true) {
+            std::mem::forget(provider);
+        }
     });
 }
 
