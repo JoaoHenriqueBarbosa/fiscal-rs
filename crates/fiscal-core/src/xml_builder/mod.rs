@@ -155,10 +155,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     // Id attribute before versao
     let inf_nfe = tag(
         "infNFe",
-        &[
-            ("versao", NFE_VERSION),
-            ("Id", &inf_nfe_id),
-        ],
+        &[("versao", NFE_VERSION), ("Id", &inf_nfe_id)],
         TagContent::Children(inf_children),
     );
 

@@ -124,7 +124,8 @@ impl SefazClient {
         environment: SefazEnvironment,
         request_xml: &str,
     ) -> Result<String, FiscalError> {
-        self.send_model(service, uf, environment, request_xml, 55).await
+        self.send_model(service, uf, environment, request_xml, 55)
+            .await
     }
 
     /// Send a raw request XML to a SEFAZ service for a specific invoice model

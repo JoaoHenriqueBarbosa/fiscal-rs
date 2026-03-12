@@ -39,20 +39,36 @@ pub fn build_total(
     ];
     // vFCPUFDest, vICMSUFDest, vICMSUFRemet: only included when > 0 (matches PHP)
     if icms.v_fcp_uf_dest.0 > 0 {
-        icms_children.push(tag("vFCPUFDest", &[], TagContent::Text(&fc2(icms.v_fcp_uf_dest.0))));
+        icms_children.push(tag(
+            "vFCPUFDest",
+            &[],
+            TagContent::Text(&fc2(icms.v_fcp_uf_dest.0)),
+        ));
     }
     if icms.v_icms_uf_dest.0 > 0 {
-        icms_children.push(tag("vICMSUFDest", &[], TagContent::Text(&fc2(icms.v_icms_uf_dest.0))));
+        icms_children.push(tag(
+            "vICMSUFDest",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_uf_dest.0)),
+        ));
     }
     if icms.v_icms_uf_remet.0 > 0 {
-        icms_children.push(tag("vICMSUFRemet", &[], TagContent::Text(&fc2(icms.v_icms_uf_remet.0))));
+        icms_children.push(tag(
+            "vICMSUFRemet",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_uf_remet.0)),
+        ));
     }
     icms_children.push(tag("vFCP", &[], TagContent::Text(&fc2(icms.v_fcp.0))));
     icms_children.extend([
         tag("vBCST", &[], TagContent::Text(&fc2(icms.v_bc_st.0))),
         tag("vST", &[], TagContent::Text(&fc2(icms.v_st.0))),
         tag("vFCPST", &[], TagContent::Text(&fc2(icms.v_fcp_st.0))),
-        tag("vFCPSTRet", &[], TagContent::Text(&fc2(icms.v_fcp_st_ret.0))),
+        tag(
+            "vFCPSTRet",
+            &[],
+            TagContent::Text(&fc2(icms.v_fcp_st_ret.0)),
+        ),
         tag("vProd", &[], TagContent::Text(&fc2(total_products))),
         tag("vFrete", &[], TagContent::Text("0.00")),
         tag("vSeg", &[], TagContent::Text("0.00")),

@@ -361,8 +361,7 @@ mod sign_xml {
 
         // Extract SignatureValue
         let sigval_start = signed.find("<SignatureValue>").unwrap() + "<SignatureValue>".len();
-        let sigval_end =
-            signed[sigval_start..].find("</SignatureValue>").unwrap() + sigval_start;
+        let sigval_end = signed[sigval_start..].find("</SignatureValue>").unwrap() + sigval_start;
         let signature_bytes = base64::decode_block(&signed[sigval_start..sigval_end]).unwrap();
 
         // Verify RSA-SHA1 signature

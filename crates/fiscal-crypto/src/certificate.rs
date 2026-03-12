@@ -414,7 +414,8 @@ fn ensure_inherited_namespace(element: &str, full_xml: &str, tag_name: &str) -> 
         if let Some(ns_val_end) = full_xml[ns_val_start..].find('"') {
             let ns_value = &full_xml[ns_val_start..ns_val_start + ns_val_end];
             // Insert xmlns after the tag name
-            let insert_pos = element.find(|c: char| c.is_ascii_whitespace() || c == '>')
+            let insert_pos = element
+                .find(|c: char| c.is_ascii_whitespace() || c == '>')
                 .unwrap_or(open_end);
             return format!(
                 "{} xmlns=\"{ns_value}\"{}",
@@ -530,12 +531,10 @@ fn canonicalize_xml(xml: &str) -> String {
             }
 
             // Sort namespace declarations: default namespace first, then by prefix
-            ns_attrs.sort_by(|a, b| {
-                match (a.0, b.0) {
-                    ("xmlns", _) => std::cmp::Ordering::Less,
-                    (_, "xmlns") => std::cmp::Ordering::Greater,
-                    _ => a.0.cmp(b.0),
-                }
+            ns_attrs.sort_by(|a, b| match (a.0, b.0) {
+                ("xmlns", _) => std::cmp::Ordering::Less,
+                (_, "xmlns") => std::cmp::Ordering::Greater,
+                _ => a.0.cmp(b.0),
             });
 
             // Sort regular attributes by local name

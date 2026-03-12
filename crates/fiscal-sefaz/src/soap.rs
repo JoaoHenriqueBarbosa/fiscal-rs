@@ -90,7 +90,10 @@ mod tests {
         assert!(envelope.contains("xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\""));
 
         // No <soap:Header> at all — PHP omits it in NF-e 4.00
-        assert!(!envelope.contains("<soap:Header"), "Header must be omitted like PHP");
+        assert!(
+            !envelope.contains("<soap:Header"),
+            "Header must be omitted like PHP"
+        );
 
         // Body wraps the request XML untouched
         assert!(envelope.contains("<soap:Body>"));
@@ -134,7 +137,10 @@ mod tests {
             "</soap:Body>",
             "</soap:Envelope>",
         );
-        assert_eq!(envelope, expected, "Envelope must match PHP sped-nfe format exactly");
+        assert_eq!(
+            envelope, expected,
+            "Envelope must match PHP sped-nfe format exactly"
+        );
     }
 
     #[test]

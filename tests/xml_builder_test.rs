@@ -334,20 +334,22 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn includes_csrt_hash_when_configured() {
-        let now = chrono::Utc::now().with_timezone(
-            &FixedOffset::west_opt(3 * 3600).unwrap(),
-        );
-        let built = InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
-            .issued_at(now)
-            .items(vec![sample_item()])
-            .payments(vec![PaymentData::new("01", Cents(1000))])
-            .tech_responsible(
-                TechResponsibleData::new("99999999999999", "Fulano de Tal", "fulano@soft.com.br")
-                    .phone("1155551122")
-                    .csrt("G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO", "01"),
-            )
-            .build()
-            .unwrap();
+        let now = chrono::Utc::now().with_timezone(&FixedOffset::west_opt(3 * 3600).unwrap());
+        let built = InvoiceBuilder::new(
+            sample_issuer(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .issued_at(now)
+        .items(vec![sample_item()])
+        .payments(vec![PaymentData::new("01", Cents(1000))])
+        .tech_responsible(
+            TechResponsibleData::new("99999999999999", "Fulano de Tal", "fulano@soft.com.br")
+                .phone("1155551122")
+                .csrt("G8063VRTNDMO886SFNK5LDUDEI24XJ22YIPO", "01"),
+        )
+        .build()
+        .unwrap();
         let xml = built.xml();
 
         // infRespTec must contain idCSRT and hashCSRT
@@ -390,23 +392,33 @@ mod build_invoice_xml_tests {
 
     #[test]
     fn omits_csrt_when_not_configured() {
-        let now = chrono::Utc::now().with_timezone(
-            &FixedOffset::west_opt(3 * 3600).unwrap(),
-        );
-        let built = InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
-            .issued_at(now)
-            .items(vec![sample_item()])
-            .payments(vec![PaymentData::new("01", Cents(1000))])
-            .tech_responsible(
-                TechResponsibleData::new("99999999999999", "Fulano de Tal", "fulano@soft.com.br"),
-            )
-            .build()
-            .unwrap();
+        let now = chrono::Utc::now().with_timezone(&FixedOffset::west_opt(3 * 3600).unwrap());
+        let built = InvoiceBuilder::new(
+            sample_issuer(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .issued_at(now)
+        .items(vec![sample_item()])
+        .payments(vec![PaymentData::new("01", Cents(1000))])
+        .tech_responsible(TechResponsibleData::new(
+            "99999999999999",
+            "Fulano de Tal",
+            "fulano@soft.com.br",
+        ))
+        .build()
+        .unwrap();
         let xml = built.xml();
 
         assert!(xml.contains("<infRespTec>"), "infRespTec should be present");
-        assert!(!xml.contains("<idCSRT>"), "idCSRT should NOT be present without CSRT config");
-        assert!(!xml.contains("<hashCSRT>"), "hashCSRT should NOT be present without CSRT config");
+        assert!(
+            !xml.contains("<idCSRT>"),
+            "idCSRT should NOT be present without CSRT config"
+        );
+        assert!(
+            !xml.contains("<hashCSRT>"),
+            "hashCSRT should NOT be present without CSRT config"
+        );
     }
 
     /// This test verifies that the Rust XML builder produces the same
@@ -419,9 +431,11 @@ mod build_invoice_xml_tests {
     #[test]
     fn xml_structure_matches_php_sped_nfe_reference() {
         // Load PHP reference
-        let php_xml = std::fs::read_to_string(
-            format!("{}/tests/fixtures/xml/php-reference-nfe.xml", env!("CARGO_MANIFEST_DIR"))
-        ).expect("PHP reference fixture not found");
+        let php_xml = std::fs::read_to_string(format!(
+            "{}/tests/fixtures/xml/php-reference-nfe.xml",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("PHP reference fixture not found");
 
         // Key structural checks against PHP output:
 
@@ -432,12 +446,16 @@ mod build_invoice_xml_tests {
         );
 
         // 2. Build a Rust XML and verify infNFe also has no xmlns
-        let built = InvoiceBuilder::new(sample_issuer(), SefazEnvironment::Homologation, InvoiceModel::Nfe)
-            .issued_at(issued_at())
-            .items(vec![sample_item()])
-            .payments(vec![sample_payment()])
-            .build()
-            .unwrap();
+        let built = InvoiceBuilder::new(
+            sample_issuer(),
+            SefazEnvironment::Homologation,
+            InvoiceModel::Nfe,
+        )
+        .issued_at(issued_at())
+        .items(vec![sample_item()])
+        .payments(vec![sample_payment()])
+        .build()
+        .unwrap();
         let rust_xml = built.xml();
 
         assert!(
@@ -489,7 +507,9 @@ fn extract_all_tag_names(xml: &str) -> Vec<String> {
         if remaining.starts_with('/') || remaining.starts_with('?') || remaining.starts_with('!') {
             continue;
         }
-        let end = remaining.find(|c: char| c == '>' || c == ' ').unwrap_or(remaining.len());
+        let end = remaining
+            .find(|c: char| c == '>' || c == ' ')
+            .unwrap_or(remaining.len());
         let tag_name = &remaining[..end];
         if !tag_name.is_empty() {
             tags.push(tag_name.to_string());

@@ -497,8 +497,8 @@ fn get_state_nfce_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
         "PR" => Some(&PR_NFCE),
         // All other states use SVRS NFC-e
         "AC" | "AL" | "AM" | "AP" | "BA" | "CE" | "DF" | "ES" | "GO" | "MA" | "MG" | "MS"
-        | "MT" | "PA" | "PB" | "PE" | "PI" | "RJ" | "RN" | "RO" | "RR" | "RS" | "SC"
-        | "SE" | "SP" | "TO" => Some(&SVRS_NFCE),
+        | "MT" | "PA" | "PB" | "PE" | "PI" | "RJ" | "RN" | "RO" | "RR" | "RS" | "SC" | "SE"
+        | "SP" | "TO" => Some(&SVRS_NFCE),
         _ => None,
     }
 }

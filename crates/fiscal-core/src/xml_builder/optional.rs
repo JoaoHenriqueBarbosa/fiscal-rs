@@ -1,12 +1,12 @@
 //! Build optional XML groups: cobr, infAdic, infIntermed, exporta, compra,
 //! infRespTec, retirada, entrega, autXML.
 
-use base64::Engine as _;
 use super::emit::build_address_fields;
 use super::tax_id::TaxId;
 use crate::format_utils::format_cents;
 use crate::types::*;
 use crate::xml_utils::{TagContent, tag};
+use base64::Engine as _;
 
 /// Build `<cobr>` (billing) element.
 pub fn build_cobr(billing: &BillingData) -> String {

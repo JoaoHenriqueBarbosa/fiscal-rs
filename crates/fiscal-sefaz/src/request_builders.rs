@@ -89,7 +89,9 @@ pub fn build_autorizacao_request(xml: &str, lot_id: &str, sync: bool, _compresse
 
     let ind_sinc = if sync { "1" } else { "0" };
 
-    format!("<enviNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><idLote>{lot_id}</idLote><indSinc>{ind_sinc}</indSinc>{stripped}</enviNFe>")
+    format!(
+        "<enviNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><idLote>{lot_id}</idLote><indSinc>{ind_sinc}</indSinc>{stripped}</enviNFe>"
+    )
 }
 
 /// Build a SEFAZ service status request XML (`<consStatServ>`).
@@ -107,7 +109,9 @@ pub fn build_status_request(uf: &str, environment: SefazEnvironment) -> String {
     let cuf = get_state_code(uf).expect("Invalid state code");
     let tp_amb = environment.as_str();
 
-    format!("<consStatServ xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><cUF>{cuf}</cUF><xServ>STATUS</xServ></consStatServ>")
+    format!(
+        "<consStatServ xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><cUF>{cuf}</cUF><xServ>STATUS</xServ></consStatServ>"
+    )
 }
 
 /// Build a SEFAZ consultation request XML (`<consSitNFe>`) for an access key.
@@ -125,7 +129,9 @@ pub fn build_consulta_request(access_key: &str, environment: SefazEnvironment) -
     validate_access_key(access_key);
     let tp_amb = environment.as_str();
 
-    format!("<consSitNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><xServ>CONSULTAR</xServ><chNFe>{access_key}</chNFe></consSitNFe>")
+    format!(
+        "<consSitNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><xServ>CONSULTAR</xServ><chNFe>{access_key}</chNFe></consSitNFe>"
+    )
 }
 
 /// Build a SEFAZ receipt consultation request XML (`<consReciNFe>`).
@@ -143,7 +149,9 @@ pub fn build_consulta_recibo_request(receipt: &str, environment: SefazEnvironmen
     assert!(!receipt.is_empty(), "Receipt number (recibo) is required");
     let tp_amb = environment.as_str();
 
-    format!("<consReciNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><nRec>{receipt}</nRec></consReciNFe>")
+    format!(
+        "<consReciNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><nRec>{receipt}</nRec></consReciNFe>"
+    )
 }
 
 /// Build a SEFAZ number voiding request XML (`<inutNFe>`).
@@ -188,7 +196,9 @@ pub fn build_inutilizacao_request(
     let id =
         format!("ID{cuf}{year:02}{tax_id}{model:0>2}{series:03}{start_number:09}{end_number:09}");
 
-    format!("<inutNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><infInut Id=\"{id}\"><tpAmb>{tp_amb}</tpAmb><xServ>INUTILIZAR</xServ><cUF>{cuf}</cUF><ano>{year:02}</ano><CNPJ>{tax_id}</CNPJ><mod>{model}</mod><serie>{series}</serie><nNFIni>{start_number}</nNFIni><nNFFin>{end_number}</nNFFin><xJust>{justification}</xJust></infInut></inutNFe>")
+    format!(
+        "<inutNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><infInut Id=\"{id}\"><tpAmb>{tp_amb}</tpAmb><xServ>INUTILIZAR</xServ><cUF>{cuf}</cUF><ano>{year:02}</ano><CNPJ>{tax_id}</CNPJ><mod>{model}</mod><serie>{series}</serie><nNFIni>{start_number}</nNFIni><nNFFin>{end_number}</nNFFin><xJust>{justification}</xJust></infInut></inutNFe>"
+    )
 }
 
 /// Build a SEFAZ cancellation event request XML.
@@ -336,14 +346,7 @@ pub fn build_manifesta_request(
         String::new()
     };
 
-    build_event_xml(
-        access_key,
-        tp_evento,
-        seq,
-        tax_id,
-        environment,
-        &additional,
-    )
+    build_event_xml(access_key, tp_evento, seq, tax_id, environment, &additional)
 }
 
 /// Build a SEFAZ DistDFe (distribution) request XML (`<distDFeInt>`).
@@ -399,7 +402,9 @@ pub fn build_dist_dfe_request(
         "<distNSU><ultNSU>000000000000000</ultNSU></distNSU>".to_string()
     };
 
-    format!("<distDFeInt xmlns=\"{NFE_NAMESPACE}\" versao=\"1.01\"><tpAmb>{tp_amb}</tpAmb><cUFAutor>{cuf}</cUFAutor>{tax_id_tag}{query_tag}</distDFeInt>")
+    format!(
+        "<distDFeInt xmlns=\"{NFE_NAMESPACE}\" versao=\"1.01\"><tpAmb>{tp_amb}</tpAmb><cUFAutor>{cuf}</cUFAutor>{tax_id_tag}{query_tag}</distDFeInt>"
+    )
 }
 
 /// Build a SEFAZ cadastro (taxpayer registration) query XML (`<ConsCad>`).
@@ -424,7 +429,9 @@ pub fn build_cadastro_request(uf: &str, search_type: &str, search_value: &str) -
         _ => String::new(),
     };
 
-    format!("<ConsCad xmlns=\"{NFE_NAMESPACE}\" versao=\"2.00\"><infCons><xServ>CONS-CAD</xServ><UF>{uf}</UF>{filter}</infCons></ConsCad>")
+    format!(
+        "<ConsCad xmlns=\"{NFE_NAMESPACE}\" versao=\"2.00\"><infCons><xServ>CONS-CAD</xServ><UF>{uf}</UF>{filter}</infCons></ConsCad>"
+    )
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -459,7 +466,9 @@ fn build_event_xml(
         .format("%Y-%m-%dT%H:%M:%S%:z")
         .to_string();
 
-    format!("<envEvento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\"><idLote>{lot_id}</idLote><evento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\"><infEvento Id=\"{event_id}\"><cOrgao>{org_code}</cOrgao><tpAmb>{tp_amb}</tpAmb>{tax_id_tag}<chNFe>{access_key}</chNFe><dhEvento>{dh_evento}</dhEvento><tpEvento>{event_type}</tpEvento><nSeqEvento>{seq}</nSeqEvento><verEvento>1.00</verEvento><detEvento versao=\"1.00\"><descEvento>{desc_evento}</descEvento>{additional_tags}</detEvento></infEvento></evento></envEvento>")
+    format!(
+        "<envEvento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\"><idLote>{lot_id}</idLote><evento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\"><infEvento Id=\"{event_id}\"><cOrgao>{org_code}</cOrgao><tpAmb>{tp_amb}</tpAmb>{tax_id_tag}<chNFe>{access_key}</chNFe><dhEvento>{dh_evento}</dhEvento><tpEvento>{event_type}</tpEvento><nSeqEvento>{seq}</nSeqEvento><verEvento>1.00</verEvento><detEvento versao=\"1.00\"><descEvento>{desc_evento}</descEvento>{additional_tags}</detEvento></infEvento></evento></envEvento>"
+    )
 }
 
 /// Validate that an access key is exactly 44 numeric digits.
