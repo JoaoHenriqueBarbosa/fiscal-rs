@@ -297,8 +297,14 @@ mod valid_txt_test {
 
 mod certificate_test {
 
-    const CNPJ_PFX_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx");
-    const CPF_PFX_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/certs/novo_cert_cpf_90483926086_minhasenha.pfx");
+    const CNPJ_PFX_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx"
+    );
+    const CPF_PFX_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/certs/novo_cert_cpf_90483926086_minhasenha.pfx"
+    );
     const PASSWORD: &str = "minhasenha";
 
     #[test]
@@ -593,7 +599,10 @@ mod convert_test {
 mod tipos_basicos_test {
     #[test]
     fn tstring_xsd_has_correct_pattern() {
-        let xsd_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/schemes/tiposBasico_v4.00.xsd");
+        let xsd_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/schemes/tiposBasico_v4.00.xsd"
+        );
         let xsd = std::fs::read_to_string(xsd_path).expect("Failed to read XSD");
 
         // Find the TString pattern
