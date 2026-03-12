@@ -1,0 +1,9 @@
+[workspace]
+# Use conventional commits to determine version bumps
+features_always_increment_minor = true
+# Run cargo-semver-checks to detect breaking changes
+semver_check = true
+# Timeout for cargo publish (includes waiting for crates.io index)
+publish_timeout = "10m"
+# Label the release PR
+pr_labels = ["release"]
