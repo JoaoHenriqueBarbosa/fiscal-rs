@@ -1,0 +1,14 @@
+[package]
+name = "bench_runner"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[[bin]]
+name = "bench_runner"
+path = "bench_runner.rs"
+
+[dependencies]
+fiscal = { path = "../.." }
+openssl = "0.10"

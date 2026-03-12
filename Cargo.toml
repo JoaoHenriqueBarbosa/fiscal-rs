@@ -4,6 +4,9 @@ members = [
     "crates/fiscal-crypto",
     "crates/fiscal-sefaz",
 ]
+exclude = [
+    "benchmarks/rust",
+]
 resolver = "2"
 
 [package]
