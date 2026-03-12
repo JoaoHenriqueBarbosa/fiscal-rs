@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo-200.png" alt="fiscal-rs logo" width="120" />
+</p>
+
+<p align="center">
   <strong>fiscal-rs</strong><br>
   <em>Biblioteca Rust de alta performance para documentos fiscais brasileiros (NF-e / NFC-e)</em>
 </p>
