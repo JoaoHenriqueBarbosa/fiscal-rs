@@ -4,4 +4,4 @@ WORKDIR /app
 RUN git clone --depth 1 https://github.com/JoaoHenriqueBarbosa/fiscal-rs.git .
 WORKDIR /app/benchmarks/rust
 RUN cargo build --release
-CMD ["./target/release/fiscal-bench-runner"]
+CMD ["./target/release/bench_runner"]
