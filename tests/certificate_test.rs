@@ -1,67 +1,60 @@
-// Ported from TypeScript: certificate.test.ts (14 tests)
+// Ported from TypeScript: certificate.test.ts
 // Tests for loadCertificate, getCertificateInfo, signXml
 
-use std::process::Command;
-
-/// Generate a self-signed PFX certificate for testing.
-/// Returns (pfx_bytes, passphrase).
+/// Generate a self-signed PFX certificate for testing via OpenSSL API.
 ///
-/// Uses unique file paths per invocation to avoid race conditions
-/// when tests run in parallel.
+/// No CLI dependency — uses the `openssl` crate directly, making it
+/// portable across Linux, macOS, and Windows.
 fn generate_test_pfx() -> (Vec<u8>, String) {
+    use openssl::asn1::Asn1Time;
+    use openssl::bn::BigNum;
+    use openssl::hash::MessageDigest;
+    use openssl::pkey::PKey;
+    use openssl::rsa::Rsa;
+    use openssl::x509::{X509, X509NameBuilder};
+
     let passphrase = "test123".to_string();
-    let id = std::thread::current().id();
-    let uid = format!("{id:?}").replace(['(', ')'], "");
-    let key_path = format!("/tmp/fiscal-rs-test-{uid}-key.pem");
-    let cert_path = format!("/tmp/fiscal-rs-test-{uid}-cert.pem");
-    let pfx_path = format!("/tmp/fiscal-rs-test-{uid}.pfx");
 
-    // Generate private key and self-signed certificate
-    let _ = Command::new("openssl")
-        .args([
-            "req",
-            "-x509",
-            "-newkey",
-            "rsa:2048",
-            "-keyout",
-            &key_path,
-            "-out",
-            &cert_path,
-            "-days",
-            "365",
-            "-nodes",
-            "-subj",
-            "/CN=Test NFe Company/O=FinOpenPOS Test",
-        ])
-        .stderr(std::process::Stdio::null())
-        .output()
-        .expect("openssl req failed");
+    // Generate RSA 2048-bit key pair
+    let rsa = Rsa::generate(2048).expect("RSA key generation failed");
+    let pkey = PKey::from_rsa(rsa).expect("PKey creation failed");
 
-    // Export to PFX
-    let _ = Command::new("openssl")
-        .args([
-            "pkcs12",
-            "-export",
-            "-out",
-            &pfx_path,
-            "-inkey",
-            &key_path,
-            "-in",
-            &cert_path,
-            "-passout",
-            &format!("pass:{passphrase}"),
-        ])
-        .stderr(std::process::Stdio::null())
-        .output()
-        .expect("openssl pkcs12 failed");
+    // Build self-signed X509 certificate
+    let mut name_builder = X509NameBuilder::new().unwrap();
+    name_builder
+        .append_entry_by_text("CN", "Test NFe Company")
+        .unwrap();
+    name_builder
+        .append_entry_by_text("O", "FinOpenPOS Test")
+        .unwrap();
+    let name = name_builder.build();
 
-    let pfx_bytes = std::fs::read(&pfx_path).expect("Failed to read PFX file");
+    let mut x509_builder = X509::builder().unwrap();
+    x509_builder.set_version(2).unwrap();
+    x509_builder.set_subject_name(&name).unwrap();
+    x509_builder.set_issuer_name(&name).unwrap();
+    x509_builder.set_pubkey(&pkey).unwrap();
+    x509_builder
+        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
+        .unwrap();
+    x509_builder
+        .set_not_after(&Asn1Time::days_from_now(365).unwrap())
+        .unwrap();
+    x509_builder
+        .set_serial_number(&BigNum::from_u32(1).unwrap().to_asn1_integer().unwrap())
+        .unwrap();
+    x509_builder.sign(&pkey, MessageDigest::sha256()).unwrap();
+    let cert = x509_builder.build();
 
-    // Cleanup temp files
-    let _ = std::fs::remove_file(&key_path);
-    let _ = std::fs::remove_file(&cert_path);
-    let _ = std::fs::remove_file(&pfx_path);
+    // Export to PKCS12/PFX
+    let pkcs12 = openssl::pkcs12::Pkcs12::builder()
+        .name("test")
+        .pkey(&pkey)
+        .cert(&cert)
+        .build2(&passphrase)
+        .expect("PKCS12 build failed");
 
+    let pfx_bytes = pkcs12.to_der().expect("PKCS12 DER serialization failed");
     (pfx_bytes, passphrase)
 }
 

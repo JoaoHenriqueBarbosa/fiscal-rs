@@ -18,19 +18,22 @@ fn ensure_legacy_provider() {
     });
 }
 
-/// Ensure a PFX buffer uses modern encryption algorithms.
+/// Ensure a PFX buffer can be used with modern TLS stacks.
 ///
 /// Brazilian A1 certificates are commonly issued with legacy encryption
-/// (RC2-40-CBC) which OpenSSL 3.x rejects by default. This function
-/// detects legacy PFX files and converts them automatically via the
-/// system `openssl` CLI, returning modern-encrypted PFX bytes.
+/// (RC2-40-CBC) which OpenSSL 3.x rejects by default. This function loads
+/// the OpenSSL legacy provider (process-wide) so the PFX can be parsed.
+///
+/// If the PFX uses legacy encryption and the legacy provider loaded
+/// successfully, the PFX is re-exported with modern algorithms (AES-256-CBC)
+/// via the OpenSSL API — no external CLI dependency.
 ///
 /// If the PFX is already modern, the original bytes are returned as-is.
 ///
 /// # Errors
 ///
-/// Returns [`FiscalError::Certificate`] if conversion fails or if the
-/// system `openssl` CLI is not available.
+/// Returns [`FiscalError::Certificate`] if the PFX is invalid, the
+/// passphrase is wrong, or the legacy provider cannot be loaded.
 pub fn ensure_modern_pfx(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>, FiscalError> {
     ensure_legacy_provider();
 
@@ -38,17 +41,68 @@ pub fn ensure_modern_pfx(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>,
         .map_err(|e| FiscalError::Certificate(format!("Invalid PFX data: {e}")))?;
 
     match pkcs12.parse2(passphrase) {
-        Ok(_) => Ok(pfx_buffer.to_vec()),
+        Ok(parsed) => {
+            // PFX parsed OK. Re-export with modern encryption to guarantee
+            // compatibility with native-tls / Identity::from_pkcs12_der,
+            // which may not load the legacy provider independently.
+            re_export_pfx(&parsed, passphrase)
+        }
         Err(e) => {
             let msg = e.to_string();
-            if !msg.contains("unsupported") && !msg.contains("RC2") {
-                return Err(FiscalError::Certificate(format!(
+            if msg.contains("unsupported") || msg.contains("RC2") || msg.contains("mac") {
+                Err(FiscalError::Certificate(format!(
+                    "Legacy PFX (RC2-40-CBC) detected but OpenSSL legacy provider \
+                     could not handle it. Ensure OpenSSL 3.x with legacy provider \
+                     support is available. Error: {e}"
+                )))
+            } else {
+                Err(FiscalError::Certificate(format!(
                     "Failed to parse PFX (wrong password?): {e}"
-                )));
+                )))
             }
-            convert_legacy_pfx_bytes(pfx_buffer, passphrase)
         }
     }
+}
+
+/// Re-export a parsed PKCS12 with modern encryption algorithms.
+///
+/// This converts legacy-encrypted PFX files to use AES-256-CBC (the OpenSSL
+/// default for new PKCS12), ensuring compatibility across TLS stacks.
+fn re_export_pfx(
+    parsed: &openssl::pkcs12::ParsedPkcs12_2,
+    passphrase: &str,
+) -> Result<Vec<u8>, FiscalError> {
+    let pkey = parsed
+        .pkey
+        .as_ref()
+        .ok_or_else(|| FiscalError::Certificate("PFX does not contain a private key".into()))?;
+    let cert = parsed
+        .cert
+        .as_ref()
+        .ok_or_else(|| FiscalError::Certificate("PFX does not contain a certificate".into()))?;
+
+    let mut builder = Pkcs12::builder();
+    if let Some(chain) = &parsed.ca {
+        let mut stack = openssl::stack::Stack::new()
+            .map_err(|e| FiscalError::Certificate(format!("Failed to create CA stack: {e}")))?;
+        for ca in chain {
+            stack
+                .push(ca.to_owned())
+                .map_err(|e| FiscalError::Certificate(format!("Failed to add CA to stack: {e}")))?;
+        }
+        builder.ca(stack);
+    }
+
+    let new_pfx = builder
+        .name("")
+        .pkey(pkey)
+        .cert(cert)
+        .build2(passphrase)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to re-export PFX: {e}")))?;
+
+    new_pfx
+        .to_der()
+        .map_err(|e| FiscalError::Certificate(format!("Failed to serialize PFX: {e}")))
 }
 
 fn parse_pfx(
@@ -61,83 +115,6 @@ fn parse_pfx(
     pkcs12
         .parse2(passphrase)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse PFX: {e}")))
-}
-
-/// Convert a legacy-encrypted PFX to modern algorithms via the system `openssl` CLI.
-fn convert_legacy_pfx_bytes(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>, FiscalError> {
-    use std::process::Command;
-
-    let dir = std::env::temp_dir().join("fiscal-rs-pfx-convert");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create temp dir: {e}")))?;
-
-    let legacy_path = dir.join("legacy.pfx");
-    let modern_path = dir.join("modern.pfx");
-    let pem_path = dir.join("cert.pem");
-
-    std::fs::write(&legacy_path, pfx_buffer)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to write temp PFX: {e}")))?;
-
-    // Step 1: PFX → PEM (with -legacy flag)
-    let output = Command::new("openssl")
-        .args([
-            "pkcs12",
-            "-in",
-            legacy_path.to_str().unwrap(),
-            "-out",
-            pem_path.to_str().unwrap(),
-            "-passin",
-            &format!("pass:{passphrase}"),
-            "-passout",
-            &format!("pass:{passphrase}"),
-            "-legacy",
-        ])
-        .output()
-        .map_err(|e| {
-            FiscalError::Certificate(format!(
-                "Legacy PFX detected (RC2-40-CBC). Automatic conversion requires the `openssl` CLI \
-             to be installed. Install it with: sudo apt-get install openssl. Error: {e}"
-            ))
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let _ = std::fs::remove_dir_all(&dir);
-        return Err(FiscalError::Certificate(format!(
-            "Failed to convert legacy PFX to PEM: {stderr}"
-        )));
-    }
-
-    // Step 2: PEM → modern PFX
-    let output = Command::new("openssl")
-        .args([
-            "pkcs12",
-            "-export",
-            "-in",
-            pem_path.to_str().unwrap(),
-            "-out",
-            modern_path.to_str().unwrap(),
-            "-passin",
-            &format!("pass:{passphrase}"),
-            "-passout",
-            &format!("pass:{passphrase}"),
-        ])
-        .output()
-        .map_err(|e| FiscalError::Certificate(format!("Failed to re-export PFX: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let _ = std::fs::remove_dir_all(&dir);
-        return Err(FiscalError::Certificate(format!(
-            "Failed to convert PEM back to modern PFX: {stderr}"
-        )));
-    }
-
-    let modern_bytes = std::fs::read(&modern_path)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to read converted PFX: {e}")))?;
-
-    let _ = std::fs::remove_dir_all(&dir);
-    Ok(modern_bytes)
 }
 
 /// Extract private key and certificate PEM strings from a PKCS#12/PFX buffer.
