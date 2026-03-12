@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Certificate handling and XML signing for Brazilian fiscal documents"
+license = "MIT"
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core" }
+fiscal-core = { path = "../fiscal-core", version = "0.1.0" }
 openssl = "0.10"
 base64 = "0.22"
 sha1 = "0.10"

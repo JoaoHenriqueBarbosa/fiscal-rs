@@ -31,6 +31,8 @@ allow = [
     "MIT-0",
     # Zlib is used by several compression/utility crates
     "Zlib",
+    # CDLA-Permissive-2.0 is used by webpki-root-certs (CA root certificates)
+    "CDLA-Permissive-2.0",
 ]
 # Minimum confidence threshold for license detection. A score below this
 # causes cargo-deny to treat the detection as uncertain and emit a warning.

@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "SEFAZ URLs, request builders, response parsers, and async client for Brazilian fiscal documents"
+license = "MIT"
 
 [features]
 default = ["client"]
 client = ["dep:reqwest"]
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core" }
+fiscal-core = { path = "../fiscal-core", version = "0.1.0" }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.13", features = ["native-tls"], optional = true }

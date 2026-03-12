@@ -12,11 +12,12 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Brazilian fiscal document library (NF-e/NFC-e) — Rust port of sped-nfe"
+license = "MIT"
 
 [dependencies]
-fiscal-core = { path = "crates/fiscal-core" }
-fiscal-crypto = { path = "crates/fiscal-crypto" }
-fiscal-sefaz = { path = "crates/fiscal-sefaz" }
+fiscal-core = { path = "crates/fiscal-core", version = "0.1.0" }
+fiscal-crypto = { path = "crates/fiscal-crypto", version = "0.1.0" }
+fiscal-sefaz = { path = "crates/fiscal-sefaz", version = "0.1.0" }
 
 [dev-dependencies]
 pretty_assertions = "1"
