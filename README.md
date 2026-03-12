@@ -7,6 +7,8 @@
   <a href="https://crates.io/crates/fiscal"><img src="https://img.shields.io/crates/v/fiscal.svg" alt="crates.io" /></a>
   <a href="https://docs.rs/fiscal"><img src="https://docs.rs/fiscal/badge.svg" alt="docs.rs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-739%2B%20passing-brightgreen" alt="tests" /></a>
+  <a href="https://fiscal-rs-docs.vercel.app/"><img src="https://img.shields.io/badge/docs-passing-brightgreen" alt="docs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/fiscal.svg" alt="license" /></a>
 </p>
 
