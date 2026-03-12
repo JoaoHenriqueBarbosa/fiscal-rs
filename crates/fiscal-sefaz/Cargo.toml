@@ -6,6 +6,8 @@ rust-version = "1.85"
 description = "SEFAZ URLs, request builders, response parsers, and async client for Brazilian fiscal documents"
 license = "MIT"
 repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+keywords = ["nfe", "sefaz", "soap", "brazil", "fiscal"]
+categories = ["web-programming"]
 
 [features]
 default = ["client"]

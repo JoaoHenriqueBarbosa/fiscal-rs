@@ -17,6 +17,9 @@ rust-version = "1.85"
 description = "Brazilian fiscal document library (NF-e/NFC-e) — Rust port of sped-nfe"
 license = "MIT"
 repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+documentation = "https://fiscal-rs-docs.vercel.app/"
+keywords = ["nfe", "nfce", "fiscal", "brazil", "sefaz"]
+categories = ["encoding", "cryptography", "web-programming"]
 
 [dependencies]
 fiscal-core = { path = "crates/fiscal-core", version = "0.1.0" }
