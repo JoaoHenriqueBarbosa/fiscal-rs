@@ -89,6 +89,28 @@ impl<'a> NFeParser<'a> {
             }
         }
 
+        // gCompraGov (B31)
+        if let Some(ref gc) = self.g_compra_gov {
+            let mut gcc = Vec::new();
+            add_child(
+                &mut gcc,
+                "tpEnteGov",
+                gc.get("tpEnteGov").map(|s| s.as_str()),
+            );
+            add_child_dec(
+                &mut gcc,
+                "pRedutor",
+                gc.get("pRedutor").map(|s| s.as_str()),
+                4,
+            );
+            add_child(
+                &mut gcc,
+                "tpOperGov",
+                gc.get("tpOperGov").map(|s| s.as_str()),
+            );
+            c.push(xml_tag("gCompraGov", &gcc.join("")));
+        }
+
         xml_tag("ide", &c.join(""))
     }
 }

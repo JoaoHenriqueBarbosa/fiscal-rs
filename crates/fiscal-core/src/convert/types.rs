@@ -9,9 +9,7 @@ pub(super) struct DiEntry {
 }
 
 /// Accumulated data for a single det item.
-#[allow(dead_code)] // Some fields parsed but not yet consumed by builders
 pub(super) struct ItemBuild {
-    pub(super) n_item: usize,
     pub(super) prod: Fields,
     pub(super) inf_ad_prod: String,
     pub(super) cest: Option<Fields>,
@@ -28,7 +26,6 @@ pub(super) struct ItemBuild {
     pub(super) encerrante: Option<Fields>,
     pub(super) recopi: Option<String>,
     pub(super) v_tot_trib: String,
-    pub(super) icms_tag: String,
     pub(super) icms_data: Option<Fields>,
     pub(super) icms_ufdest: Option<Fields>,
     pub(super) ipi_header: Option<Fields>,

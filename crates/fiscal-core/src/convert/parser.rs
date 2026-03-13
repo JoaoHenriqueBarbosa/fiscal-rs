@@ -14,7 +14,6 @@ pub(super) struct NFeParser<'a> {
 
     // Collected data
     pub(super) ide_data: Fields,
-    #[allow(dead_code)] // Parsed from B31, builder pending
     pub(super) g_compra_gov: Option<Fields>,
     pub(super) nf_ref: Vec<String>,
     pub(super) nf_ref_nf: Vec<Fields>,
@@ -79,7 +78,6 @@ pub(super) struct NFeParser<'a> {
     pub(super) cur_encerrante: Option<Fields>,
     pub(super) cur_recopi: Option<String>,
     pub(super) cur_v_tot_trib: String,
-    pub(super) cur_icms_tag: String,
     pub(super) cur_icms_data: Option<Fields>,
     pub(super) cur_icms_ufdest: Option<Fields>,
     pub(super) cur_ipi_header: Option<Fields>,
@@ -193,7 +191,6 @@ impl<'a> NFeParser<'a> {
             cur_encerrante: None,
             cur_recopi: None,
             cur_v_tot_trib: String::new(),
-            cur_icms_tag: String::new(),
             cur_icms_data: None,
             cur_icms_ufdest: None,
             cur_ipi_header: None,
@@ -421,7 +418,6 @@ impl<'a> NFeParser<'a> {
                 self.cur_cest = None;
                 self.cur_g_cred = None;
                 self.cur_v_tot_trib = String::new();
-                self.cur_icms_tag = String::new();
                 self.cur_icms_data = None;
                 self.cur_ipi_header = None;
                 self.cur_ipi_cst = String::new();
@@ -503,11 +499,9 @@ impl<'a> NFeParser<'a> {
             }
             "N" => {}
             "N02" | "N03" | "N04" | "N05" | "N06" | "N07" | "N08" | "N09" | "N10" => {
-                self.cur_icms_tag = ref_name.to_string();
                 self.cur_icms_data = Some(std.clone());
             }
             "N10A" | "N10B" | "N10C" | "N10D" | "N10E" | "N10F" | "N10G" | "N10H" => {
-                self.cur_icms_tag = ref_name.to_string();
                 self.cur_icms_data = Some(std.clone());
             }
             "NA" => {
@@ -778,7 +772,6 @@ impl<'a> NFeParser<'a> {
             }
         }
         self.items.push(ItemBuild {
-            n_item: self.current_item_num,
             inf_ad_prod: std::mem::take(&mut self.cur_inf_ad_prod),
             prod: std::mem::take(&mut self.cur_prod),
             cest: self.cur_cest.take(),
@@ -795,7 +788,6 @@ impl<'a> NFeParser<'a> {
             encerrante: self.cur_encerrante.take(),
             recopi: self.cur_recopi.take(),
             v_tot_trib: std::mem::take(&mut self.cur_v_tot_trib),
-            icms_tag: std::mem::take(&mut self.cur_icms_tag),
             icms_data: self.cur_icms_data.take(),
             icms_ufdest: self.cur_icms_ufdest.take(),
             ipi_header: self.cur_ipi_header.take(),
