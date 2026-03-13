@@ -1,7 +1,7 @@
 ---
 name: split-module
 description: Refatorar arquivo Rust grande em módulos menores usando AST (tree-sitter) + corte cirúrgico (sed)
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Bash, Read, Grep, Glob, Edit, Write
 ---
 
