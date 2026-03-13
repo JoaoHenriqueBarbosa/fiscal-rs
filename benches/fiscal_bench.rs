@@ -741,6 +741,7 @@ fn bench_build_total(bencher: divan::Bencher) {
             divan::black_box(&icms),
             divan::black_box(&other),
             divan::black_box(None),
+            divan::black_box(None),
         )
     });
 }
