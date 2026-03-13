@@ -14,6 +14,7 @@ pub(super) struct NFeParser<'a> {
 
     // Collected data
     pub(super) ide_data: Fields,
+    #[allow(dead_code)] // Parsed from B31, builder pending
     pub(super) g_compra_gov: Option<Fields>,
     pub(super) nf_ref: Vec<String>,
     pub(super) nf_ref_nf: Vec<Fields>,

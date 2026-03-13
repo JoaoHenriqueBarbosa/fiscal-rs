@@ -9,6 +9,7 @@ pub(super) struct DiEntry {
 }
 
 /// Accumulated data for a single det item.
+#[allow(dead_code)] // Some fields parsed but not yet consumed by builders
 pub(super) struct ItemBuild {
     pub(super) n_item: usize,
     pub(super) prod: Fields,
