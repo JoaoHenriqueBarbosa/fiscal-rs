@@ -590,6 +590,84 @@ mod convert_test {
         assert!(xml.contains("<infAdic>"));
         assert!(xml.contains("BASE DO ICMS REDUZIDA EM 61,11  CF RICMS Pedido  000068"));
     }
+
+    // ── txt_to_xml_all ─────────────────────────────────────────────────────
+
+    #[test]
+    fn txt_to_xml_all_returns_single_invoice() {
+        let txt = std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_01.txt"))
+            .expect("Failed to read local txt");
+        let xmls =
+            fiscal::convert::txt_to_xml_all(&txt, "local_v12").expect("txt_to_xml_all failed");
+        assert_eq!(xmls.len(), 1);
+        assert!(xmls[0].contains("<NFe"));
+        assert!(xmls[0].contains("NFe35180825028332000105550010000005021000005010"));
+    }
+
+    #[test]
+    fn txt_to_xml_all_returns_all_invoices_from_multi_note_txt() {
+        let txt =
+            std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_02_multi.txt"))
+                .expect("Failed to read multi-note txt");
+        let xmls =
+            fiscal::convert::txt_to_xml_all(&txt, "local_v12").expect("txt_to_xml_all failed");
+        assert_eq!(xmls.len(), 2, "Deve retornar 2 notas fiscais");
+
+        // Primeira nota
+        assert!(xmls[0].contains("<NFe"));
+        assert!(xmls[0].contains("NFe35180825028332000105550010000005021000005010"));
+        assert!(xmls[0].contains("<nNF>502</nNF>"));
+        assert!(xmls[0].contains("PRIMEIRA NOTA DO LOTE"));
+        assert!(xmls[0].contains("<cProd>11352</cProd>"));
+
+        // Segunda nota
+        assert!(xmls[1].contains("<NFe"));
+        assert!(xmls[1].contains("NFe35180825028332000105550010000005031000005020"));
+        assert!(xmls[1].contains("<nNF>503</nNF>"));
+        assert!(xmls[1].contains("SEGUNDA NOTA DO LOTE"));
+        assert!(xmls[1].contains("<cProd>14169</cProd>"));
+    }
+
+    #[test]
+    fn txt_to_xml_all_each_xml_is_independent() {
+        let txt =
+            std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_02_multi.txt"))
+                .expect("Failed to read multi-note txt");
+        let xmls =
+            fiscal::convert::txt_to_xml_all(&txt, "local_v12").expect("txt_to_xml_all failed");
+
+        // Primeira nota NÃO deve conter dados da segunda
+        assert!(
+            !xmls[0].contains("<nNF>503</nNF>"),
+            "Primeira nota não deve conter nNF da segunda"
+        );
+        assert!(
+            !xmls[0].contains("SEGUNDA NOTA DO LOTE"),
+            "Primeira nota não deve conter infAdFisco da segunda"
+        );
+
+        // Segunda nota NÃO deve conter dados da primeira
+        assert!(
+            !xmls[1].contains("<nNF>502</nNF>"),
+            "Segunda nota não deve conter nNF da primeira"
+        );
+        assert!(
+            !xmls[1].contains("PRIMEIRA NOTA DO LOTE"),
+            "Segunda nota não deve conter infAdFisco da primeira"
+        );
+    }
+
+    #[test]
+    fn txt_to_xml_returns_first_of_multi_note_txt() {
+        // txt_to_xml (sem _all) deve continuar retornando apenas a primeira nota
+        let txt =
+            std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_local_02_multi.txt"))
+                .expect("Failed to read multi-note txt");
+        let xml = fiscal::convert::txt_to_xml(&txt, "local_v12").expect("txt_to_xml failed");
+        assert!(xml.contains("<nNF>502</nNF>"));
+        assert!(xml.contains("PRIMEIRA NOTA DO LOTE"));
+        // Resultado é uma String, não Vec — API de conveniência preservada
+    }
 }
 
 // =============================================================================
