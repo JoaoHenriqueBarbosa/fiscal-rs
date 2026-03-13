@@ -628,3 +628,295 @@ fn total_vtottrib() {
             .contains("<vTotTrib>99.99</vTotTrib>")
     );
 }
+
+// Full entities integration test
+#[test]
+fn full_entities_fixture() {
+    let t =
+        std::fs::read_to_string(format!("{FIXTURES_PATH}txt/nfe_4.00_full_entities.txt")).unwrap();
+    let xml = fiscal::convert::txt_to_xml(&t, "local").unwrap();
+
+    // Verify NFref types
+    assert!(
+        xml.contains("<refNFe>52180706147451002003550010000580821325441420</refNFe>"),
+        "Missing refNFe"
+    );
+    assert!(xml.contains("<refNF>"), "Missing refNF");
+    assert!(xml.contains("<refNFP>"), "Missing refNFP");
+    assert!(xml.contains("<refCTe>"), "Missing refCTe");
+    assert!(xml.contains("<refECF>"), "Missing refECF");
+
+    // Retirada / Entrega / autXML
+    assert!(xml.contains("<retirada>"), "Missing retirada");
+    assert!(xml.contains("<entrega>"), "Missing entrega, xml: {xml}");
+    assert_eq!(
+        xml.matches("<autXML>").count(),
+        2,
+        "Expected 2 autXML entries"
+    );
+
+    // Product details
+    assert!(xml.contains("<NVE>AA0001</NVE>"), "Missing NVE AA0001");
+    assert!(xml.contains("<NVE>BB0002</NVE>"), "Missing NVE BB0002");
+    assert!(xml.contains("<DI>"), "Missing DI");
+    assert!(xml.contains("<adi>"), "Missing adi");
+    assert!(xml.contains("<detExport>"), "Missing detExport");
+    assert!(xml.contains("<rastro>"), "Missing rastro");
+    assert!(xml.contains("<nLote>LOTE001</nLote>"), "Missing nLote");
+    assert!(xml.contains("<veicProd>"), "Missing veicProd");
+    assert!(
+        xml.contains("<chassi>CHASSI12345678901</chassi>"),
+        "Missing chassi"
+    );
+    assert!(xml.contains("<med>"), "Missing med");
+    assert!(
+        xml.contains("<cProdANVISA>1234567890123</cProdANVISA>"),
+        "Missing cProdANVISA"
+    );
+    assert!(xml.contains("<arma>"), "Missing arma");
+    assert!(xml.contains("<comb>"), "Missing comb");
+    assert!(xml.contains("<CIDE>"), "Missing CIDE");
+    assert!(xml.contains("<encerrante>"), "Missing encerrante");
+    assert!(
+        xml.contains("<nRECOPI>12345678901234567890</nRECOPI>"),
+        "Missing nRECOPI"
+    );
+
+    // ICMS / ICMSUFDest
+    assert!(xml.contains("<ICMSUFDest>"), "Missing ICMSUFDest");
+    assert!(
+        xml.contains("<vICMSUFDest>"),
+        "Missing vICMSUFDest inside ICMSUFDest"
+    );
+
+    // II (Imposto de Importacao)
+    assert!(xml.contains("<II>"), "Missing II");
+    assert!(xml.contains("<vDespAdu>"), "Missing vDespAdu in II");
+
+    // PIS-ST
+    assert!(xml.contains("<PISST>"), "Missing PISST");
+
+    // COFINS-ST
+    assert!(xml.contains("<COFINSST>"), "Missing COFINSST");
+
+    // ISSQN
+    assert!(xml.contains("<ISSQN>"), "Missing ISSQN");
+    assert!(
+        xml.contains("<cListServ>1234</cListServ>"),
+        "Missing cListServ"
+    );
+
+    // impostoDevol
+    assert!(xml.contains("<impostoDevol>"), "Missing impostoDevol");
+    assert!(xml.contains("<pDevol>10.00</pDevol>"), "Missing pDevol");
+
+    // infAdProd
+    assert!(
+        xml.contains("<infAdProd>Informacao adicional do produto 1</infAdProd>"),
+        "Missing infAdProd"
+    );
+    assert!(
+        xml.contains("<infAdProd>Info produto 2</infAdProd>"),
+        "Missing infAdProd for item 2"
+    );
+
+    // Simples Nacional (N10C)
+    assert!(xml.contains("<ICMSSN101>"), "Missing ICMSSN101");
+
+    // Total sections
+    assert!(xml.contains("<ISSQNtot>"), "Missing ISSQNtot");
+    assert!(xml.contains("<retTrib>"), "Missing retTrib");
+    assert!(xml.contains("<vRetPIS>"), "Missing vRetPIS in retTrib");
+
+    // Transport expanded
+    assert!(xml.contains("<retTransp>"), "Missing retTransp");
+    assert!(xml.contains("<veicTransp>"), "Missing veicTransp");
+    assert!(
+        xml.contains("<placa>ABC1234</placa>"),
+        "Missing veicTransp placa"
+    );
+    assert!(xml.contains("<reboque>"), "Missing reboque");
+    assert!(
+        xml.contains("<placa>DEF5678</placa>"),
+        "Missing reboque placa"
+    );
+    // Lacres
+    assert!(xml.contains("<lacres>"), "Missing lacres");
+    assert!(
+        xml.contains("<nLacre>LACRE001</nLacre>"),
+        "Missing LACRE001"
+    );
+    assert!(
+        xml.contains("<nLacre>LACRE002</nLacre>"),
+        "Missing LACRE002"
+    );
+    // Two volumes
+    assert_eq!(xml.matches("<vol>").count(), 2, "Expected 2 vol entries");
+
+    // infIntermed (YB)
+    assert!(xml.contains("<infIntermed>"), "Missing infIntermed");
+    assert!(
+        xml.contains("<idCadIntTran>CADINT001</idCadIntTran>"),
+        "Missing idCadIntTran"
+    );
+
+    // infAdic expanded
+    assert!(xml.contains("<obsCont"), "Missing obsCont");
+    assert!(xml.contains("xCampo=\"campo1\""), "Missing obsCont campo1");
+    assert!(xml.contains("<obsFisco"), "Missing obsFisco");
+    assert!(xml.contains("<procRef>"), "Missing procRef");
+
+    // exporta (ZA)
+    assert!(xml.contains("<exporta>"), "Missing exporta");
+    assert!(
+        xml.contains("<UFSaidaPais>SP</UFSaidaPais>"),
+        "Missing UFSaidaPais"
+    );
+
+    // compra (ZB)
+    assert!(xml.contains("<compra>"), "Missing compra");
+    assert!(xml.contains("<xNEmp>NE001</xNEmp>"), "Missing xNEmp");
+
+    // cana (ZC)
+    assert!(xml.contains("<cana>"), "Missing cana");
+    assert!(xml.contains("<forDia>"), "Missing forDia");
+    assert!(xml.contains("<deduc>"), "Missing deduc");
+
+    // infRespTec (ZD)
+    assert!(xml.contains("<infRespTec>"), "Missing infRespTec");
+    assert!(
+        xml.contains("<xContato>Contato Teste</xContato>"),
+        "Missing xContato"
+    );
+
+    // infNFeSupl (ZX01)
+    assert!(xml.contains("<infNFeSupl>"), "Missing infNFeSupl");
+    assert!(xml.contains("<qrCode>"), "Missing qrCode");
+    assert!(xml.contains("<urlChave>"), "Missing urlChave");
+
+    // Correct section order: retirada before entrega before autXML before det
+    let retirada_pos = xml.find("<retirada>").unwrap();
+    let entrega_pos = xml.find("<entrega>").unwrap();
+    let autxml_pos = xml.find("<autXML>").unwrap();
+    let det_pos = xml.find("<det ").unwrap();
+    let total_pos = xml.find("<total>").unwrap();
+    let transp_pos = xml.find("<transp>").unwrap();
+    let cobr_pos = xml.find("<cobr>").unwrap();
+    let pag_pos = xml.find("<pag>").unwrap();
+    let intermed_pos = xml.find("<infIntermed>").unwrap();
+    let infadic_pos = xml.find("<infAdic>").unwrap();
+    let exporta_pos = xml.find("<exporta>").unwrap();
+    let compra_pos = xml.find("<compra>").unwrap();
+    let cana_pos = xml.find("<cana>").unwrap();
+    let resp_tec_pos = xml.find("<infRespTec>").unwrap();
+    let supl_pos = xml.find("<infNFeSupl>").unwrap();
+
+    assert!(
+        retirada_pos < entrega_pos,
+        "retirada must come before entrega"
+    );
+    assert!(entrega_pos < autxml_pos, "entrega must come before autXML");
+    assert!(autxml_pos < det_pos, "autXML must come before det");
+    assert!(det_pos < total_pos, "det must come before total");
+    assert!(total_pos < transp_pos, "total must come before transp");
+    assert!(transp_pos < cobr_pos, "transp must come before cobr");
+    assert!(cobr_pos < pag_pos, "cobr must come before pag");
+    assert!(pag_pos < intermed_pos, "pag must come before infIntermed");
+    assert!(
+        intermed_pos < infadic_pos,
+        "infIntermed must come before infAdic"
+    );
+    assert!(
+        infadic_pos < exporta_pos,
+        "infAdic must come before exporta"
+    );
+    assert!(exporta_pos < compra_pos, "exporta must come before compra");
+    assert!(compra_pos < cana_pos, "compra must come before cana");
+    assert!(cana_pos < resp_tec_pos, "cana must come before infRespTec");
+    assert!(
+        resp_tec_pos < supl_pos,
+        "infRespTec must come before infNFeSupl"
+    );
+}
+
+// PIS NT variants (Q04)
+#[test]
+fn pis_nt() {
+    let t = minimal_txt_v400("").replace("Q02|01|10.00|0.65|0.07|", "Q04|06|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<PISNT>"), "Missing PISNT in: {xml}");
+    assert!(xml.contains("<CST>06</CST>"), "Missing CST 06 in PISNT");
+}
+
+// COFINS NT variants (S04)
+#[test]
+fn cofins_nt() {
+    let t = minimal_txt_v400("").replace("S02|01|10.00|3.00|0.30|", "S04|08|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<COFINSNT>"), "Missing COFINSNT");
+    assert!(xml.contains("<CST>08</CST>"), "Missing CST 08 in COFINSNT");
+}
+
+// PIS quantity-based (Q03)
+#[test]
+fn pis_qty() {
+    let t = minimal_txt_v400("").replace("Q02|01|10.00|0.65|0.07|", "Q03|03|100.0000|0.5000|0.05|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<PISQtde>"), "Missing PISQtde");
+    assert!(
+        xml.contains("<qBCProd>100.0000</qBCProd>"),
+        "Missing qBCProd"
+    );
+}
+
+// COFINS quantity-based (S03)
+#[test]
+fn cofins_qty() {
+    let t = minimal_txt_v400("").replace("S02|01|10.00|3.00|0.30|", "S03|03|100.0000|1.5000|0.15|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<COFINSQtde>"), "Missing COFINSQtde");
+}
+
+// IPI by quantity (O11)
+#[test]
+fn ipi_quantity() {
+    let t = minimal_txt_v400("").replace("O10|10.00|1.00|", "O11|4.0000|0.2500|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<qUnid>4.0000</qUnid>"), "Missing qUnid");
+    assert!(xml.contains("<vUnid>0.2500</vUnid>"), "Missing vUnid");
+}
+
+// Simples Nacional ICMS (N10D - CSOSN 102/103/300/400)
+#[test]
+fn icms_simples_nacional_n10d() {
+    let t = make_txt_with_icms("N10d|0|102|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(xml.contains("<ICMSSN102>"), "Missing ICMSSN102");
+    assert!(xml.contains("<CSOSN>102</CSOSN>"), "Missing CSOSN 102");
+}
+
+// N10A - ICMSPart
+#[test]
+fn icms_n10a_part() {
+    let t =
+        make_txt_with_icms("N10a|0|10|3|10.00|0.00|18.00|1.80|0|0|0|10.00|18.00|1.80|40.0000|SP|");
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(
+        xml.contains("<pBCOp>40.0000</pBCOp>"),
+        "Missing pBCOp in ICMSPart"
+    );
+    assert!(xml.contains("<UFST>SP</UFST>"), "Missing UFST in ICMSPart");
+}
+
+// N10B - ICMSST
+#[test]
+fn icms_n10b_st() {
+    let t = make_txt_with_icms(
+        "N10b|0|41|10.00|1.80|5.00|0.90|0.00|0.00|0.00|18.00|0.00|0.00|0.00|0.00|0.00|",
+    );
+    let xml = fiscal::convert::txt_to_xml(&t, "local_v12").unwrap();
+    assert!(
+        xml.contains("<vBCSTDest>") || xml.contains("<vBCSTRet>"),
+        "Missing ICMSST fields"
+    );
+}
