@@ -241,12 +241,11 @@ pub fn attach_inutilizacao(request_xml: &str, response_xml: &str) -> Result<Stri
 /// - Either input is empty
 /// - The `<evento>` tag is missing from `request_xml`
 /// - The `<retEvento>` tag is missing from `response_xml`
+/// - The `<idLote>` tag is missing from `request_xml` or `response_xml`
+/// - The `idLote` values differ between request and response
 ///
 /// Returns [`FiscalError::SefazRejection`] if the event status code
 /// is not valid (135, 136, or 155 for cancellation only).
-///
-/// Returns [`FiscalError::XmlParsing`] if the `idLote` values differ
-/// between request and response.
 pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
     if request_xml.is_empty() {
         return Err(FiscalError::XmlParsing("Event request XML is empty".into()));
@@ -287,15 +286,17 @@ pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<St
         });
     }
 
-    // Validate idLote matches between request and response (PHP addEnvEventoProtocol)
-    let req_id_lote = extract_xml_tag_value(request_xml, "idLote");
-    let ret_id_lote = extract_xml_tag_value(response_xml, "idLote");
-    if let (Some(req_lote), Some(ret_lote)) = (&req_id_lote, &ret_id_lote) {
-        if req_lote != ret_lote {
-            return Err(FiscalError::XmlParsing(
-                "Os números de lote dos documentos são diferentes".into(),
-            ));
-        }
+    // Validate idLote is present in both request and response, then compare.
+    // PHP addEnvEventoProtocol accesses ->nodeValue directly on idLote;
+    // if the tag is absent, PHP throws a fatal error.
+    let req_id_lote = extract_xml_tag_value(request_xml, "idLote")
+        .ok_or_else(|| FiscalError::XmlParsing("idLote not found in request XML".into()))?;
+    let ret_id_lote = extract_xml_tag_value(response_xml, "idLote")
+        .ok_or_else(|| FiscalError::XmlParsing("idLote not found in response XML".into()))?;
+    if req_id_lote != ret_id_lote {
+        return Err(FiscalError::XmlParsing(
+            "Os números de lote dos documentos são diferentes".into(),
+        ));
     }
 
     Ok(join_xml(
@@ -1102,11 +1103,18 @@ mod tests {
 
     #[test]
     fn attach_event_protocol_success() {
-        let result = attach_event_protocol(
+        let request = concat!(
+            r#"<envEvento><idLote>100</idLote>"#,
             r#"<evento versao="1.00"><infEvento Id="ID1234"/></evento>"#,
-            r#"<retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo></infEvento></retEvento>"#,
-        )
-        .unwrap();
+            r#"</envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento><idLote>100</idLote>"#,
+            r#"<retEvento><infEvento><cStat>135</cStat>"#,
+            r#"<xMotivo>Evento registrado</xMotivo>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let result = attach_event_protocol(request, response).unwrap();
         assert!(result.contains("<procEventoNFe"));
         assert!(result.contains("<evento"));
         assert!(result.contains("<retEvento>"));
@@ -1408,6 +1416,80 @@ mod tests {
         }
     }
 
+    // ── attach_event_protocol: missing idLote ─────────────────────────
+
+    #[test]
+    fn attach_event_protocol_missing_id_lote_in_request() {
+        let request = concat!(
+            r#"<envEvento>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento><idLote>100</idLote>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let err = attach_event_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert_eq!(msg, "idLote not found in request XML");
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn attach_event_protocol_missing_id_lote_in_response() {
+        let request = concat!(
+            r#"<envEvento><idLote>100</idLote>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let err = attach_event_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert_eq!(msg, "idLote not found in response XML");
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn attach_event_protocol_missing_id_lote_in_both() {
+        let request = concat!(
+            r#"<envEvento>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let err = attach_event_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert_eq!(msg, "idLote not found in request XML");
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
     // ── attach_b2b: extract_tag for b2b content (line 348) ──────────────
 
     #[test]
@@ -1448,16 +1530,17 @@ mod tests {
     #[test]
     fn to_authorize_dispatches_env_evento() {
         let request = concat!(
-            r#"<envEvento>"#,
+            r#"<envEvento><idLote>1</idLote>"#,
             r#"<evento versao="1.00"><infEvento>"#,
             r#"<tpEvento>110110</tpEvento>"#,
             r#"</infEvento></evento></envEvento>"#
         );
         let response = concat!(
+            r#"<retEnvEvento><idLote>1</idLote>"#,
             r#"<retEvento versao="1.00"><infEvento>"#,
             r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
             r#"<tpEvento>110110</tpEvento>"#,
-            r#"</infEvento></retEvento>"#
+            r#"</infEvento></retEvento></retEnvEvento>"#
         );
         let result = to_authorize(request, response).unwrap();
         assert!(result.contains("<procEventoNFe"));
