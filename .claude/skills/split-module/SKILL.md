@@ -92,12 +92,12 @@ sed -i 's/^fn foo(/pub(super) fn foo(/' arquivo.rs
 sed -i '3a\use crate::xml_utils::escape_xml;' arquivo.rs
 ```
 
-### Passo 5 — Verificar
+### Passo 5 — Verificar e commitar
 
 1. `cargo build` — deve compilar sem erros
 2. `cargo clippy -- -D warnings` — sem warnings
 3. `cargo test` — mesmos testes passando (mesma contagem)
-4. Commit
+4. **OBRIGATÓRIO: commitar as mudanças** com `git add` + `git commit`. Mensagem no formato: `refactor(escopo): split arquivo.rs into N modules (X lines)`. Sem isso o trabalho se perde quando a worktree for limpa.
 
 ## Regras
 
