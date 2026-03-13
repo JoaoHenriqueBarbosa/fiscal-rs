@@ -76,4 +76,8 @@ pub enum FiscalError {
     /// An HTTP or network-level error occurred during SEFAZ communication.
     #[error("Network error: {0}")]
     Network(String),
+
+    /// A configuration JSON is invalid or missing required fields.
+    #[error("Config validation error: {0}")]
+    ConfigValidation(String),
 }

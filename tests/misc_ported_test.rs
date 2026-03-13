@@ -14,86 +14,101 @@ use common::{FIXTURES_PATH, expect_xml_tag_values as expect_xml_contains};
 // =============================================================================
 
 mod config_test {
-
-    // Note: The Rust crate does not currently expose a `validate` config function.
-    // These tests exercise the concept by verifying JSON parsing behavior.
+    use fiscal::FiscalError;
+    use fiscal::config::validate_config;
 
     #[test]
     fn validate_config_json_returns_object() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"93623057000128","schemes":"PL_010_V1.30","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert_eq!(parsed["tpAmb"], 2);
-        assert_eq!(parsed["cnpj"], "93623057000128");
+        let config = validate_config(json).expect("validate failed");
+        assert_eq!(config.tp_amb, 2);
+        assert_eq!(config.cnpj, "93623057000128");
     }
 
     #[test]
     fn config_without_optional_fields_is_valid() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"99999999999999","schemes":"PL_009_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.is_object());
+        let config = validate_config(json);
+        assert!(config.is_ok());
     }
 
     #[test]
     fn config_with_array_instead_of_json_string_fails() {
-        let result: Result<serde_json::Value, _> = serde_json::from_str("[1,2,3]");
-        // An array is valid JSON but not the expected object shape
-        let val = result.expect("parse ok");
-        assert!(!val.is_object() || val.get("tpAmb").is_none());
-    }
-
-    #[test]
-    fn empty_string_fails_parse() {
-        let result: Result<serde_json::Value, _> = serde_json::from_str("");
+        let result = validate_config("[1,2,3]");
         assert!(result.is_err());
     }
 
     #[test]
-    fn missing_tp_amb_not_present() {
+    fn empty_string_fails_parse() {
+        let result = validate_config("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn missing_tp_amb_fails() {
         let json = r#"{"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"99999999999999","schemes":"PL_009_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("tpAmb").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[tpAmb]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
-    fn missing_razaosocial_not_present() {
+    fn missing_razaosocial_fails() {
         let json = r#"{"tpAmb":2,"siglaUF":"SP","cnpj":"99999999999999","schemes":"PL_009_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("razaosocial").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[razaosocial]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
-    fn missing_sigla_uf_not_present() {
+    fn missing_sigla_uf_fails() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","cnpj":"99999999999999","schemes":"PL_009_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("siglaUF").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[siglaUF]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
-    fn missing_cnpj_not_present() {
+    fn missing_cnpj_fails() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","schemes":"PL_008_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("cnpj").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[cnpj]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
-    fn missing_schemes_not_present() {
+    fn missing_schemes_fails() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"99999999999999","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("schemes").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[schemes]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
-    fn missing_versao_not_present() {
+    fn missing_versao_fails() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"99999999999999","schemes":"PL_009_V4"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.get("versao").is_none());
+        let err = validate_config(json).unwrap_err();
+        match &err {
+            FiscalError::ConfigValidation(msg) => assert!(msg.contains("[versao]")),
+            _ => panic!("expected ConfigValidation, got: {err:?}"),
+        }
     }
 
     #[test]
     fn config_with_cpf_is_valid() {
         let json = r#"{"tpAmb":2,"razaosocial":"SUA RAZAO SOCIAL LTDA","siglaUF":"SP","cnpj":"99999999999","schemes":"PL_009_V4","versao":"4.00"}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json).expect("parse failed");
-        assert!(parsed.is_object());
+        let config = validate_config(json).expect("validate failed");
+        assert_eq!(config.cnpj, "99999999999");
     }
 }
 

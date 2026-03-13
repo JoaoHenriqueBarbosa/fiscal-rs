@@ -17,6 +17,7 @@
 //!   XML type identification / JSON conversion.
 //! - **Traits** ([`traits`]) — sealed `TaxCalculation` and `XmlSerializable` traits.
 
+pub mod config;
 pub mod error;
 pub use error::FiscalError;
 
