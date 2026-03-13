@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.1.4...fiscal-crypto-v0.2.0) - 2026-03-13
+
+### Added
+
+- *(parity)* round 7 — 26 disparidades PHP vs Rust resolvidas
+
+### Other
+
+- *(fmt)* aplicar cargo fmt nos testes de cobertura
+- *(coverage)* elevar cobertura de 76.59% para 94.00% (98.20% excl. client.rs)
+
 ## [0.1.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.1.3...fiscal-crypto-v0.1.4) - 2026-03-13
 
 ### Other
