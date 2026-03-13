@@ -17,6 +17,35 @@ impl<'a> NFeParser<'a> {
                 add_child_str(&mut c, "infCpl", v);
             }
         }
+        // obsCont (Z04)
+        for obs in &self.obs_cont_list {
+            if let Some(campo) = obs.get("xCampo") {
+                let texto = obs.get("xTexto").map(|s| s.as_str()).unwrap_or("");
+                c.push(format!(
+                    "<obsCont xCampo=\"{}\">{}</obsCont>",
+                    escape_xml(campo),
+                    xml_tag("xTexto", &escape_xml(texto))
+                ));
+            }
+        }
+        // obsFisco (Z07)
+        for obs in &self.obs_fisco_list {
+            if let Some(campo) = obs.get("xCampo") {
+                let texto = obs.get("xTexto").map(|s| s.as_str()).unwrap_or("");
+                c.push(format!(
+                    "<obsFisco xCampo=\"{}\">{}</obsFisco>",
+                    escape_xml(campo),
+                    xml_tag("xTexto", &escape_xml(texto))
+                ));
+            }
+        }
+        // procRef (Z10)
+        for pr in &self.proc_ref_list {
+            let mut pc = Vec::new();
+            add_child(&mut pc, "nProc", pr.get("nProc").map(|s| s.as_str()));
+            add_child(&mut pc, "indProc", pr.get("indProc").map(|s| s.as_str()));
+            c.push(xml_tag("procRef", &pc.join("")));
+        }
         xml_tag("infAdic", &c.join(""))
     }
 

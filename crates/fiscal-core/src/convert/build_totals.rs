@@ -35,7 +35,64 @@ impl<'a> NFeParser<'a> {
                 add_child_str_dec(&mut c, "vTotTrib", v, 2);
             }
         }
-        xml_tag("total", &xml_tag("ICMSTot", &c.join("")))
+        let mut total_parts = vec![xml_tag("ICMSTot", &c.join(""))];
+
+        // ISSQNtot (W17)
+        if let Some(ref it) = self.issqn_tot_fields {
+            let mut ic = Vec::new();
+            for &f in &[
+                "vServ",
+                "vBC",
+                "vISS",
+                "vPIS",
+                "vCOFINS",
+                "dCompet",
+                "vDeducao",
+                "vOutro",
+                "vDescIncond",
+                "vDescCond",
+                "vISSRet",
+                "cRegTrib",
+            ] {
+                if let Some(v) = it.get(f) {
+                    if !v.is_empty() {
+                        if f == "dCompet" || f == "cRegTrib" {
+                            add_child_str(&mut ic, f, v);
+                        } else {
+                            add_child_str_dec(&mut ic, f, v, 2);
+                        }
+                    }
+                }
+            }
+            if !ic.is_empty() {
+                total_parts.push(xml_tag("ISSQNtot", &ic.join("")));
+            }
+        }
+
+        // retTrib (W23)
+        if let Some(ref rt) = self.ret_trib_fields {
+            let mut rc = Vec::new();
+            for &f in &[
+                "vRetPIS",
+                "vRetCOFINS",
+                "vRetCSLL",
+                "vBCIRRF",
+                "vIRRF",
+                "vBCRetPrev",
+                "vRetPrev",
+            ] {
+                if let Some(v) = rt.get(f) {
+                    if !v.is_empty() {
+                        add_child_str_dec(&mut rc, f, v, 2);
+                    }
+                }
+            }
+            if !rc.is_empty() {
+                total_parts.push(xml_tag("retTrib", &rc.join("")));
+            }
+        }
+
+        xml_tag("total", &total_parts.join(""))
     }
 
     pub(super) fn build_transp(&self) -> String {
@@ -46,6 +103,21 @@ impl<'a> NFeParser<'a> {
             self.transp_fields.get("modFrete").map(|s| s.as_str()),
         );
 
+        // retTransp (X11)
+        if let Some(ref rt) = self.ret_transp {
+            let mut rc = Vec::new();
+            for &f in &["vServ", "vBCRet", "pICMSRet", "vICMSRet"] {
+                if let Some(v) = rt.get(f) {
+                    if !v.is_empty() {
+                        add_child_str_dec(&mut rc, f, v, 2);
+                    }
+                }
+            }
+            add_child(&mut rc, "CFOP", rt.get("CFOP").map(|s| s.as_str()));
+            add_child(&mut rc, "cMunFG", rt.get("cMunFG").map(|s| s.as_str()));
+            c.push(xml_tag("retTransp", &rc.join("")));
+        }
+
         if let Some(t) = &self.transporta_fields {
             let mut tc = Vec::new();
             if let Some(v) = t.get("CNPJ") {
@@ -55,49 +127,58 @@ impl<'a> NFeParser<'a> {
                 add_child_str(&mut tc, "CPF", v);
             }
             add_child(&mut tc, "xNome", t.get("xNome").map(|s| s.as_str()));
-            if let Some(v) = t.get("IE") {
-                if !v.is_empty() {
-                    add_child_str(&mut tc, "IE", v);
-                }
-            }
-            if let Some(v) = t.get("xEnder") {
-                if !v.is_empty() {
-                    add_child_str(&mut tc, "xEnder", v);
-                }
-            }
-            if let Some(v) = t.get("xMun") {
-                if !v.is_empty() {
-                    add_child_str(&mut tc, "xMun", v);
-                }
-            }
-            if let Some(v) = t.get("UF") {
-                if !v.is_empty() {
-                    add_child_str(&mut tc, "UF", v);
+            for &f in &["IE", "xEnder", "xMun", "UF"] {
+                if let Some(v) = t.get(f) {
+                    if !v.is_empty() {
+                        add_child_str(&mut tc, f, v);
+                    }
                 }
             }
             c.push(xml_tag("transporta", &tc.join("")));
         }
 
+        // veicTransp (X18)
+        if let Some(ref vt) = self.veic_transp {
+            let mut vc = Vec::new();
+            add_child(&mut vc, "placa", vt.get("placa").map(|s| s.as_str()));
+            add_child(&mut vc, "UF", vt.get("UF").map(|s| s.as_str()));
+            if let Some(v) = vt.get("RNTC") {
+                if !v.is_empty() {
+                    add_child_str(&mut vc, "RNTC", v);
+                }
+            }
+            c.push(xml_tag("veicTransp", &vc.join("")));
+        }
+
+        // reboque (X22)
+        for reb in &self.reboque_list {
+            let mut rc = Vec::new();
+            add_child(&mut rc, "placa", reb.get("placa").map(|s| s.as_str()));
+            add_child(&mut rc, "UF", reb.get("UF").map(|s| s.as_str()));
+            if let Some(v) = reb.get("RNTC") {
+                if !v.is_empty() {
+                    add_child_str(&mut rc, "RNTC", v);
+                }
+            }
+            c.push(xml_tag("reboque", &rc.join("")));
+        }
+
+        // vagao (X25A)
+        if let Some(ref v) = self.vagao {
+            c.push(xml_tag("vagao", v));
+        }
+        // balsa (X25B)
+        if let Some(ref v) = self.balsa {
+            c.push(xml_tag("balsa", v));
+        }
+
         for vol in &self.volumes {
             let mut vc = Vec::new();
-            if let Some(v) = vol.get("qVol") {
-                if !v.is_empty() {
-                    add_child_str(&mut vc, "qVol", v);
-                }
-            }
-            if let Some(v) = vol.get("esp") {
-                if !v.is_empty() {
-                    add_child_str(&mut vc, "esp", v);
-                }
-            }
-            if let Some(v) = vol.get("marca") {
-                if !v.is_empty() {
-                    add_child_str(&mut vc, "marca", v);
-                }
-            }
-            if let Some(v) = vol.get("nVol") {
-                if !v.is_empty() {
-                    add_child_str(&mut vc, "nVol", v);
+            for &f in &["qVol", "esp", "marca", "nVol"] {
+                if let Some(v) = vol.get(f) {
+                    if !v.is_empty() {
+                        add_child_str(&mut vc, f, v);
+                    }
                 }
             }
             if let Some(v) = vol.get("pesoL") {
@@ -108,6 +189,14 @@ impl<'a> NFeParser<'a> {
             if let Some(v) = vol.get("pesoB") {
                 if !v.is_empty() {
                     add_child_str_dec(&mut vc, "pesoB", v, 3);
+                }
+            }
+            // lacres inside vol
+            if let Some(lacres) = vol.get("_lacres") {
+                for lac in lacres.split(',') {
+                    if !lac.is_empty() {
+                        vc.push(xml_tag("lacres", &xml_tag("nLacre", lac)));
+                    }
                 }
             }
             c.push(xml_tag("vol", &vc.join("")));

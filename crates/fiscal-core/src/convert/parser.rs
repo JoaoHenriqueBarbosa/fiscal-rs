@@ -415,6 +415,7 @@ impl<'a> NFeParser<'a> {
             "H" => {
                 self.finalize_current_item();
                 self.current_item_num = std.get("item").and_then(|s| s.parse().ok()).unwrap_or(0);
+                self.cur_inf_ad_prod = std.get("infAdProd").cloned().unwrap_or_default();
                 self.cur_prod = Fields::new();
                 self.cur_cest = None;
                 self.cur_g_cred = None;
