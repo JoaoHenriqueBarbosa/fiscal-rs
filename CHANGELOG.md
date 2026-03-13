@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.3.0...fiscal-v0.4.0) - 2026-03-13
+
+### Added
+
+- *(parity)* round 7 — 26 disparidades PHP vs Rust resolvidas
+
+### Fixed
+
+- *(ci)* adicionar timeout ao tarpaulin no workflow de cobertura
+
+### Other
+
+- *(coverage)* adicionar workflow de cobertura com Codecov e badge no README
+- *(clippy)* corrigir single_match em convert_coverage_test
+- *(fmt)* aplicar cargo fmt nos testes de cobertura
+- *(coverage)* elevar cobertura de 76.59% para 94.00% (98.20% excl. client.rs)
+
 ## [0.3.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.2.0...fiscal-v0.3.0) - 2026-03-13
 
 ### Added
