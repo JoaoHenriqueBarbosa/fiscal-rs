@@ -513,6 +513,8 @@ pub fn attach_cancellation(
     // Search for matching retEvento in the cancellation XML
     let ret_eventos = extract_all_tags(cancel_event_xml, "retEvento");
 
+    let mut matched_ret_evento: Option<&str> = None;
+
     for ret_evento in &ret_eventos {
         let c_stat = match extract_xml_tag_value(ret_evento, "cStat") {
             Some(v) => v,
@@ -531,25 +533,112 @@ pub fn attach_cancellation(
             && (tp_evento == EVT_CANCELA || tp_evento == EVT_CANCELA_SUBSTITUICAO)
             && ch_nfe_evento == ch_nfe
         {
-            // Insert the retEvento before </nfeProc>
-            let close_tag = "</nfeProc>";
-            if let Some(pos) = nfe_proc_xml.rfind(close_tag) {
-                let mut result = String::with_capacity(nfe_proc_xml.len() + ret_evento.len());
-                result.push_str(&nfe_proc_xml[..pos]);
-                result.push_str(ret_evento);
-                result.push_str(close_tag);
-                return Ok(result);
-            }
-            // If no </nfeProc>, just append to the end (best effort)
+            matched_ret_evento = Some(ret_evento.as_str());
             break;
         }
     }
 
-    // No matching cancellation event found — return original XML unchanged
-    Ok(nfe_proc_xml.to_string())
+    // Re-serialize via DOM-like logic to match PHP DOMDocument::saveXML().
+    // PHP always re-serializes even when no match is found — reordering
+    // xmlns before versao and emitting an XML declaration + newline.
+    dom_reserialize_nfe_proc(nfe_proc_xml, matched_ret_evento)
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
+
+/// Re-serialize an `<nfeProc>` XML in a way that matches PHP
+/// `DOMDocument::saveXML()` output.
+///
+/// PHP DOM re-serialization does the following:
+///
+/// 1. Emits `<?xml version="1.0" encoding="..."?>` followed by a newline (`\n`).
+///    The encoding is preserved from the original XML declaration; if absent,
+///    the declaration is emitted without an encoding attribute.
+/// 2. Reorders attributes on `<nfeProc>`: `xmlns` comes before `versao`
+///    (DOM canonical ordering puts namespace declarations first).
+/// 3. All other element content is preserved as-is.
+///
+/// If `extra_child` is `Some`, it is appended as the last child inside
+/// `<nfeProc>` (before `</nfeProc>`).
+fn dom_reserialize_nfe_proc(
+    nfe_proc_xml: &str,
+    extra_child: Option<&str>,
+) -> Result<String, FiscalError> {
+    // 1. Extract the encoding from the original XML declaration (if any).
+    let encoding = extract_xml_declaration_encoding(nfe_proc_xml);
+
+    // 2. Build the XML declaration exactly as PHP DOMDocument::saveXML() does.
+    let xml_decl = match &encoding {
+        Some(enc) => format!("<?xml version=\"1.0\" encoding=\"{enc}\"?>"),
+        None => "<?xml version=\"1.0\"?>".to_string(),
+    };
+
+    // 3. Extract the <nfeProc> tag attributes and body content.
+    //    We need to rewrite the opening tag with xmlns before versao.
+    let nfe_proc_full = extract_tag(nfe_proc_xml, "nfeProc")
+        .ok_or_else(|| FiscalError::XmlParsing("Could not find <nfeProc> in NF-e XML".into()))?;
+
+    // Extract versao and xmlns from the <nfeProc> opening tag
+    let versao = extract_attribute(&nfe_proc_full, "nfeProc", "versao")
+        .unwrap_or_else(|| DEFAULT_VERSION.to_string());
+    let xmlns = extract_attribute(&nfe_proc_full, "nfeProc", "xmlns")
+        .unwrap_or_else(|| NFE_NAMESPACE.to_string());
+
+    // Extract the inner content of <nfeProc> (everything between the opening
+    // and closing tags).
+    let inner = extract_tag_inner_content(&nfe_proc_full, "nfeProc").ok_or_else(|| {
+        FiscalError::XmlParsing("Could not extract <nfeProc> inner content".into())
+    })?;
+
+    // 4. Reassemble with PHP attribute order: xmlns first, then versao.
+    let mut result = String::with_capacity(
+        xml_decl.len() + 1 + 60 + inner.len() + extra_child.map_or(0, |c| c.len()) + 12,
+    );
+    result.push_str(&xml_decl);
+    result.push('\n');
+    result.push_str(&format!("<nfeProc xmlns=\"{xmlns}\" versao=\"{versao}\">"));
+    result.push_str(inner);
+    if let Some(child) = extra_child {
+        result.push_str(child);
+    }
+    result.push_str("</nfeProc>\n");
+
+    Ok(result)
+}
+
+/// Extract the `encoding` value from an XML declaration, if present.
+///
+/// Given `<?xml version="1.0" encoding="UTF-8"?>`, returns `Some("UTF-8")`.
+/// Given `<?xml version="1.0"?>` or no declaration, returns `None`.
+fn extract_xml_declaration_encoding(xml: &str) -> Option<String> {
+    let decl_start = xml.find("<?xml ")?;
+    let decl_end = xml[decl_start..].find("?>")? + decl_start;
+    let decl = &xml[decl_start..decl_end + 2];
+
+    let enc_pat = "encoding=\"";
+    let enc_start = decl.find(enc_pat)? + enc_pat.len();
+    let enc_end = decl[enc_start..].find('"')? + enc_start;
+    Some(decl[enc_start..enc_end].to_string())
+}
+
+/// Extract the inner content of an XML tag (everything between the end of the
+/// opening tag `>` and the start of the closing tag `</tagName>`).
+fn extract_tag_inner_content<'a>(xml: &'a str, tag_name: &str) -> Option<&'a str> {
+    let open_pattern = format!("<{tag_name}");
+    let start = xml.find(&open_pattern)?;
+
+    // Find end of opening tag
+    let gt_pos = xml[start..].find('>')? + start;
+
+    let close_tag = format!("</{tag_name}>");
+    let close_pos = xml.rfind(&close_tag)?;
+
+    if gt_pos + 1 > close_pos {
+        return Some("");
+    }
+
+    Some(&xml[gt_pos + 1..close_pos])
+}
 
 /// Join two XML fragments into a versioned namespace wrapper element.
 ///
@@ -803,8 +892,21 @@ mod tests {
         );
 
         let result = attach_cancellation(nfe_proc, cancel_xml).unwrap();
-        // Should return original unchanged — no matching chNFe
-        assert_eq!(result, nfe_proc);
+        // No matching chNFe — should NOT contain retEvento, but still
+        // re-serialized like PHP (declaration + xmlns before versao)
+        assert!(
+            !result.contains("<retEvento"),
+            "Should not contain retEvento"
+        );
+        assert!(
+            result.starts_with("<?xml version=\"1.0\"?>\n"),
+            "Should have XML declaration (no encoding since input had none)"
+        );
+        assert!(
+            result
+                .contains(r#"<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#),
+            "Should reorder xmlns before versao"
+        );
     }
 
     #[test]
@@ -829,8 +931,15 @@ mod tests {
         );
 
         let result = attach_cancellation(nfe_proc, cancel_xml).unwrap();
-        // Should return original unchanged — wrong tpEvento
-        assert_eq!(result, nfe_proc);
+        // Wrong tpEvento — should NOT contain retEvento
+        assert!(
+            !result.contains("<retEvento"),
+            "Should not contain retEvento"
+        );
+        assert!(
+            result.starts_with("<?xml version=\"1.0\"?>\n"),
+            "Should have XML declaration"
+        );
     }
 
     #[test]
@@ -855,8 +964,15 @@ mod tests {
         );
 
         let result = attach_cancellation(nfe_proc, cancel_xml).unwrap();
-        // Should return original unchanged — rejected status
-        assert_eq!(result, nfe_proc);
+        // Rejected status — should NOT contain retEvento
+        assert!(
+            !result.contains("<retEvento"),
+            "Should not contain retEvento"
+        );
+        assert!(
+            result.starts_with("<?xml version=\"1.0\"?>\n"),
+            "Should have XML declaration"
+        );
     }
 
     #[test]
@@ -930,6 +1046,143 @@ mod tests {
         let cancel_xml = "<retEvento/>";
         let err = attach_cancellation(nfe_proc, cancel_xml).unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    /// Byte-for-byte parity test: Rust output must match what PHP
+    /// `Complements::cancelRegister()` produces for the same inputs.
+    ///
+    /// PHP uses `DOMDocument::saveXML()` which:
+    /// 1. Emits `<?xml version="1.0" encoding="UTF-8"?>` + `\n`
+    /// 2. Reorders `xmlns` before `versao` on `<nfeProc>`
+    /// 3. Appends `<retEvento>` as last child of `<nfeProc>`
+    #[test]
+    fn attach_cancellation_parity_with_php() {
+        // Input: authorized nfeProc (as produced by join_xml / PHP join())
+        let nfe_proc = concat!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+            r#"<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199550010000000011123456780">"#,
+            r#"<ide/></infNFe></NFe>"#,
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<digVal>abc</digVal>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<cStat>100</cStat>"#,
+            r#"<xMotivo>Autorizado</xMotivo>"#,
+            r#"<nProt>135220000009921</nProt>"#,
+            r#"</infProt></protNFe>"#,
+            r#"</nfeProc>"#
+        );
+
+        let cancel_xml = concat!(
+            r#"<retEnvEvento><retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat>"#,
+            r#"<xMotivo>Evento registrado e vinculado a NF-e</xMotivo>"#,
+            r#"<tpEvento>110111</tpEvento>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<nProt>135220000009999</nProt>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+
+        let result = attach_cancellation(nfe_proc, cancel_xml).unwrap();
+
+        // Expected output from PHP DOMDocument::saveXML():
+        // - declaration with encoding="UTF-8" followed by \n
+        // - <nfeProc xmlns="..." versao="..."> (xmlns first)
+        // - inner content unchanged
+        // - <retEvento> appended before </nfeProc>
+        let expected = concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+            r#"<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#,
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199550010000000011123456780">"#,
+            r#"<ide/></infNFe></NFe>"#,
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<digVal>abc</digVal>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<cStat>100</cStat>"#,
+            r#"<xMotivo>Autorizado</xMotivo>"#,
+            r#"<nProt>135220000009921</nProt>"#,
+            r#"</infProt></protNFe>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat>"#,
+            r#"<xMotivo>Evento registrado e vinculado a NF-e</xMotivo>"#,
+            r#"<tpEvento>110111</tpEvento>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<nProt>135220000009999</nProt>"#,
+            r#"</infEvento></retEvento>"#,
+            "</nfeProc>\n"
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    /// Parity test for no-match case: PHP still re-serializes through saveXML().
+    #[test]
+    fn attach_cancellation_no_match_still_reserializes_like_php() {
+        let nfe_proc = concat!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+            r#"<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<NFe/>"#,
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<cStat>100</cStat>"#,
+            r#"</infProt></protNFe>"#,
+            r#"</nfeProc>"#
+        );
+
+        let cancel_xml = concat!(
+            r#"<retEnvEvento><retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat>"#,
+            r#"<tpEvento>110111</tpEvento>"#,
+            r#"<chNFe>99999999999999999999999999999999999999999999</chNFe>"#,
+            r#"<nProt>135220000009999</nProt>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+
+        let result = attach_cancellation(nfe_proc, cancel_xml).unwrap();
+
+        // PHP DOMDocument::saveXML() output (no retEvento appended):
+        let expected = concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+            r#"<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#,
+            r#"<NFe/>"#,
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"<cStat>100</cStat>"#,
+            r#"</infProt></protNFe>"#,
+            "</nfeProc>\n"
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    /// Test helpers for the DOM re-serialization.
+    #[test]
+    fn extract_xml_declaration_encoding_works() {
+        assert_eq!(
+            extract_xml_declaration_encoding(r#"<?xml version="1.0" encoding="UTF-8"?><root/>"#),
+            Some("UTF-8".to_string())
+        );
+        assert_eq!(
+            extract_xml_declaration_encoding(r#"<?xml version="1.0" encoding="utf-8"?><root/>"#),
+            Some("utf-8".to_string())
+        );
+        assert_eq!(
+            extract_xml_declaration_encoding(r#"<?xml version="1.0"?><root/>"#),
+            None
+        );
+        assert_eq!(extract_xml_declaration_encoding(r#"<root/>"#), None);
+    }
+
+    #[test]
+    fn extract_tag_inner_content_works() {
+        assert_eq!(
+            extract_tag_inner_content(r#"<root attr="val">inner content</root>"#, "root"),
+            Some("inner content")
+        );
+        assert_eq!(
+            extract_tag_inner_content(r#"<root></root>"#, "root"),
+            Some("")
+        );
     }
 
     // ── attach_protocol tests ─────────────────────────────────────
