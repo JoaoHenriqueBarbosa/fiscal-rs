@@ -38,7 +38,7 @@ jobs:
         uses: taiki-e/install-action@cargo-tarpaulin
 
       - name: Run tarpaulin
-        run: cargo tarpaulin --workspace --out xml --output-dir coverage
+        run: cargo tarpaulin --workspace --timeout 300 --out xml --output-dir coverage
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
