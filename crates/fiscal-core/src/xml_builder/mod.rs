@@ -76,6 +76,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     let mut total_desc: i64 = 0;
     let mut total_outro: i64 = 0;
     let mut total_tot_trib: i64 = 0;
+    let mut total_ipi_devol: i64 = 0;
 
     let mut det_elements = Vec::with_capacity(data.items.len());
     for item in &data.items {
@@ -92,6 +93,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             total_desc += det_result.v_desc;
             total_outro += det_result.v_outro;
             total_tot_trib += det_result.v_tot_trib;
+            total_ipi_devol += det_result.v_ipi_devol;
             merge_icms_totals(&mut icms_totals, &det_result.icms_totals);
         }
         det_elements.push(det_result.xml);
@@ -134,6 +136,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             v_desc: total_desc,
             v_outro: total_outro,
             v_tot_trib: total_tot_trib,
+            v_ipi_devol: total_ipi_devol,
         },
         data.ret_trib.as_ref(),
         data.issqn_tot.as_ref(),
@@ -171,10 +174,10 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     }
 
     // Matches PHP sped-nfe: no xmlns on infNFe (inherited from NFe parent),
-    // Id attribute before versao
+    // Id before versao (same order as PHP's DOMDocument setAttribute calls)
     let inf_nfe = tag(
         "infNFe",
-        &[("versao", NFE_VERSION), ("Id", &inf_nfe_id)],
+        &[("Id", &inf_nfe_id), ("versao", NFE_VERSION)],
         TagContent::Children(inf_children),
     );
 

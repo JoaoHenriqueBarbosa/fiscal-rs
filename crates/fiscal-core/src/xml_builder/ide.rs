@@ -1,7 +1,7 @@
 //! Build the `<ide>` (identification) group of the NF-e XML.
 
 use super::tax_id::TaxId;
-use crate::types::{InvoiceBuildData, ReferenceDoc};
+use crate::types::{InvoiceBuildData, InvoiceModel, ReferenceDoc};
 use crate::xml_utils::{TagContent, tag};
 
 /// Format date/time for NF-e (ISO 8601 with Brazil timezone offset).
@@ -25,27 +25,37 @@ pub(crate) fn build_ide(
 ) -> String {
     let ref_elements = build_references(data.references.as_deref());
 
+    let dh_emi = format_datetime_nfe(&data.issued_at, &data.issuer.state_code);
+    let series_str = data.series.to_string();
+    let number_str = data.number.to_string();
+    let tp_nf = data.operation_type.unwrap_or(1).to_string();
+    let fin_nfe = data.purpose_code.unwrap_or(1).to_string();
+
     let mut children = vec![
         tag("cUF", &[], TagContent::Text(state_ibge)),
         tag("cNF", &[], TagContent::Text(numeric_code)),
         tag("natOp", &[], TagContent::Text(&data.operation_nature)),
         tag("mod", &[], TagContent::Text(data.model.as_str())),
-        tag("serie", &[], TagContent::Text(&data.series.to_string())),
-        tag("nNF", &[], TagContent::Text(&data.number.to_string())),
+        tag("serie", &[], TagContent::Text(&series_str)),
+        tag("nNF", &[], TagContent::Text(&number_str)),
+        tag("dhEmi", &[], TagContent::Text(&dh_emi)),
+    ];
+
+    // dhSaiEnt: optional, model 55 only (matching PHP behaviour)
+    if data.model == InvoiceModel::Nfe {
+        if let Some(ref exit_dt) = data.exit_at {
+            let dh_sai_ent = format_datetime_nfe(exit_dt, &data.issuer.state_code);
+            children.push(tag("dhSaiEnt", &[], TagContent::Text(&dh_sai_ent)));
+        }
+    }
+
+    children.extend([
+        tag("tpNF", &[], TagContent::Text(&tp_nf)),
         tag(
-            "dhEmi",
+            "idDest",
             &[],
-            TagContent::Text(&format_datetime_nfe(
-                &data.issued_at,
-                &data.issuer.state_code,
-            )),
+            TagContent::Text(data.destination_indicator.as_deref().unwrap_or("1")),
         ),
-        tag(
-            "tpNF",
-            &[],
-            TagContent::Text(&data.operation_type.unwrap_or(1).to_string()),
-        ),
-        tag("idDest", &[], TagContent::Text("1")),
         tag("cMunFG", &[], TagContent::Text(&data.issuer.city_code.0)),
         tag(
             "tpImp",
@@ -55,11 +65,7 @@ pub(crate) fn build_ide(
         tag("tpEmis", &[], TagContent::Text(data.emission_type.as_str())),
         tag("cDV", &[], TagContent::Text(&access_key[43..44])),
         tag("tpAmb", &[], TagContent::Text(data.environment.as_str())),
-        tag(
-            "finNFe",
-            &[],
-            TagContent::Text(&data.purpose_code.unwrap_or(1).to_string()),
-        ),
+        tag("finNFe", &[], TagContent::Text(&fin_nfe)),
         tag(
             "indFinal",
             &[],
@@ -70,7 +76,7 @@ pub(crate) fn build_ide(
             &[],
             TagContent::Text(data.buyer_presence.as_deref().unwrap_or("0")),
         ),
-    ];
+    ]);
 
     // indIntermed: only emit when explicitly set (PHP uses false for required,
     // meaning null/empty values are omitted)
@@ -84,8 +90,19 @@ pub(crate) fn build_ide(
             &[],
             TagContent::Text(data.emission_process.as_deref().unwrap_or("0")),
         ),
-        tag("verProc", &[], TagContent::Text("FinOpenPOS 1.0")),
+        tag(
+            "verProc",
+            &[],
+            TagContent::Text(data.ver_proc.as_deref().unwrap_or("FinOpenPOS 1.0")),
+        ),
     ]);
+
+    // dhCont / xJust: contingency timestamp and justification (matching PHP behaviour)
+    if let Some(ref cont) = data.contingency {
+        let dh_cont = format_datetime_nfe(&cont.at, &data.issuer.state_code);
+        children.push(tag("dhCont", &[], TagContent::Text(&dh_cont)));
+        children.push(tag("xJust", &[], TagContent::Text(&cont.reason)));
+    }
 
     children.extend(ref_elements);
     tag("ide", &[], TagContent::Children(children))

@@ -65,15 +65,18 @@ pub struct InvoiceBuilder<State = Draft> {
     change_amount: Option<Cents>,
     payment_card_details: Option<Vec<PaymentCardDetail>>,
     contingency: Option<ContingencyData>,
+    exit_at: Option<DateTime<FixedOffset>>,
 
     // IDE overrides
     operation_type: Option<u8>,
     purpose_code: Option<u8>,
+    destination_indicator: Option<String>,
     intermediary_indicator: Option<String>,
     emission_process: Option<String>,
     consumer_type: Option<String>,
     buyer_presence: Option<String>,
     print_format: Option<String>,
+    ver_proc: Option<String>,
     references: Option<Vec<ReferenceDoc>>,
 
     // Optional groups
@@ -126,13 +129,16 @@ impl InvoiceBuilder<Draft> {
             change_amount: None,
             payment_card_details: None,
             contingency: None,
+            exit_at: None,
             operation_type: None,
             purpose_code: None,
+            destination_indicator: None,
             intermediary_indicator: None,
             emission_process: None,
             consumer_type: None,
             buyer_presence: None,
             print_format: None,
+            ver_proc: None,
             references: None,
             transport: None,
             billing: None,
@@ -227,6 +233,12 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Set the exit/departure date/time (dhSaiEnt, model 55 only).
+    pub fn exit_at(mut self, dt: DateTime<FixedOffset>) -> Self {
+        self.exit_at = Some(dt);
+        self
+    }
+
     /// Override the operation type (tpNF, default: 1).
     pub fn operation_type(mut self, v: u8) -> Self {
         self.operation_type = Some(v);
@@ -266,6 +278,18 @@ impl InvoiceBuilder<Draft> {
     /// Set the DANFE print format (tpImp).
     pub fn print_format(mut self, v: impl Into<String>) -> Self {
         self.print_format = Some(v.into());
+        self
+    }
+
+    /// Set the destination indicator (idDest): "1" internal, "2" interstate, "3" export.
+    pub fn destination_indicator(mut self, v: impl Into<String>) -> Self {
+        self.destination_indicator = Some(v.into());
+        self
+    }
+
+    /// Set the application version (verProc).
+    pub fn ver_proc(mut self, v: impl Into<String>) -> Self {
+        self.ver_proc = Some(v.into());
         self
     }
 
@@ -370,13 +394,16 @@ impl InvoiceBuilder<Draft> {
             change_amount: self.change_amount,
             payment_card_details: self.payment_card_details,
             contingency: self.contingency,
+            exit_at: self.exit_at,
             operation_type: self.operation_type,
             purpose_code: self.purpose_code,
+            destination_indicator: self.destination_indicator,
             intermediary_indicator: self.intermediary_indicator,
             emission_process: self.emission_process,
             consumer_type: self.consumer_type,
             buyer_presence: self.buyer_presence,
             print_format: self.print_format,
+            ver_proc: self.ver_proc,
             references: self.references,
             transport: self.transport,
             billing: self.billing,
@@ -409,13 +436,16 @@ impl InvoiceBuilder<Draft> {
             change_amount: data.change_amount,
             payment_card_details: data.payment_card_details,
             contingency: data.contingency,
+            exit_at: data.exit_at,
             operation_type: data.operation_type,
             purpose_code: data.purpose_code,
+            destination_indicator: data.destination_indicator,
             intermediary_indicator: data.intermediary_indicator,
             emission_process: data.emission_process,
             consumer_type: data.consumer_type,
             buyer_presence: data.buyer_presence,
             print_format: data.print_format,
+            ver_proc: data.ver_proc,
             references: data.references,
             transport: data.transport,
             billing: data.billing,
@@ -505,13 +535,16 @@ impl InvoiceBuilder<Built> {
             change_amount: self.change_amount,
             payment_card_details: self.payment_card_details,
             contingency: self.contingency,
+            exit_at: self.exit_at,
             operation_type: self.operation_type,
             purpose_code: self.purpose_code,
+            destination_indicator: self.destination_indicator,
             intermediary_indicator: self.intermediary_indicator,
             emission_process: self.emission_process,
             consumer_type: self.consumer_type,
             buyer_presence: self.buyer_presence,
             print_format: self.print_format,
+            ver_proc: self.ver_proc,
             references: self.references,
             transport: self.transport,
             billing: self.billing,
@@ -682,5 +715,177 @@ mod tests {
         let key = built.access_key();
         assert_eq!(key.len(), 44);
         assert!(key.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    /// Build an NF-e (model 55) builder for testing dhSaiEnt.
+    fn nfe_builder() -> InvoiceBuilder<Draft> {
+        let issuer = IssuerData::new(
+            "12345678000199",
+            "123456789",
+            "Test Company",
+            TaxRegime::SimplesNacional,
+            "SP",
+            IbgeCode("3550308".to_string()),
+            "Sao Paulo",
+            "Av Paulista",
+            "1000",
+            "Bela Vista",
+            "01310100",
+        )
+        .trade_name("Test");
+
+        let item = InvoiceItemData::new(
+            1,
+            "1",
+            "Product A",
+            "84715010",
+            "5102",
+            "UN",
+            2.0,
+            Cents(1000),
+            Cents(2000),
+            "102",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+
+        let payment = PaymentData::new("01", Cents(2000));
+
+        let offset = br_offset();
+        let issued_at = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+            .unwrap()
+            .and_hms_opt(10, 30, 0)
+            .unwrap()
+            .and_local_timezone(offset)
+            .unwrap();
+
+        InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
+            .series(1)
+            .invoice_number(1)
+            .issued_at(issued_at)
+            .add_item(item)
+            .payments(vec![payment])
+    }
+
+    #[test]
+    fn dh_sai_ent_emitted_for_model_55() {
+        let offset = br_offset();
+        let exit = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+            .unwrap()
+            .and_hms_opt(14, 0, 0)
+            .unwrap()
+            .and_local_timezone(offset)
+            .unwrap();
+
+        let built = nfe_builder()
+            .exit_at(exit)
+            .build()
+            .expect("build should succeed");
+
+        let xml = built.xml();
+        assert!(
+            xml.contains("<dhSaiEnt>2026-01-15T14:00:00-03:00</dhSaiEnt>"),
+            "NF-e (model 55) with exit_at must emit <dhSaiEnt>, got:\n{xml}"
+        );
+        // Verify ordering: dhSaiEnt must come after dhEmi and before tpNF
+        let emi_pos = xml.find("<dhEmi>").expect("dhEmi must be present");
+        let sai_pos = xml.find("<dhSaiEnt>").expect("dhSaiEnt must be present");
+        let tp_nf_pos = xml.find("<tpNF>").expect("tpNF must be present");
+        assert!(
+            emi_pos < sai_pos && sai_pos < tp_nf_pos,
+            "dhSaiEnt must come after dhEmi and before tpNF"
+        );
+    }
+
+    #[test]
+    fn dh_sai_ent_omitted_for_model_65() {
+        let offset = br_offset();
+        let exit = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+            .unwrap()
+            .and_hms_opt(14, 0, 0)
+            .unwrap()
+            .and_local_timezone(offset)
+            .unwrap();
+
+        let built = sample_builder()
+            .exit_at(exit)
+            .build()
+            .expect("build should succeed");
+
+        let xml = built.xml();
+        assert!(
+            !xml.contains("<dhSaiEnt>"),
+            "NFC-e (model 65) must NOT emit <dhSaiEnt>, got:\n{xml}"
+        );
+    }
+
+    #[test]
+    fn dh_sai_ent_omitted_when_not_set() {
+        let built = nfe_builder().build().expect("build should succeed");
+
+        let xml = built.xml();
+        assert!(
+            !xml.contains("<dhSaiEnt>"),
+            "NF-e without exit_at must NOT emit <dhSaiEnt>"
+        );
+    }
+
+    #[test]
+    fn dh_cont_and_x_just_emitted_in_contingency() {
+        use crate::types::{ContingencyData, ContingencyType};
+
+        let offset = br_offset();
+        let cont_at = chrono::NaiveDate::from_ymd_opt(2026, 1, 15)
+            .unwrap()
+            .and_hms_opt(9, 0, 0)
+            .unwrap()
+            .and_local_timezone(offset)
+            .unwrap();
+
+        let contingency = ContingencyData::new(
+            ContingencyType::SvcAn,
+            "SEFAZ fora do ar para manutencao programada",
+            cont_at,
+        );
+
+        let built = nfe_builder()
+            .contingency(contingency)
+            .build()
+            .expect("build should succeed");
+
+        let xml = built.xml();
+        assert!(
+            xml.contains("<dhCont>2026-01-15T09:00:00-03:00</dhCont>"),
+            "Contingency must emit <dhCont>, got:\n{xml}"
+        );
+        assert!(
+            xml.contains("<xJust>SEFAZ fora do ar para manutencao programada</xJust>"),
+            "Contingency must emit <xJust>, got:\n{xml}"
+        );
+        // Verify ordering: dhCont/xJust must come after verProc
+        let ver_proc_pos = xml.find("<verProc>").expect("verProc must be present");
+        let dh_cont_pos = xml.find("<dhCont>").expect("dhCont must be present");
+        let x_just_pos = xml.find("<xJust>").expect("xJust must be present");
+        assert!(
+            ver_proc_pos < dh_cont_pos && dh_cont_pos < x_just_pos,
+            "dhCont must come after verProc, xJust must come after dhCont"
+        );
+    }
+
+    #[test]
+    fn dh_cont_omitted_without_contingency() {
+        let built = nfe_builder().build().expect("build should succeed");
+
+        let xml = built.xml();
+        assert!(
+            !xml.contains("<dhCont>"),
+            "Without contingency, <dhCont> must NOT be present"
+        );
+        assert!(
+            !xml.contains("<xJust>"),
+            "Without contingency, <xJust> must NOT be present"
+        );
     }
 }

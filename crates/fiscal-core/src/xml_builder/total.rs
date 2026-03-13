@@ -27,6 +27,8 @@ pub struct OtherTotals {
     pub v_outro: i64,
     /// Total approximate tax value in cents (vTotTrib, optional).
     pub v_tot_trib: i64,
+    /// Total IPI devolution value in cents (vIPIDevol).
+    pub v_ipi_devol: i64,
 }
 
 /// Build the `<total>` element with ICMSTot, optional ISSQNtot, and retTrib.
@@ -42,7 +44,7 @@ pub fn build_total(
     // Calculate vNF per PHP formula:
     // vNF = vProd - vDesc - (vICMSDeson * indDeduzDeson) + vST + vFCPST
     //       + vFrete + vSeg + vOutro + vII + vIPI + vIPIDevol + vServ
-    // Note: indDeduzDeson and vIPIDevol/vServ are not currently implemented,
+    // Note: indDeduzDeson and vServ are not currently implemented,
     // so we omit those terms for now.
     let v_nf = total_products - other.v_desc
         + icms.v_st.0
@@ -51,7 +53,8 @@ pub fn build_total(
         + other.v_seg
         + other.v_outro
         + other.v_ii
-        + other.v_ipi;
+        + other.v_ipi
+        + other.v_ipi_devol;
 
     // Optional ICMSTot fields — PHP sped-nfe omits these when <= 0
     let mut icms_children = vec![
@@ -101,7 +104,7 @@ pub fn build_total(
         tag("vDesc", &[], TagContent::Text(&fc2(other.v_desc))),
         tag("vII", &[], TagContent::Text(&fc2(other.v_ii))),
         tag("vIPI", &[], TagContent::Text(&fc2(other.v_ipi))),
-        tag("vIPIDevol", &[], TagContent::Text("0.00")),
+        tag("vIPIDevol", &[], TagContent::Text(&fc2(other.v_ipi_devol))),
         tag("vPIS", &[], TagContent::Text(&fc2(other.v_pis))),
         tag("vCOFINS", &[], TagContent::Text(&fc2(other.v_cofins))),
         tag("vOutro", &[], TagContent::Text(&fc2(other.v_outro))),
@@ -235,6 +238,7 @@ mod tests {
             v_desc: 0,
             v_outro: 0,
             v_tot_trib: 0,
+            v_ipi_devol: 0,
         }
     }
 

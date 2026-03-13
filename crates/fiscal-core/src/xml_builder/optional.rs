@@ -54,9 +54,7 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
         ));
     }
 
-    if data.environment == SefazEnvironment::Homologation {
-        notes.push("EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".to_string());
-    }
+    // PHP does NOT auto-add homologation note to infAdic — removed to match PHP
 
     let add_info = data.additional_info.as_ref();
     let has_additional = add_info.is_some_and(|a| {

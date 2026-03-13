@@ -31,6 +31,14 @@ pub mod event_types {
     pub const OPERATION_NOT_PERFORMED: u32 = 210240;
     /// EPEC — Evento Prévio de Emissão em Contingência, code `110140`.
     pub const EPEC: u32 = 110140;
+    /// Pedido de prorrogação ICMS — 1.o prazo, code `111500`.
+    pub const PRORROGACAO_1: u32 = 111500;
+    /// Pedido de prorrogação ICMS — 2.o prazo, code `111501`.
+    pub const PRORROGACAO_2: u32 = 111501;
+    /// Cancelamento de pedido de prorrogação ICMS — 1.o prazo, code `111502`.
+    pub const CANCEL_PRORROGACAO_1: u32 = 111502;
+    /// Cancelamento de pedido de prorrogação ICMS — 2.o prazo, code `111503`.
+    pub const CANCEL_PRORROGACAO_2: u32 = 111503;
 }
 
 /// Event descriptions matching the SEFAZ specification.
@@ -1077,6 +1085,98 @@ pub fn build_epec_request(epec_data: &EpecData, environment: SefazEnvironment) -
     )
 }
 
+/// Item for a prorrogacao (ICMS extension) request.
+///
+/// Each item contains the item number and the requested quantity.
+#[derive(Debug, Clone)]
+pub struct ProrrogacaoItem {
+    /// Item number in the original NF-e (starting from 1).
+    pub num_item: u32,
+    /// Quantity requested for prorrogacao.
+    pub qtde: f64,
+}
+
+/// Build a SEFAZ prorrogacao (ICMS extension) event request XML.
+///
+/// Creates an `<envEvento>` wrapper containing a pedido de prorrogacao
+/// (`tpEvento=111500` for first term, `111501` for second term).
+///
+/// # Arguments
+///
+/// * `access_key` — 44-digit access key of the NF-e.
+/// * `protocol` — authorization protocol number of the original NF-e.
+/// * `items` — list of items with quantities being extended.
+/// * `second_term` — if `true`, uses the second-term event type (111501).
+/// * `seq` — event sequence number.
+/// * `environment` — SEFAZ environment.
+/// * `tax_id` — CNPJ or CPF of the issuer.
+pub fn build_prorrogacao_request(
+    access_key: &str,
+    protocol: &str,
+    items: &[ProrrogacaoItem],
+    second_term: bool,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let tp_evento = if second_term {
+        event_types::PRORROGACAO_2
+    } else {
+        event_types::PRORROGACAO_1
+    };
+
+    let mut additional = format!("<nProt>{protocol}</nProt>");
+    for item in items {
+        additional.push_str(&format!(
+            "<itemPedido numItem=\"{}\"><qtdeItem>{}</qtdeItem></itemPedido>",
+            item.num_item, item.qtde
+        ));
+    }
+
+    build_event_xml(access_key, tp_evento, seq, tax_id, environment, &additional)
+}
+
+/// Build a SEFAZ cancel-prorrogacao (cancel ICMS extension) event request XML.
+///
+/// Creates an `<envEvento>` wrapper containing a cancelamento de pedido de
+/// prorrogacao (`tpEvento=111502` for first term, `111503` for second term).
+///
+/// # Arguments
+///
+/// * `access_key` — 44-digit access key of the NF-e.
+/// * `protocol` — authorization protocol number of the prorrogacao event.
+/// * `second_term` — if `true`, uses the second-term event type (111503).
+/// * `seq` — event sequence number.
+/// * `environment` — SEFAZ environment.
+/// * `tax_id` — CNPJ or CPF of the issuer.
+pub fn build_cancel_prorrogacao_request(
+    access_key: &str,
+    protocol: &str,
+    second_term: bool,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let (tp_evento, orig_event) = if second_term {
+        (
+            event_types::CANCEL_PRORROGACAO_2,
+            event_types::PRORROGACAO_2,
+        )
+    } else {
+        (
+            event_types::CANCEL_PRORROGACAO_1,
+            event_types::PRORROGACAO_1,
+        )
+    };
+
+    let id_pedido_cancelado = format!("ID{orig_event}{access_key}{seq:02}");
+    let additional = format!(
+        "<idPedidoCancelado>{id_pedido_cancelado}</idPedidoCancelado><nProt>{protocol}</nProt>"
+    );
+
+    build_event_xml(access_key, tp_evento, seq, tax_id, environment, &additional)
+}
+
 /// Extract a named section from XML (e.g., `<emit>...</emit>`).
 ///
 /// Returns the full content between the opening and closing tags, inclusive.
@@ -1855,5 +1955,117 @@ mod tests {
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
         assert!(xml.contains("<nProtEvento>135220000009888</nProtEvento>"));
+    }
+
+    // ── Prorrogação ICMS (111500/111501) ────────────────────────────
+
+    #[test]
+    fn prorrogacao_first_term_request_structure() {
+        let items = vec![
+            ProrrogacaoItem {
+                num_item: 1,
+                qtde: 10.0,
+            },
+            ProrrogacaoItem {
+                num_item: 2,
+                qtde: 5.5,
+            },
+        ];
+        let xml = build_prorrogacao_request(
+            TEST_KEY,
+            "135220000009921",
+            &items,
+            false,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(
+            xml.contains("<tpEvento>111500</tpEvento>"),
+            "First-term prorrogacao must use tpEvento=111500"
+        );
+        assert!(xml.contains("<descEvento>Pedido de Prorrogacao</descEvento>"));
+        assert!(xml.contains("<nProt>135220000009921</nProt>"));
+        assert!(xml.contains("<itemPedido numItem=\"1\"><qtdeItem>10</qtdeItem></itemPedido>"));
+        assert!(xml.contains("<itemPedido numItem=\"2\"><qtdeItem>5.5</qtdeItem></itemPedido>"));
+        assert!(xml.contains("<cOrgao>35</cOrgao>"));
+        assert!(xml.contains(&format!("<chNFe>{TEST_KEY}</chNFe>")));
+        let expected_id = format!("ID111500{TEST_KEY}01");
+        assert!(xml.contains(&format!("Id=\"{expected_id}\"")));
+    }
+
+    #[test]
+    fn prorrogacao_second_term_request_structure() {
+        let items = vec![ProrrogacaoItem {
+            num_item: 1,
+            qtde: 3.0,
+        }];
+        let xml = build_prorrogacao_request(
+            TEST_KEY,
+            "135220000009921",
+            &items,
+            true,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(
+            xml.contains("<tpEvento>111501</tpEvento>"),
+            "Second-term prorrogacao must use tpEvento=111501"
+        );
+        assert!(xml.contains("<descEvento>Pedido de Prorrogacao</descEvento>"));
+    }
+
+    // ── Cancelamento de prorrogação ICMS (111502/111503) ────────────
+
+    #[test]
+    fn cancel_prorrogacao_first_term_request_structure() {
+        let xml = build_cancel_prorrogacao_request(
+            TEST_KEY,
+            "135220000009921",
+            false,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(
+            xml.contains("<tpEvento>111502</tpEvento>"),
+            "First-term cancel prorrogacao must use tpEvento=111502"
+        );
+        assert!(xml.contains("<descEvento>Cancelamento de Pedido de Prorrogacao</descEvento>"));
+        let expected_id_cancelado = format!("ID111500{TEST_KEY}01");
+        assert!(
+            xml.contains(&format!(
+                "<idPedidoCancelado>{expected_id_cancelado}</idPedidoCancelado>"
+            )),
+            "Must contain idPedidoCancelado referencing the original prorrogacao event"
+        );
+        assert!(xml.contains("<nProt>135220000009921</nProt>"));
+        assert!(xml.contains("<cOrgao>35</cOrgao>"));
+    }
+
+    #[test]
+    fn cancel_prorrogacao_second_term_request_structure() {
+        let xml = build_cancel_prorrogacao_request(
+            TEST_KEY,
+            "135220000009921",
+            true,
+            2,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(
+            xml.contains("<tpEvento>111503</tpEvento>"),
+            "Second-term cancel prorrogacao must use tpEvento=111503"
+        );
+        assert!(xml.contains("<descEvento>Cancelamento de Pedido de Prorrogacao</descEvento>"));
+        // second term: orig_event = 111501
+        let expected_id_cancelado = format!("ID111501{TEST_KEY}02");
+        assert!(
+            xml.contains(&format!(
+                "<idPedidoCancelado>{expected_id_cancelado}</idPedidoCancelado>"
+            )),
+            "Must contain idPedidoCancelado referencing the 2nd-term prorrogacao event"
+        );
     }
 }

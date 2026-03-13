@@ -801,6 +801,10 @@ pub struct TransportData {
     pub volumes: Option<Vec<VolumeData>>,
     /// ICMS retained on transport services (`retTransp`).
     pub retained_icms: Option<RetainedIcmsTransp>,
+    /// Rail car number (`vagao`). Optional — mutually exclusive with `vehicle`/`trailers`.
+    pub vagao: Option<String>,
+    /// Barge / ferry identification (`balsa`). Optional — mutually exclusive with `vehicle`/`trailers`/`vagao`.
+    pub balsa: Option<String>,
 }
 
 impl TransportData {
@@ -839,6 +843,18 @@ impl TransportData {
     /// Set the retained ICMS on transport.
     pub fn retained_icms(mut self, retained: RetainedIcmsTransp) -> Self {
         self.retained_icms = Some(retained);
+        self
+    }
+
+    /// Set the rail car number (`vagao`).
+    pub fn vagao(mut self, v: impl Into<String>) -> Self {
+        self.vagao = Some(v.into());
+        self
+    }
+
+    /// Set the barge / ferry identification (`balsa`).
+    pub fn balsa(mut self, v: impl Into<String>) -> Self {
+        self.balsa = Some(v.into());
         self
     }
 }
@@ -1747,6 +1763,215 @@ impl ObsField {
     }
 }
 
+/// Import declaration data (`<DI>` inside `<prod>`).
+///
+/// Represents a Declaração de Importação (DI, DSI, DIRE) attached to an invoice
+/// item. Each DI may contain one or more additions ([`AdiData`]).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct DiData {
+    /// Document number (`nDI`) — DI, DSI, DIRE, etc.
+    pub n_di: String,
+    /// Document registration date (`dDI`) in `YYYY-MM-DD` format.
+    pub d_di: String,
+    /// Customs clearance location (`xLocDesemb`).
+    pub x_loc_desemb: String,
+    /// State (UF) where customs clearance occurred (`UFDesemb`).
+    pub uf_desemb: String,
+    /// Customs clearance date (`dDesemb`) in `YYYY-MM-DD` format.
+    pub d_desemb: String,
+    /// International transport route code (`tpViaTransp`).
+    pub tp_via_transp: String,
+    /// AFRMM value — Adicional ao Frete para Renovação da Marinha Mercante (`vAFRMM`). Optional.
+    pub v_afrmm: Option<Cents>,
+    /// Import intermediation type code (`tpIntermedio`).
+    pub tp_intermedio: String,
+    /// CNPJ of the acquirer or ordering party (`CNPJ`). Optional.
+    pub cnpj: Option<String>,
+    /// CPF of the acquirer or ordering party (`CPF`). Optional.
+    pub cpf: Option<String>,
+    /// State (UF) of the third-party acquirer (`UFTerceiro`). Optional.
+    pub uf_terceiro: Option<String>,
+    /// Exporter code (`cExportador`).
+    pub c_exportador: String,
+    /// List of additions (`adi`) within this DI.
+    pub adi: Vec<AdiData>,
+}
+
+impl DiData {
+    /// Create a new `DiData` with required fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        n_di: impl Into<String>,
+        d_di: impl Into<String>,
+        x_loc_desemb: impl Into<String>,
+        uf_desemb: impl Into<String>,
+        d_desemb: impl Into<String>,
+        tp_via_transp: impl Into<String>,
+        tp_intermedio: impl Into<String>,
+        c_exportador: impl Into<String>,
+        adi: Vec<AdiData>,
+    ) -> Self {
+        Self {
+            n_di: n_di.into(),
+            d_di: d_di.into(),
+            x_loc_desemb: x_loc_desemb.into(),
+            uf_desemb: uf_desemb.into(),
+            d_desemb: d_desemb.into(),
+            tp_via_transp: tp_via_transp.into(),
+            v_afrmm: None,
+            tp_intermedio: tp_intermedio.into(),
+            cnpj: None,
+            cpf: None,
+            uf_terceiro: None,
+            c_exportador: c_exportador.into(),
+            adi,
+        }
+    }
+
+    /// Set the AFRMM value.
+    pub fn v_afrmm(mut self, v: Cents) -> Self {
+        self.v_afrmm = Some(v);
+        self
+    }
+
+    /// Set the CNPJ of the acquirer or ordering party.
+    pub fn cnpj(mut self, v: impl Into<String>) -> Self {
+        self.cnpj = Some(v.into());
+        self
+    }
+
+    /// Set the CPF of the acquirer or ordering party.
+    pub fn cpf(mut self, v: impl Into<String>) -> Self {
+        self.cpf = Some(v.into());
+        self
+    }
+
+    /// Set the UF of the third-party acquirer.
+    pub fn uf_terceiro(mut self, v: impl Into<String>) -> Self {
+        self.uf_terceiro = Some(v.into());
+        self
+    }
+}
+
+/// Addition data (`<adi>` inside `<DI>`) for import declarations.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct AdiData {
+    /// Addition number (`nAdicao`). Optional.
+    pub n_adicao: Option<String>,
+    /// Sequential number within the addition (`nSeqAdic`).
+    pub n_seq_adic: String,
+    /// Foreign manufacturer code (`cFabricante`).
+    pub c_fabricante: String,
+    /// Discount value for this DI addition (`vDescDI`). Optional.
+    pub v_desc_di: Option<Cents>,
+    /// Drawback concession act number (`nDraw`). Optional.
+    pub n_draw: Option<String>,
+}
+
+impl AdiData {
+    /// Create a new `AdiData` with required fields.
+    pub fn new(n_seq_adic: impl Into<String>, c_fabricante: impl Into<String>) -> Self {
+        Self {
+            n_adicao: None,
+            n_seq_adic: n_seq_adic.into(),
+            c_fabricante: c_fabricante.into(),
+            v_desc_di: None,
+            n_draw: None,
+        }
+    }
+
+    /// Set the addition number.
+    pub fn n_adicao(mut self, v: impl Into<String>) -> Self {
+        self.n_adicao = Some(v.into());
+        self
+    }
+
+    /// Set the DI discount value.
+    pub fn v_desc_di(mut self, v: Cents) -> Self {
+        self.v_desc_di = Some(v);
+        self
+    }
+
+    /// Set the Drawback act number.
+    pub fn n_draw(mut self, v: impl Into<String>) -> Self {
+        self.n_draw = Some(v.into());
+        self
+    }
+}
+
+/// Export detail data (`<detExport>` inside `<prod>`).
+///
+/// Contains export information for an invoice item, including the optional
+/// indirect export (`<exportInd>`) sub-group.
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct DetExportData {
+    /// Drawback concession act number (`nDraw`). Optional.
+    pub n_draw: Option<String>,
+    /// Export registration number (`nRE`). Optional — triggers `<exportInd>` when present.
+    pub n_re: Option<String>,
+    /// Access key of the NF-e received for export (`chNFe`). Optional.
+    pub ch_nfe: Option<String>,
+    /// Quantity actually exported (`qExport`). Optional.
+    pub q_export: Option<f64>,
+}
+
+impl DetExportData {
+    /// Create a new empty `DetExportData`.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the Drawback act number.
+    pub fn n_draw(mut self, v: impl Into<String>) -> Self {
+        self.n_draw = Some(v.into());
+        self
+    }
+
+    /// Set the export registration number.
+    pub fn n_re(mut self, v: impl Into<String>) -> Self {
+        self.n_re = Some(v.into());
+        self
+    }
+
+    /// Set the NF-e access key for the export.
+    pub fn ch_nfe(mut self, v: impl Into<String>) -> Self {
+        self.ch_nfe = Some(v.into());
+        self
+    }
+
+    /// Set the exported quantity.
+    pub fn q_export(mut self, v: f64) -> Self {
+        self.q_export = Some(v);
+        self
+    }
+}
+
+/// Imposto devolvido data (`<impostoDevol>` inside `<det>`).
+///
+/// Applicable to return/devolution invoices. Contains the devolution percentage
+/// and the IPI value being returned.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ImpostoDevolData {
+    /// Percentage of goods returned (`pDevol`) — 2 decimal places.
+    pub p_devol: Rate,
+    /// IPI value being returned (`vIPIDevol`).
+    pub v_ipi_devol: Cents,
+}
+
+impl ImpostoDevolData {
+    /// Create a new `ImpostoDevolData`.
+    pub fn new(p_devol: Rate, v_ipi_devol: Cents) -> Self {
+        Self {
+            p_devol,
+            v_ipi_devol,
+        }
+    }
+}
+
 /// A referenced digital fiscal document (DFe) linked to an invoice item (`<DFeRef>`).
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -2257,6 +2482,13 @@ pub struct InvoiceItemData {
     pub obs_item: Option<ObsItemData>,
     /// Referenced digital fiscal document for this item (`DFeRef`). Optional.
     pub dfe_referenciado: Option<DFeReferenciadoData>,
+    // ── Import / export / devolution ─────────────────────────────────────
+    /// Import declarations (`DI`). Optional — may contain multiple DIs per item.
+    pub di: Option<Vec<DiData>>,
+    /// Export details (`detExport`). Optional — may contain multiple entries per item.
+    pub det_export: Option<Vec<DetExportData>>,
+    /// Imposto devolvido (`impostoDevol`). Optional — for return/devolution invoices.
+    pub imposto_devol: Option<ImpostoDevolData>,
     /// Whether this item counts towards the invoice total (`indTot`).
     /// `1` (default) = included in total, `0` = not included.
     pub ind_tot: Option<u8>,
@@ -2364,6 +2596,9 @@ impl InvoiceItemData {
             inf_ad_prod: None,
             obs_item: None,
             dfe_referenciado: None,
+            di: None,
+            det_export: None,
+            imposto_devol: None,
             ind_tot: None,
             v_tot_trib: None,
         }
@@ -2695,6 +2930,21 @@ impl InvoiceItemData {
         self.dfe_referenciado = Some(v);
         self
     }
+    /// Set import declarations (DI).
+    pub fn di(mut self, v: Vec<DiData>) -> Self {
+        self.di = Some(v);
+        self
+    }
+    /// Set export details (detExport).
+    pub fn det_export(mut self, v: Vec<DetExportData>) -> Self {
+        self.det_export = Some(v);
+        self
+    }
+    /// Set imposto devolvido data for return invoices.
+    pub fn imposto_devol(mut self, v: ImpostoDevolData) -> Self {
+        self.imposto_devol = Some(v);
+        self
+    }
     /// Set the total indicator (`indTot`). Default is `1` (included in total).
     /// Set to `0` to exclude from invoice total.
     pub fn ind_tot(mut self, v: u8) -> Self {
@@ -2727,14 +2977,17 @@ pub(crate) struct InvoiceBuildData {
     pub change_amount: Option<Cents>,
     pub payment_card_details: Option<Vec<PaymentCardDetail>>,
     pub contingency: Option<ContingencyData>,
+    pub exit_at: Option<DateTime<FixedOffset>>,
     // IDE overrides
     pub operation_type: Option<u8>,
     pub purpose_code: Option<u8>,
+    pub destination_indicator: Option<String>,
     pub intermediary_indicator: Option<String>,
     pub emission_process: Option<String>,
     pub consumer_type: Option<String>,
     pub buyer_presence: Option<String>,
     pub print_format: Option<String>,
+    pub ver_proc: Option<String>,
     pub references: Option<Vec<ReferenceDoc>>,
     // Optional groups
     pub transport: Option<TransportData>,

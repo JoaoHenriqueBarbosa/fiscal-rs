@@ -773,6 +773,98 @@ impl SefazClient {
         response_parsers::parse_cancellation_response(&raw)
     }
 
+    /// Submit a pedido de prorrogacao ICMS event (`RecepcaoEvento4`,
+    /// tpEvento=111500 or 111501).
+    ///
+    /// Used for NF-e of consignment for industrialization with ICMS suspension
+    /// in interstate operations. First term uses 111500, second term uses 111501.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NF-e.
+    /// * `protocol` — Authorization protocol of the original NF-e.
+    /// * `items` — Items and quantities for the prorrogacao request.
+    /// * `second_term` — If `true`, sends 2nd-term event (111501).
+    /// * `seq` — Event sequence number.
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn prorrogacao(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        protocol: &str,
+        items: &[request_builders::ProrrogacaoItem],
+        second_term: bool,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_prorrogacao_request(
+            access_key,
+            protocol,
+            items,
+            second_term,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Cancel a pedido de prorrogacao ICMS event (`RecepcaoEvento4`,
+    /// tpEvento=111502 or 111503).
+    ///
+    /// First term uses 111502, second term uses 111503.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NF-e.
+    /// * `protocol` — Authorization protocol of the prorrogacao event.
+    /// * `second_term` — If `true`, sends 2nd-term cancellation (111503).
+    /// * `seq` — Event sequence number.
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn cancel_prorrogacao(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        protocol: &str,
+        second_term: bool,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancel_prorrogacao_request(
+            access_key,
+            protocol,
+            second_term,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
     /// Send a request to the Ambiente Nacional (AN) endpoint.

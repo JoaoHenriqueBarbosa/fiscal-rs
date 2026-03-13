@@ -42,6 +42,8 @@ pub struct DetResult {
     pub ind_tot: u8,
     /// Approximate total tax for this item (`vTotTrib`). Optional.
     pub v_tot_trib: i64,
+    /// IPI devolution value in cents contributed by this item.
+    pub v_ipi_devol: i64,
     /// Whether this item uses ISSQN instead of ICMS.
     pub has_issqn: bool,
 }
@@ -589,6 +591,18 @@ pub(crate) fn build_det(
         None => "1".to_string(),
     };
     prod_children.push(tag("indTot", &[], TagContent::Text(&ind_tot_str)));
+    // DI (Declaração de Importação) — after indTot, before detExport
+    if let Some(ref dis) = item.di {
+        for di in dis.iter().take(100) {
+            prod_children.push(build_di_xml(di));
+        }
+    }
+    // detExport — after DI, before xPed
+    if let Some(ref exports) = item.det_export {
+        for dex in exports.iter().take(500) {
+            prod_children.push(build_det_export_xml(dex));
+        }
+    }
     if let Some(ref xped) = item.x_ped {
         prod_children.push(tag("xPed", &[], TagContent::Text(xped)));
     }
@@ -600,12 +614,41 @@ pub(crate) fn build_det(
     }
     prod_children.extend(prod_options);
 
+    // impostoDevol (after imposto, before infAdProd)
+    let mut v_ipi_devol = 0i64;
+    let imposto_devol_xml = if let Some(ref devol) = item.imposto_devol {
+        v_ipi_devol = devol.v_ipi_devol.0;
+        let p_devol_str = format_decimal(devol.p_devol.0 as f64 / 100.0, 2);
+        let v_ipi_devol_str = format_cents(devol.v_ipi_devol.0, 2);
+        tag(
+            "impostoDevol",
+            &[],
+            TagContent::Children(vec![
+                tag("pDevol", &[], TagContent::Text(&p_devol_str)),
+                tag(
+                    "IPI",
+                    &[],
+                    TagContent::Children(vec![tag(
+                        "vIPIDevol",
+                        &[],
+                        TagContent::Text(&v_ipi_devol_str),
+                    )]),
+                ),
+            ]),
+        )
+    } else {
+        String::new()
+    };
+
     // Assemble det
     let nitem = item.item_number.to_string();
     let mut det_children = vec![
         tag("prod", &[], TagContent::Children(prod_children)),
         tag("imposto", &[], TagContent::Children(imposto_children)),
     ];
+    if !imposto_devol_xml.is_empty() {
+        det_children.push(imposto_devol_xml);
+    }
     det_children.extend(det_extras);
 
     let xml = tag(
@@ -627,6 +670,7 @@ pub(crate) fn build_det(
         v_outro: item.v_outro.map(|c| c.0).unwrap_or(0),
         ind_tot: item.ind_tot.unwrap_or(1),
         v_tot_trib: item.v_tot_trib.map(|c| c.0).unwrap_or(0),
+        v_ipi_devol,
         has_issqn,
     })
 }
@@ -721,6 +765,78 @@ fn build_prod_options(item: &InvoiceItemData) -> Vec<String> {
     }
 
     opts
+}
+
+/// Build a single `<DI>` element with its nested `<adi>` children.
+fn build_di_xml(di: &crate::types::DiData) -> String {
+    let mut children = vec![
+        tag("nDI", &[], TagContent::Text(&di.n_di)),
+        tag("dDI", &[], TagContent::Text(&di.d_di)),
+        tag("xLocDesemb", &[], TagContent::Text(&di.x_loc_desemb)),
+        tag("UFDesemb", &[], TagContent::Text(&di.uf_desemb)),
+        tag("dDesemb", &[], TagContent::Text(&di.d_desemb)),
+        tag("tpViaTransp", &[], TagContent::Text(&di.tp_via_transp)),
+    ];
+    if let Some(ref v) = di.v_afrmm {
+        children.push(tag("vAFRMM", &[], TagContent::Text(&format_cents(v.0, 2))));
+    }
+    children.push(tag(
+        "tpIntermedio",
+        &[],
+        TagContent::Text(&di.tp_intermedio),
+    ));
+    if let Some(ref cnpj) = di.cnpj {
+        children.push(tag("CNPJ", &[], TagContent::Text(cnpj)));
+    } else if let Some(ref cpf) = di.cpf {
+        children.push(tag("CPF", &[], TagContent::Text(cpf)));
+    }
+    if let Some(ref uf) = di.uf_terceiro {
+        children.push(tag("UFTerceiro", &[], TagContent::Text(uf)));
+    }
+    children.push(tag("cExportador", &[], TagContent::Text(&di.c_exportador)));
+    // adi children (up to 999 per DI)
+    for adi in di.adi.iter().take(999) {
+        let mut adi_children = Vec::new();
+        if let Some(ref n) = adi.n_adicao {
+            adi_children.push(tag("nAdicao", &[], TagContent::Text(n)));
+        }
+        adi_children.push(tag("nSeqAdic", &[], TagContent::Text(&adi.n_seq_adic)));
+        adi_children.push(tag("cFabricante", &[], TagContent::Text(&adi.c_fabricante)));
+        if let Some(ref v) = adi.v_desc_di {
+            adi_children.push(tag("vDescDI", &[], TagContent::Text(&format_cents(v.0, 2))));
+        }
+        if let Some(ref n) = adi.n_draw {
+            adi_children.push(tag("nDraw", &[], TagContent::Text(n)));
+        }
+        children.push(tag("adi", &[], TagContent::Children(adi_children)));
+    }
+    tag("DI", &[], TagContent::Children(children))
+}
+
+/// Build a single `<detExport>` element with optional `<exportInd>`.
+fn build_det_export_xml(dex: &crate::types::DetExportData) -> String {
+    let mut children = Vec::new();
+    if let Some(ref n) = dex.n_draw {
+        children.push(tag("nDraw", &[], TagContent::Text(n)));
+    }
+    if dex.n_re.is_some() || dex.ch_nfe.is_some() || dex.q_export.is_some() {
+        let mut exp_ind_children = Vec::new();
+        if let Some(ref n) = dex.n_re {
+            exp_ind_children.push(tag("nRE", &[], TagContent::Text(n)));
+        }
+        if let Some(ref ch) = dex.ch_nfe {
+            exp_ind_children.push(tag("chNFe", &[], TagContent::Text(ch)));
+        }
+        if let Some(q) = dex.q_export {
+            exp_ind_children.push(tag("qExport", &[], TagContent::Text(&format_decimal(q, 4))));
+        }
+        children.push(tag(
+            "exportInd",
+            &[],
+            TagContent::Children(exp_ind_children),
+        ));
+    }
+    tag("detExport", &[], TagContent::Children(children))
 }
 
 /// Build the `<comb>` element for fuel products.
@@ -879,6 +995,7 @@ mod tests {
             change_amount: None,
             payment_card_details: None,
             contingency: None,
+            exit_at: None,
             operation_type: None,
             purpose_code: None,
             intermediary_indicator: None,
@@ -1263,5 +1380,325 @@ mod tests {
         assert!(result.xml.contains("<ICMS"));
         assert!(!result.xml.contains("<ISSQN>"));
         assert!(!result.has_issqn);
+    }
+
+    // ── Declaração de Importação (DI) ──────────────────────────────────────
+
+    #[test]
+    fn di_minimal_with_one_adi() {
+        use crate::types::{AdiData, DiData};
+
+        let adi = AdiData::new("1", "FABRICANTE_X").n_adicao("001");
+        let di = DiData::new(
+            "1234567890",
+            "2025-01-15",
+            "Santos",
+            "SP",
+            "2025-01-20",
+            "1",
+            "1",
+            "EXP001",
+            vec![adi],
+        );
+        let xml = build_di_xml(&di);
+
+        assert_eq!(
+            xml,
+            "<DI>\
+                <nDI>1234567890</nDI>\
+                <dDI>2025-01-15</dDI>\
+                <xLocDesemb>Santos</xLocDesemb>\
+                <UFDesemb>SP</UFDesemb>\
+                <dDesemb>2025-01-20</dDesemb>\
+                <tpViaTransp>1</tpViaTransp>\
+                <tpIntermedio>1</tpIntermedio>\
+                <cExportador>EXP001</cExportador>\
+                <adi>\
+                    <nAdicao>001</nAdicao>\
+                    <nSeqAdic>1</nSeqAdic>\
+                    <cFabricante>FABRICANTE_X</cFabricante>\
+                </adi>\
+            </DI>"
+        );
+    }
+
+    #[test]
+    fn di_with_all_optional_fields() {
+        use crate::types::{AdiData, DiData};
+
+        let adi = AdiData::new("1", "FAB_Y")
+            .n_adicao("002")
+            .v_desc_di(Cents(15000))
+            .n_draw("20259999999");
+        let di = DiData::new(
+            "DI-2025-001",
+            "2025-03-01",
+            "Paranagua",
+            "PR",
+            "2025-03-05",
+            "1",
+            "2",
+            "EXP002",
+            vec![adi],
+        )
+        .v_afrmm(Cents(5000))
+        .cnpj("12345678000199")
+        .uf_terceiro("RJ");
+
+        let xml = build_di_xml(&di);
+
+        assert_eq!(
+            xml,
+            "<DI>\
+                <nDI>DI-2025-001</nDI>\
+                <dDI>2025-03-01</dDI>\
+                <xLocDesemb>Paranagua</xLocDesemb>\
+                <UFDesemb>PR</UFDesemb>\
+                <dDesemb>2025-03-05</dDesemb>\
+                <tpViaTransp>1</tpViaTransp>\
+                <vAFRMM>50.00</vAFRMM>\
+                <tpIntermedio>2</tpIntermedio>\
+                <CNPJ>12345678000199</CNPJ>\
+                <UFTerceiro>RJ</UFTerceiro>\
+                <cExportador>EXP002</cExportador>\
+                <adi>\
+                    <nAdicao>002</nAdicao>\
+                    <nSeqAdic>1</nSeqAdic>\
+                    <cFabricante>FAB_Y</cFabricante>\
+                    <vDescDI>150.00</vDescDI>\
+                    <nDraw>20259999999</nDraw>\
+                </adi>\
+            </DI>"
+        );
+    }
+
+    #[test]
+    fn di_with_cpf_instead_of_cnpj() {
+        use crate::types::{AdiData, DiData};
+
+        let adi = AdiData::new("1", "FAB_Z");
+        let di = DiData::new(
+            "DI-CPF",
+            "2025-06-01",
+            "Recife",
+            "PE",
+            "2025-06-03",
+            "7",
+            "3",
+            "EXP003",
+            vec![adi],
+        )
+        .cpf("12345678901");
+
+        let xml = build_di_xml(&di);
+        assert!(xml.contains("<CPF>12345678901</CPF>"));
+        assert!(!xml.contains("<CNPJ>"));
+    }
+
+    #[test]
+    fn di_with_multiple_adi() {
+        use crate::types::{AdiData, DiData};
+
+        let adi1 = AdiData::new("1", "FAB_A").n_adicao("001");
+        let adi2 = AdiData::new("2", "FAB_B").n_adicao("001");
+        let di = DiData::new(
+            "DI-MULTI",
+            "2025-01-01",
+            "Santos",
+            "SP",
+            "2025-01-05",
+            "1",
+            "1",
+            "EXP-M",
+            vec![adi1, adi2],
+        );
+        let xml = build_di_xml(&di);
+
+        // Both adi elements present
+        let count = xml.matches("<adi>").count();
+        assert_eq!(count, 2, "expected 2 <adi> elements, got {count}");
+        assert!(xml.contains("<nSeqAdic>1</nSeqAdic>"));
+        assert!(xml.contains("<nSeqAdic>2</nSeqAdic>"));
+        assert!(xml.contains("<cFabricante>FAB_A</cFabricante>"));
+        assert!(xml.contains("<cFabricante>FAB_B</cFabricante>"));
+    }
+
+    #[test]
+    fn di_in_det_xml_between_ind_tot_and_xped() {
+        use crate::types::{AdiData, DiData};
+
+        let adi = AdiData::new("1", "FAB").n_adicao("001");
+        let di = DiData::new(
+            "DI-001",
+            "2025-01-15",
+            "Santos",
+            "SP",
+            "2025-01-20",
+            "1",
+            "1",
+            "EXP",
+            vec![adi],
+        );
+        let item = sample_item().di(vec![di]).x_ped("PO-123");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let xml = &result.xml;
+        let ind_tot_pos = xml.find("</indTot>").expect("</indTot> must exist");
+        let di_pos = xml.find("<DI>").expect("<DI> must exist");
+        let xped_pos = xml.find("<xPed>").expect("<xPed> must exist");
+
+        assert!(di_pos > ind_tot_pos, "DI must come after indTot");
+        assert!(xped_pos > di_pos, "xPed must come after DI");
+    }
+
+    // ── Detalhe de Exportação (detExport) ──────────────────────────────────
+
+    #[test]
+    fn det_export_with_n_draw_only() {
+        use crate::types::DetExportData;
+
+        let dex = DetExportData::new().n_draw("20250000001");
+        let xml = build_det_export_xml(&dex);
+
+        assert_eq!(
+            xml,
+            "<detExport>\
+                <nDraw>20250000001</nDraw>\
+            </detExport>"
+        );
+    }
+
+    #[test]
+    fn det_export_with_export_ind() {
+        use crate::types::DetExportData;
+
+        let dex = DetExportData::new()
+            .n_draw("20250000002")
+            .n_re("123456789012")
+            .ch_nfe("12345678901234567890123456789012345678901234")
+            .q_export(100.5);
+        let xml = build_det_export_xml(&dex);
+
+        assert_eq!(
+            xml,
+            "<detExport>\
+                <nDraw>20250000002</nDraw>\
+                <exportInd>\
+                    <nRE>123456789012</nRE>\
+                    <chNFe>12345678901234567890123456789012345678901234</chNFe>\
+                    <qExport>100.5000</qExport>\
+                </exportInd>\
+            </detExport>"
+        );
+    }
+
+    #[test]
+    fn det_export_empty() {
+        use crate::types::DetExportData;
+
+        let dex = DetExportData::new();
+        let xml = build_det_export_xml(&dex);
+
+        assert_eq!(xml, "<detExport></detExport>");
+    }
+
+    #[test]
+    fn det_export_in_det_xml_between_ind_tot_and_xped() {
+        use crate::types::DetExportData;
+
+        let dex = DetExportData::new().n_draw("20250000001");
+        let item = sample_item().det_export(vec![dex]).x_ped("PO-456");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let xml = &result.xml;
+        let ind_tot_pos = xml.find("</indTot>").expect("</indTot> must exist");
+        let det_exp_pos = xml.find("<detExport>").expect("<detExport> must exist");
+        let xped_pos = xml.find("<xPed>").expect("<xPed> must exist");
+
+        assert!(
+            det_exp_pos > ind_tot_pos,
+            "detExport must come after indTot"
+        );
+        assert!(xped_pos > det_exp_pos, "xPed must come after detExport");
+    }
+
+    // ── Imposto Devolvido (impostoDevol) ───────────────────────────────────
+
+    #[test]
+    fn imposto_devol_produces_correct_xml() {
+        use crate::types::ImpostoDevolData;
+
+        let devol = ImpostoDevolData::new(Rate(10000), Cents(5000));
+        let item = sample_item().imposto_devol(devol);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains(
+            "<impostoDevol>\
+                <pDevol>100.00</pDevol>\
+                <IPI>\
+                    <vIPIDevol>50.00</vIPIDevol>\
+                </IPI>\
+            </impostoDevol>"
+        ));
+        assert_eq!(result.v_ipi_devol, 5000);
+    }
+
+    #[test]
+    fn imposto_devol_50_percent() {
+        use crate::types::ImpostoDevolData;
+
+        let devol = ImpostoDevolData::new(Rate(5000), Cents(2500));
+        let item = sample_item().imposto_devol(devol);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<pDevol>50.00</pDevol>"));
+        assert!(result.xml.contains("<vIPIDevol>25.00</vIPIDevol>"));
+        assert_eq!(result.v_ipi_devol, 2500);
+    }
+
+    #[test]
+    fn imposto_devol_after_imposto_before_inf_ad_prod() {
+        use crate::types::ImpostoDevolData;
+
+        let devol = ImpostoDevolData::new(Rate(10000), Cents(1000));
+        let item = sample_item().imposto_devol(devol).inf_ad_prod("test info");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let imposto_end = result
+            .xml
+            .find("</imposto>")
+            .expect("</imposto> must exist");
+        let devol_pos = result
+            .xml
+            .find("<impostoDevol>")
+            .expect("<impostoDevol> must exist");
+        let inf_ad_pos = result
+            .xml
+            .find("<infAdProd>")
+            .expect("<infAdProd> must exist");
+
+        assert!(
+            devol_pos > imposto_end,
+            "impostoDevol must come after </imposto>"
+        );
+        assert!(
+            inf_ad_pos > devol_pos,
+            "infAdProd must come after impostoDevol"
+        );
+    }
+
+    #[test]
+    fn no_imposto_devol_when_none() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<impostoDevol>"));
+        assert_eq!(result.v_ipi_devol, 0);
     }
 }
