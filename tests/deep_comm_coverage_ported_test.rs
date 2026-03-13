@@ -91,15 +91,62 @@ mod deep_coverage_test {
         #[test]
         fn set_only_ascii_converts_accented_characters() {
             let mut item = minimal_nfe55_item();
+            item.description = "Açúcar Cristal".to_string();
             item.quantity = 1.0;
             item.total_price = Cents(1000);
             item.icms_amount = Cents(180);
-            let result = minimal_nfe55(30)
-                .operation_nature("OPERACAO COM ACENTUACAO")
+            let built = minimal_nfe55(30)
+                .operation_nature("OPERAÇÃO DE VENDA")
+                .only_ascii(true)
                 .items(vec![item])
                 .payments(vec![PaymentData::new("01", Cents(1000))])
-                .build();
-            assert!(result.is_ok());
+                .build()
+                .expect("build should succeed");
+            let xml = built.xml();
+            // Accented text should be sanitized to ASCII
+            assert!(
+                xml.contains("Acucar Cristal"),
+                "Expected 'Acucar Cristal' in XML, got:\n{xml}"
+            );
+            assert!(
+                xml.contains("OPERACAO DE VENDA"),
+                "Expected 'OPERACAO DE VENDA' in XML, got:\n{xml}"
+            );
+            // Should NOT contain accented versions
+            assert!(
+                !xml.contains("Açúcar"),
+                "XML should not contain accented 'Açúcar'"
+            );
+            assert!(
+                !xml.contains("OPERAÇÃO"),
+                "XML should not contain accented 'OPERAÇÃO'"
+            );
+        }
+
+        #[test]
+        fn set_only_ascii_disabled_preserves_accents() {
+            let mut item = minimal_nfe55_item();
+            item.description = "Açúcar Cristal".to_string();
+            item.quantity = 1.0;
+            item.total_price = Cents(1000);
+            item.icms_amount = Cents(180);
+            let built = minimal_nfe55(30)
+                .operation_nature("OPERAÇÃO DE VENDA")
+                .only_ascii(false)
+                .items(vec![item])
+                .payments(vec![PaymentData::new("01", Cents(1000))])
+                .build()
+                .expect("build should succeed");
+            let xml = built.xml();
+            // Accented text should be preserved when only_ascii is false
+            assert!(
+                xml.contains("Açúcar Cristal"),
+                "Expected 'Açúcar Cristal' in XML when only_ascii=false, got:\n{xml}"
+            );
+            assert!(
+                xml.contains("OPERAÇÃO DE VENDA"),
+                "Expected 'OPERAÇÃO DE VENDA' in XML when only_ascii=false, got:\n{xml}"
+            );
         }
 
         #[test]
@@ -674,10 +721,211 @@ mod deep_coverage_test {
     }
 
     mod tools_sefaz_validate {
+        use fiscal::sefaz::validate::{
+            extract_nfe_validation_data, is_valid_xml, validate_authorized_nfe, validate_nfe_xml,
+            validate_request_xml,
+        };
+
+        // Minimal valid NF-e XML for tests (version 4.00, all required tags).
+        fn valid_nfe_xml() -> String {
+            concat!(
+                r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+                r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+                "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+                "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+                "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+                "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+                "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+                "<tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal>",
+                "<indPres>1</indPres><procEmi>0</procEmi><verProc>1.0</verProc></ide>",
+                "<emit><CNPJ>04123456000190</CNPJ><xNome>Empresa Teste</xNome>",
+                "<enderEmit><xLgr>Rua Teste</xLgr></enderEmit>",
+                "<IE>9012345678</IE><CRT>3</CRT></emit>",
+                r#"<det nItem="1"><prod><cProd>001</cProd></prod></det>"#,
+                "<total><ICMSTot><vNF>150.00</vNF></ICMSTot></total>",
+                "<transp><modFrete>9</modFrete></transp>",
+                "<pag><detPag><tPag>01</tPag><vPag>150.00</vPag></detPag></pag>",
+                r#"<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">"#,
+                "<SignedInfo/><SignatureValue/></Signature>",
+                "</infNFe></NFe>"
+            )
+            .to_string()
+        }
+
+        // --- is_valid_xml ---
+
+        #[test]
+        fn is_valid_xml_accepts_well_formed() {
+            assert!(is_valid_xml("<root><child/></root>"));
+        }
+
+        #[test]
+        fn is_valid_xml_rejects_empty() {
+            assert!(!is_valid_xml(""));
+        }
+
+        #[test]
+        fn is_valid_xml_rejects_html() {
+            assert!(!is_valid_xml("<!DOCTYPE html><html></html>"));
+        }
+
+        #[test]
+        fn is_valid_xml_rejects_malformed() {
+            assert!(!is_valid_xml("<root><unclosed>"));
+        }
+
+        // --- validate_nfe_xml ---
+
         #[test]
         fn throws_on_empty_string() {
-            let key = "";
-            assert_eq!(key, "");
+            let err = validate_nfe_xml("", "4.00").unwrap_err();
+            assert!(err.to_string().contains("vazia"));
+        }
+
+        #[test]
+        fn throws_on_non_xml() {
+            let err = validate_nfe_xml("not xml", "4.00").unwrap_err();
+            assert!(err.to_string().contains("não é um XML"));
+        }
+
+        #[test]
+        fn valid_nfe_passes() {
+            assert!(validate_nfe_xml(&valid_nfe_xml(), "4.00").is_ok());
+        }
+
+        #[test]
+        fn wrong_version_detected() {
+            let err = validate_nfe_xml(&valid_nfe_xml(), "3.10").unwrap_err();
+            let msg = err.to_string();
+            assert!(msg.contains("4.00"));
+            assert!(msg.contains("3.10"));
+        }
+
+        #[test]
+        fn missing_signature_detected() {
+            // Remove entire Signature block to keep XML well-formed
+            let xml = valid_nfe_xml()
+                .replace(
+                    r#"<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo/><SignatureValue/></Signature>"#,
+                    "",
+                );
+            let err = validate_nfe_xml(&xml, "4.00").unwrap_err();
+            assert!(err.to_string().contains("Signature"));
+        }
+
+        #[test]
+        fn missing_namespace_detected() {
+            let xml = valid_nfe_xml().replace(
+                "http://www.portalfiscal.inf.br/nfe",
+                "http://wrong.namespace",
+            );
+            let err = validate_nfe_xml(&xml, "4.00").unwrap_err();
+            assert!(err.to_string().contains("Namespace"));
+        }
+
+        #[test]
+        fn missing_required_block_detected() {
+            // Remove entire transp block to keep XML well-formed
+            let xml = valid_nfe_xml().replace("<transp><modFrete>9</modFrete></transp>", "");
+            let err = validate_nfe_xml(&xml, "4.00").unwrap_err();
+            assert!(err.to_string().contains("transp"));
+        }
+
+        #[test]
+        fn collects_multiple_errors() {
+            let err = validate_nfe_xml("<root/>", "4.00").unwrap_err();
+            let msg = err.to_string();
+            // Deve conter múltiplos erros separados por "; "
+            assert!(msg.contains("; "));
+        }
+
+        // --- validate_request_xml ---
+
+        #[test]
+        fn valid_request_xml_passes() {
+            let xml = r#"<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>1</idLote></enviNFe>"#;
+            assert!(validate_request_xml(xml, "4.00", "enviNFe").is_ok());
+        }
+
+        #[test]
+        fn request_xml_wrong_root_detected() {
+            let xml = r#"<wrong xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"/>"#;
+            let err = validate_request_xml(xml, "4.00", "enviNFe").unwrap_err();
+            assert!(err.to_string().contains("enviNFe"));
+        }
+
+        // --- extract_nfe_validation_data / validate_authorized_nfe ---
+
+        #[test]
+        fn extract_validation_data_from_authorized_xml() {
+            let xml = concat!(
+                r#"<nfeProc><NFe><infNFe Id="NFe41260304123456000190550010000001231123456780">"#,
+                "</infNFe></NFe>",
+                "<protNFe><infProt>",
+                "<nProt>141260000123456</nProt>",
+                "<DigestValue>abc123==</DigestValue>",
+                "</infProt></protNFe></nfeProc>"
+            );
+            let (key, prot, digest) = extract_nfe_validation_data(xml).expect("deve parsear");
+            assert_eq!(key, "41260304123456000190550010000001231123456780");
+            assert_eq!(prot, "141260000123456");
+            assert_eq!(digest, "abc123==");
+        }
+
+        #[test]
+        fn validate_authorized_nfe_matching_data() {
+            let sefaz_resp = concat!(
+                "<retConsSitNFe>",
+                "<protNFe><infProt>",
+                "<chNFe>41260304123456000190550010000001231123456780</chNFe>",
+                "<nProt>141260000123456</nProt>",
+                "<digVal>abc123==</digVal>",
+                "</infProt></protNFe>",
+                "</retConsSitNFe>"
+            );
+            let result = validate_authorized_nfe(
+                "41260304123456000190550010000001231123456780",
+                "141260000123456",
+                "abc123==",
+                sefaz_resp,
+            )
+            .expect("deve validar");
+            assert!(result.is_valid);
+        }
+
+        #[test]
+        fn validate_authorized_nfe_mismatched_protocol() {
+            let sefaz_resp = concat!(
+                "<retConsSitNFe>",
+                "<protNFe><infProt>",
+                "<chNFe>41260304123456000190550010000001231123456780</chNFe>",
+                "<nProt>999999999999999</nProt>",
+                "<digVal>abc123==</digVal>",
+                "</infProt></protNFe>",
+                "</retConsSitNFe>"
+            );
+            let result = validate_authorized_nfe(
+                "41260304123456000190550010000001231123456780",
+                "141260000123456",
+                "abc123==",
+                sefaz_resp,
+            )
+            .expect("deve retornar resultado");
+            assert!(!result.is_valid);
+        }
+
+        #[test]
+        fn validate_authorized_nfe_error_from_sefaz() {
+            let sefaz_resp =
+                "<retConsSitNFe><xMotivo>NF-e nao consta na base</xMotivo></retConsSitNFe>";
+            let err = validate_authorized_nfe(
+                "41260304123456000190550010000001231123456780",
+                "141260000123456",
+                "abc123==",
+                sefaz_resp,
+            )
+            .unwrap_err();
+            assert!(err.to_string().contains("NF-e nao consta na base"));
         }
     }
 

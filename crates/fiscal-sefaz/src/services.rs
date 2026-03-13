@@ -45,6 +45,14 @@ pub enum SefazService {
     ConsultaCadastro,
     /// `CscNFCe` — manage CSC (Código de Segurança do Contribuinte) for NFC-e.
     CscNFCe,
+    /// `RecepcaoEPEC` — submit EPEC contingency events for NFC-e (SP only).
+    RecepcaoEPEC,
+    /// `EPECStatusServico` — check EPEC service status for NFC-e (SP only).
+    EPECStatusServico,
+    /// `RecepcaoEPEC` — submit EPEC events for NFC-e (SP only).
+    RecepcaoEpecNfce,
+    /// `EPECStatusServico` — check EPEC NFC-e service status (SP only).
+    EpecNfceStatusServico,
 }
 
 impl SefazService {
@@ -107,6 +115,26 @@ impl SefazService {
                 operation: "CscNFCe",
                 version: "1.00",
             },
+            Self::RecepcaoEPEC => ServiceMeta {
+                method: "nfeRecepcaoEvento",
+                operation: "RecepcaoEvento",
+                version: "1.00",
+            },
+            Self::EPECStatusServico => ServiceMeta {
+                method: "nfeStatusServicoNF2",
+                operation: "NfeStatusServico2",
+                version: "4.00",
+            },
+            Self::RecepcaoEpecNfce => ServiceMeta {
+                method: "nfeRecepcaoEvento",
+                operation: "RecepcaoEvento",
+                version: "1.00",
+            },
+            Self::EpecNfceStatusServico => ServiceMeta {
+                method: "nfeStatusServicoNF2",
+                operation: "NfeStatusServico2",
+                version: "4.00",
+            },
         }
     }
 
@@ -122,6 +150,10 @@ impl SefazService {
             Self::DistribuicaoDFe => "NfeDistribuicaoDFe",
             Self::ConsultaCadastro => "NfeConsultaCadastro",
             Self::CscNFCe => "CscNFCe",
+            Self::RecepcaoEPEC => "RecepcaoEPEC",
+            Self::EPECStatusServico => "EPECStatusServico",
+            Self::RecepcaoEpecNfce => "RecepcaoEPEC",
+            Self::EpecNfceStatusServico => "EPECStatusServico",
         }
     }
 }
@@ -142,6 +174,10 @@ mod tests {
             SefazService::DistribuicaoDFe,
             SefazService::ConsultaCadastro,
             SefazService::CscNFCe,
+            SefazService::RecepcaoEPEC,
+            SefazService::EPECStatusServico,
+            SefazService::RecepcaoEpecNfce,
+            SefazService::EpecNfceStatusServico,
         ];
         for svc in services {
             let meta = svc.meta();
@@ -184,6 +220,8 @@ mod tests {
         assert_eq!(SefazService::DistribuicaoDFe.meta().version, "1.01");
         assert_eq!(SefazService::ConsultaCadastro.meta().version, "2.00");
         assert_eq!(SefazService::CscNFCe.meta().version, "1.00");
+        assert_eq!(SefazService::RecepcaoEPEC.meta().version, "1.00");
+        assert_eq!(SefazService::EPECStatusServico.meta().version, "4.00");
     }
 
     #[test]
@@ -197,5 +235,34 @@ mod tests {
     #[test]
     fn csc_nfce_url_key() {
         assert_eq!(SefazService::CscNFCe.url_key(), "CscNFCe");
+    }
+
+    #[test]
+    fn recepcao_epec_meta() {
+        let meta = SefazService::RecepcaoEPEC.meta();
+        assert_eq!(meta.method, "nfeRecepcaoEvento");
+        assert_eq!(meta.operation, "RecepcaoEvento");
+        assert_eq!(meta.version, "1.00");
+    }
+
+    #[test]
+    fn recepcao_epec_url_key() {
+        assert_eq!(SefazService::RecepcaoEPEC.url_key(), "RecepcaoEPEC");
+    }
+
+    #[test]
+    fn epec_status_servico_meta() {
+        let meta = SefazService::EPECStatusServico.meta();
+        assert_eq!(meta.method, "nfeStatusServicoNF2");
+        assert_eq!(meta.operation, "NfeStatusServico2");
+        assert_eq!(meta.version, "4.00");
+    }
+
+    #[test]
+    fn epec_status_servico_url_key() {
+        assert_eq!(
+            SefazService::EPECStatusServico.url_key(),
+            "EPECStatusServico"
+        );
     }
 }

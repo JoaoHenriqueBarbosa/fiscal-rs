@@ -325,21 +325,67 @@ mod simples_nacional_csosn {
         assert!(xml.contains("<vCredICMSSN>"));
     }
 
-    /// CSOSN 102 and 103 both produce a simple CSOSN tag with no credit fields.
-    #[rstest]
-    #[case("102")]
-    #[case("103")]
-    fn csosn_102_103_no_credit(#[case] csosn: &str) {
+    #[test]
+    fn csosn_102_no_credit() {
         let variant = IcmsVariant::from(IcmsCsosn::Csosn102 {
             orig: "0".into(),
-            csosn: csosn.into(),
+            csosn: "102".into(),
         });
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&variant, &mut totals).unwrap();
-        assert!(xml.contains(&format!("<CSOSN>{csosn}</CSOSN>")));
+        assert!(xml.contains("<ICMSSN102>"));
+        assert!(xml.contains("<CSOSN>102</CSOSN>"));
         assert!(
             !xml.contains("<pCredSN>"),
-            "CSOSN {csosn} should not have credit"
+            "CSOSN 102 should not have credit"
+        );
+    }
+
+    #[test]
+    fn csosn_103_uses_icmssn102_tag() {
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn103 {
+            orig: "0".into(),
+            csosn: "103".into(),
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
+        assert!(xml.contains("<ICMSSN102>"));
+        assert!(xml.contains("<CSOSN>103</CSOSN>"));
+        assert!(
+            !xml.contains("<pCredSN>"),
+            "CSOSN 103 should not have credit"
+        );
+    }
+
+    #[test]
+    fn csosn_300_uses_icmssn102_tag() {
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn300 {
+            orig: "0".into(),
+            csosn: "300".into(),
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
+        assert!(xml.contains("<ICMSSN102>"));
+        assert!(xml.contains("<CSOSN>300</CSOSN>"));
+        assert!(
+            !xml.contains("<pCredSN>"),
+            "CSOSN 300 should not have credit"
+        );
+    }
+
+    #[test]
+    fn csosn_400_uses_icmssn102_tag() {
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn400 {
+            orig: "0".into(),
+            csosn: "400".into(),
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
+        assert!(xml.contains("<ICMSSN102>"));
+        assert!(xml.contains("<CSOSN>400</CSOSN>"));
+        assert!(
+            !xml.contains("<pCredSN>"),
+            "CSOSN 400 should not have credit"
         );
     }
 
@@ -386,6 +432,29 @@ mod simples_nacional_csosn {
         let mut totals = IcmsTotals::default();
         let xml = build_icms_xml(&variant, &mut totals).unwrap();
         assert!(xml.contains("<CSOSN>202</CSOSN>"));
+    }
+
+    #[test]
+    fn csosn_203_uses_icmssn202_tag() {
+        let variant = IcmsVariant::from(IcmsCsosn::Csosn203 {
+            orig: "0".into(),
+            csosn: "203".into(),
+            mod_bc_st: "4".into(),
+            p_mva_st: None,
+            p_red_bc_st: None,
+            v_bc_st: Cents(10000),
+            p_icms_st: Rate(1800),
+            v_icms_st: Cents(1800),
+            v_bc_fcp_st: None,
+            p_fcp_st: None,
+            v_fcp_st: None,
+        });
+        let mut totals = IcmsTotals::default();
+        let xml = build_icms_xml(&variant, &mut totals).unwrap();
+        assert!(xml.contains("<ICMSSN202>"));
+        assert!(xml.contains("<CSOSN>203</CSOSN>"));
+        assert_eq!(totals.v_bc_st, Cents(10000));
+        assert_eq!(totals.v_st, Cents(1800));
     }
 
     #[test]

@@ -420,6 +420,12 @@ pub struct IcmsTotals {
     pub q_bc_mono_ret: i64,
     /// Total monophasic previously-collected ICMS value (`vICMSMonoRet`).
     pub v_icms_mono_ret: Cents,
+    /// Whether ICMS desoneration should be deducted from vNF (`indDeduzDeson`).
+    ///
+    /// Mirrors the PHP class-level `$this->indDeduzDeson` flag.  When any item
+    /// sets `indDeduzDeson=1`, this flag becomes `true` and the accumulated
+    /// `v_icms_deson` is subtracted from vNF.
+    pub ind_deduz_deson: bool,
 }
 
 impl IcmsTotals {
@@ -495,6 +501,13 @@ impl IcmsTotals {
     /// Set the total monophasic previously-collected ICMS value (`vICMSMonoRet`).
     pub fn v_icms_mono_ret(mut self, v: Cents) -> Self {
         self.v_icms_mono_ret = v;
+        self
+    }
+    /// Set the desoneration deduction indicator (`indDeduzDeson`).
+    ///
+    /// When `true`, the accumulated `v_icms_deson` is subtracted from vNF.
+    pub fn ind_deduz_deson(mut self, v: bool) -> Self {
+        self.ind_deduz_deson = v;
         self
     }
 }
@@ -1118,6 +1131,9 @@ pub fn build_icms_cst_xml(
             ind_deduz_deson,
         } => {
             totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            if ind_deduz_deson.as_deref() == Some("1") {
+                totals.ind_deduz_deson = true;
+            }
             totals.v_bc = accum(totals.v_bc, Some(*v_bc));
             totals.v_icms = accum(totals.v_icms, Some(*v_icms));
             totals.v_fcp = accum(totals.v_fcp, *v_fcp);
@@ -1157,6 +1173,9 @@ pub fn build_icms_cst_xml(
             ind_deduz_deson,
         } => {
             totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            if ind_deduz_deson.as_deref() == Some("1") {
+                totals.ind_deduz_deson = true;
+            }
             totals.v_bc_st = accum(totals.v_bc_st, Some(*v_bc_st));
             totals.v_st = accum(totals.v_st, Some(*v_icms_st));
             totals.v_fcp_st = accum(totals.v_fcp_st, *v_fcp_st);
@@ -1211,6 +1230,9 @@ pub fn build_icms_cst_xml(
             ind_deduz_deson,
         } => {
             totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            if ind_deduz_deson.as_deref() == Some("1") {
+                totals.ind_deduz_deson = true;
+            }
             let mut fields_opt: Vec<Option<TaxField>> = vec![
                 Some(TaxField::new("orig", orig.as_str())),
                 Some(TaxField::new("CST", cst.cst_code())),
@@ -1374,6 +1396,9 @@ pub fn build_icms_cst_xml(
             mot_des_icms_st,
         } => {
             totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            if ind_deduz_deson.as_deref() == Some("1") {
+                totals.ind_deduz_deson = true;
+            }
             totals.v_bc = accum(totals.v_bc, Some(*v_bc));
             totals.v_icms = accum(totals.v_icms, Some(*v_icms));
             totals.v_bc_st = accum(totals.v_bc_st, Some(*v_bc_st));
@@ -1460,6 +1485,9 @@ pub fn build_icms_cst_xml(
             mot_des_icms_st,
         } => {
             totals.v_icms_deson = accum(totals.v_icms_deson, *v_icms_deson);
+            if ind_deduz_deson.as_deref() == Some("1") {
+                totals.ind_deduz_deson = true;
+            }
             totals.v_bc = accum(totals.v_bc, *v_bc);
             totals.v_icms = accum(totals.v_icms, *v_icms);
             totals.v_bc_st = accum(totals.v_bc_st, *v_bc_st);
@@ -1536,12 +1564,33 @@ pub enum IcmsCsosn {
         /// Simples Nacional credit value (`vCredICMSSN`).
         v_cred_icms_sn: Cents,
     },
-    /// CSOSN 102/103/300/400 — Tributada sem permissao de credito / Imune /
-    /// Nao tributada.
+    /// CSOSN 102 — Tributada pelo Simples Nacional sem permissão de crédito.
     Csosn102 {
-        /// Product origin code (`orig`). May be empty for CSOSN 300/400.
+        /// Product origin code (`orig`). May be empty when CRT=4.
         orig: String,
-        /// CSOSN code — `"102"`, `"103"`, `"300"`, or `"400"`.
+        /// CSOSN code, always `"102"`.
+        csosn: String,
+    },
+    /// CSOSN 103 — Isenção do ICMS no Simples Nacional para faixa de receita
+    /// bruta.
+    Csosn103 {
+        /// Product origin code (`orig`).
+        orig: String,
+        /// CSOSN code, always `"103"`.
+        csosn: String,
+    },
+    /// CSOSN 300 — Imune.
+    Csosn300 {
+        /// Product origin code (`orig`). May be empty.
+        orig: String,
+        /// CSOSN code, always `"300"`.
+        csosn: String,
+    },
+    /// CSOSN 400 — Não tributada pelo Simples Nacional.
+    Csosn400 {
+        /// Product origin code (`orig`). May be empty.
+        orig: String,
+        /// CSOSN code, always `"400"`.
         csosn: String,
     },
     /// CSOSN 201 — Tributada com permissao de credito e com cobranca do ICMS
@@ -1574,12 +1623,38 @@ pub enum IcmsCsosn {
         /// Simples Nacional credit value (`vCredICMSSN`). Optional.
         v_cred_icms_sn: Option<Cents>,
     },
-    /// CSOSN 202/203 — Tributada sem permissao de credito e com cobranca do
+    /// CSOSN 202 — Tributada sem permissão de crédito e com cobrança do
     /// ICMS por ST.
     Csosn202 {
         /// Product origin code (`orig`).
         orig: String,
-        /// CSOSN code — `"202"` or `"203"`.
+        /// CSOSN code, always `"202"`.
+        csosn: String,
+        /// ST base calculation modality (`modBCST`).
+        mod_bc_st: String,
+        /// ST added value margin (`pMVAST`). Optional.
+        p_mva_st: Option<Rate>,
+        /// ST base reduction rate (`pRedBCST`). Optional.
+        p_red_bc_st: Option<Rate>,
+        /// ST calculation base value (`vBCST`).
+        v_bc_st: Cents,
+        /// ST rate (`pICMSST`).
+        p_icms_st: Rate,
+        /// ST ICMS value (`vICMSST`).
+        v_icms_st: Cents,
+        /// FCP-ST calculation base (`vBCFCPST`). Optional.
+        v_bc_fcp_st: Option<Cents>,
+        /// FCP-ST rate (`pFCPST`). Optional.
+        p_fcp_st: Option<Rate>,
+        /// FCP-ST value (`vFCPST`). Optional.
+        v_fcp_st: Option<Cents>,
+    },
+    /// CSOSN 203 — Isenção do ICMS no Simples Nacional para faixa de receita
+    /// bruta e com cobrança do ICMS por ST.
+    Csosn203 {
+        /// Product origin code (`orig`).
+        orig: String,
+        /// CSOSN code, always `"203"`.
         csosn: String,
         /// ST base calculation modality (`modBCST`).
         mod_bc_st: String,
@@ -1676,8 +1751,12 @@ impl IcmsCsosn {
         match self {
             Self::Csosn101 { csosn, .. } => csosn.as_str(),
             Self::Csosn102 { csosn, .. } => csosn.as_str(),
+            Self::Csosn103 { csosn, .. } => csosn.as_str(),
             Self::Csosn201 { csosn, .. } => csosn.as_str(),
             Self::Csosn202 { csosn, .. } => csosn.as_str(),
+            Self::Csosn203 { csosn, .. } => csosn.as_str(),
+            Self::Csosn300 { csosn, .. } => csosn.as_str(),
+            Self::Csosn400 { csosn, .. } => csosn.as_str(),
             Self::Csosn500 { csosn, .. } => csosn.as_str(),
             Self::Csosn900 { csosn, .. } => csosn.as_str(),
         }
@@ -1719,7 +1798,10 @@ pub fn build_icms_csosn_xml(
             Ok(("ICMSSN101".to_string(), fields))
         }
 
-        IcmsCsosn::Csosn102 { orig, csosn } => {
+        IcmsCsosn::Csosn102 { orig, csosn }
+        | IcmsCsosn::Csosn103 { orig, csosn }
+        | IcmsCsosn::Csosn300 { orig, csosn }
+        | IcmsCsosn::Csosn400 { orig, csosn } => {
             let orig_val = if orig.is_empty() {
                 None
             } else {
@@ -1785,6 +1867,19 @@ pub fn build_icms_csosn_xml(
         }
 
         IcmsCsosn::Csosn202 {
+            orig,
+            csosn,
+            mod_bc_st,
+            p_mva_st,
+            p_red_bc_st,
+            v_bc_st,
+            p_icms_st,
+            v_icms_st,
+            v_bc_fcp_st,
+            p_fcp_st,
+            v_fcp_st,
+        }
+        | IcmsCsosn::Csosn203 {
             orig,
             csosn,
             mod_bc_st,
@@ -1984,6 +2079,9 @@ pub fn build_icms_part_xml(data: &IcmsPartData) -> Result<(String, IcmsTotals), 
     totals.v_icms = accum(totals.v_icms, Some(data.v_icms));
     totals.v_bc_st = accum(totals.v_bc_st, Some(data.v_bc_st));
     totals.v_st = accum(totals.v_st, Some(data.v_icms_st));
+    if data.ind_deduz_deson.as_deref() == Some("1") {
+        totals.ind_deduz_deson = true;
+    }
 
     let mut fields_opt: Vec<Option<TaxField>> = vec![
         Some(TaxField::new("orig", data.orig.as_str())),
@@ -2180,4 +2278,8 @@ pub fn merge_icms_totals(target: &mut IcmsTotals, source: &IcmsTotals) {
     target.v_icms_mono_reten += source.v_icms_mono_reten;
     target.q_bc_mono_ret += source.q_bc_mono_ret;
     target.v_icms_mono_ret += source.v_icms_mono_ret;
+    // PHP uses "last one wins" for indDeduzDeson — if any source sets it, propagate.
+    if source.ind_deduz_deson {
+        target.ind_deduz_deson = true;
+    }
 }

@@ -1140,6 +1140,247 @@ pub fn build_epec_request(epec_data: &EpecData, environment: SefazEnvironment) -
     )
 }
 
+/// Build a SEFAZ EPEC NFC-e status request XML (`<consStatServ>`).
+///
+/// Queries the operational status of the EPEC NFC-e service. This service
+/// exists only for SP (São Paulo) and model 65 (NFC-e), matching the PHP
+/// `sefazStatusEpecNfce()` method from `TraitEPECNfce`.
+///
+/// # Arguments
+///
+/// * `uf` - State abbreviation (must be `"SP"`).
+/// * `environment` - SEFAZ environment (production or homologation).
+///
+/// # Panics
+///
+/// Panics if `uf` is not a valid Brazilian state code.
+pub fn build_epec_nfce_status_request(uf: &str, environment: SefazEnvironment) -> String {
+    let cuf = get_state_code(uf).expect("Invalid state code");
+    let tp_amb = environment.as_str();
+
+    format!(
+        "<consStatServ xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><tpAmb>{tp_amb}</tpAmb><cUF>{cuf}</cUF><xServ>STATUS</xServ></consStatServ>"
+    )
+}
+
+/// Data extracted from an NFC-e XML for building an EPEC NFC-e event request.
+///
+/// Similar to [`EpecData`] but adapted for NFC-e EPEC (SP only). Key
+/// differences from the regular EPEC:
+/// - No `vST` field (NFC-e EPEC does not include ICMS-ST value)
+/// - Destination section is optional (NFC-e can have no recipient)
+/// - Event is sent to the state's EPEC endpoint, not Ambiente Nacional
+///
+/// All fields are extracted from the signed NFC-e XML. Used as input to
+/// [`build_epec_nfce_request`].
+#[derive(Debug, Clone)]
+pub struct EpecNfceData {
+    /// 44-digit NFC-e access key (from `infNFe@Id`, without "NFe" prefix).
+    pub access_key: String,
+    /// IBGE code of the issuer's state (first 2 digits of the access key).
+    pub c_orgao_autor: String,
+    /// Application version string (from `<verProc>` or caller override).
+    pub ver_aplic: String,
+    /// Emission date-time (from `<dhEmi>`).
+    pub dh_emi: String,
+    /// Fiscal operation type (from `<tpNF>`): 0=entrada, 1=saída.
+    pub tp_nf: String,
+    /// Issuer's state tax registration (from `<emit><IE>`).
+    pub emit_ie: String,
+    /// Recipient's state abbreviation (from `<dest><UF>`), if present.
+    pub dest_uf: Option<String>,
+    /// Recipient's tax ID XML fragment: `<CNPJ>...</CNPJ>`, `<CPF>...</CPF>`,
+    /// or `<idEstrangeiro>...</idEstrangeiro>`. `None` if no recipient.
+    pub dest_id_tag: Option<String>,
+    /// Recipient's state tax registration (from `<dest><IE>`), if any.
+    pub dest_ie: Option<String>,
+    /// Total NF-e value (from `<total><ICMSTot><vNF>`).
+    pub v_nf: String,
+    /// Total ICMS value (from `<total><ICMSTot><vICMS>`).
+    pub v_icms: String,
+    /// CNPJ or CPF of the issuer (for the event envelope).
+    pub tax_id: String,
+}
+
+/// Extract [`EpecNfceData`] from a signed NFC-e XML string.
+///
+/// Parses the XML to extract all fields needed by the EPEC NFC-e event.
+/// Unlike [`extract_epec_data`], the destination section is optional (NFC-e
+/// can be issued without a recipient) and `vST` is not extracted.
+///
+/// # Errors
+///
+/// Returns [`fiscal_core::FiscalError::XmlParsing`] if required tags are missing.
+pub fn extract_epec_nfce_data(
+    nfce_xml: &str,
+    ver_aplic_override: Option<&str>,
+) -> Result<EpecNfceData, fiscal_core::FiscalError> {
+    use fiscal_core::FiscalError;
+
+    // Extract access key from infNFe@Id
+    let inf_nfe_start = nfce_xml
+        .find("<infNFe")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <infNFe> in NFC-e XML".into()))?;
+    let inf_nfe_header_end = nfce_xml[inf_nfe_start..]
+        .find('>')
+        .ok_or_else(|| FiscalError::XmlParsing("Malformed <infNFe> tag".into()))?
+        + inf_nfe_start;
+    let inf_nfe_header = &nfce_xml[inf_nfe_start..inf_nfe_header_end];
+
+    let id_pattern = "Id=\"";
+    let id_start = inf_nfe_header
+        .find(id_pattern)
+        .ok_or_else(|| FiscalError::XmlParsing("Missing Id attribute in <infNFe>".into()))?
+        + id_pattern.len();
+    let id_end = inf_nfe_header[id_start..]
+        .find('"')
+        .ok_or_else(|| FiscalError::XmlParsing("Malformed Id attribute in <infNFe>".into()))?
+        + id_start;
+    let id_value = &inf_nfe_header[id_start..id_end];
+
+    let access_key = id_value.strip_prefix("NFe").unwrap_or(id_value).to_string();
+    if access_key.len() != 44 {
+        return Err(FiscalError::XmlParsing(format!(
+            "Invalid access key length: expected 44, got {}",
+            access_key.len()
+        )));
+    }
+
+    let c_orgao_autor = access_key[..2].to_string();
+
+    // Extract emit section for IE and tax_id
+    let emit_section = extract_section(nfce_xml, "emit")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <emit> section in NFC-e XML".into()))?;
+    let emit_ie = extract_xml_tag_value(&emit_section, "IE")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <IE> in <emit>".into()))?;
+
+    let tax_id = extract_xml_tag_value(&emit_section, "CNPJ")
+        .or_else(|| extract_xml_tag_value(&emit_section, "CPF"))
+        .ok_or_else(|| FiscalError::XmlParsing("Missing CNPJ/CPF in <emit>".into()))?;
+
+    // Extract dest section (optional for NFC-e)
+    let dest_section = extract_section(nfce_xml, "dest");
+    let (dest_uf, dest_id_tag, dest_ie) = if let Some(ref dest) = dest_section {
+        let uf = extract_xml_tag_value(dest, "UF");
+
+        let id_tag = if let Some(cnpj) = extract_xml_tag_value(dest, "CNPJ") {
+            Some(format!("<CNPJ>{cnpj}</CNPJ>"))
+        } else if let Some(cpf) = extract_xml_tag_value(dest, "CPF") {
+            Some(format!("<CPF>{cpf}</CPF>"))
+        } else if let Some(id_est) = extract_xml_tag_value(dest, "idEstrangeiro") {
+            Some(format!("<idEstrangeiro>{id_est}</idEstrangeiro>"))
+        } else {
+            None
+        };
+
+        let ie = extract_xml_tag_value(dest, "IE").filter(|v| !v.is_empty());
+
+        (uf, id_tag, ie)
+    } else {
+        (None, None, None)
+    };
+
+    // Extract total section
+    let total_section = extract_section(nfce_xml, "total")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <total> section in NFC-e XML".into()))?;
+    let v_nf = extract_xml_tag_value(&total_section, "vNF")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <vNF> in <total>".into()))?;
+    let v_icms = extract_xml_tag_value(&total_section, "vICMS")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <vICMS> in <total>".into()))?;
+
+    // Other fields
+    let ver_proc = extract_xml_tag_value(nfce_xml, "verProc").unwrap_or_default();
+    let ver_aplic = match ver_aplic_override {
+        Some(v) if !v.is_empty() => v.to_string(),
+        _ => ver_proc,
+    };
+
+    let dh_emi = extract_xml_tag_value(nfce_xml, "dhEmi")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <dhEmi> in NFC-e XML".into()))?;
+    let tp_nf = extract_xml_tag_value(nfce_xml, "tpNF")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <tpNF> in NFC-e XML".into()))?;
+
+    Ok(EpecNfceData {
+        access_key,
+        c_orgao_autor,
+        ver_aplic,
+        dh_emi,
+        tp_nf,
+        emit_ie,
+        dest_uf,
+        dest_id_tag,
+        dest_ie,
+        v_nf,
+        v_icms,
+        tax_id,
+    })
+}
+
+/// Build a SEFAZ EPEC NFC-e event request XML (`tpEvento=110140`).
+///
+/// Builds the complete `<envEvento>` wrapper for an EPEC event specific to
+/// NFC-e (model 65). This is only available in SP and differs from the
+/// standard EPEC in several ways:
+///
+/// - Sent to the state's `RecepcaoEPEC` endpoint (not Ambiente Nacional)
+/// - `cOrgao` is the state's IBGE code (not 91)
+/// - No `<vST>` field in the event detail
+/// - The `<dest>` section is optional (NFC-e can have no recipient)
+///
+/// Matches the PHP `sefazEpecNfce()` method from `TraitEPECNfce`.
+///
+/// # Arguments
+///
+/// * `epec_data` - Pre-extracted NFC-e data (see [`extract_epec_nfce_data`]).
+/// * `environment` - SEFAZ environment (production or homologation).
+pub fn build_epec_nfce_request(epec_data: &EpecNfceData, environment: SefazEnvironment) -> String {
+    // Build the optional dest section
+    let dest_tag = if let Some(ref dest_id) = epec_data.dest_id_tag {
+        let dest_uf = epec_data
+            .dest_uf
+            .as_deref()
+            .unwrap_or(&epec_data.c_orgao_autor);
+        let dest_ie_tag = match &epec_data.dest_ie {
+            Some(ie) => format!("<IE>{ie}</IE>"),
+            None => String::new(),
+        };
+        format!("<dest><UF>{dest_uf}</UF>{dest_id}{dest_ie_tag}</dest>")
+    } else {
+        String::new()
+    };
+
+    let additional = format!(
+        "<cOrgaoAutor>{c_orgao}</cOrgaoAutor>\
+         <tpAutor>1</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <dhEmi>{dh_emi}</dhEmi>\
+         <tpNF>{tp_nf}</tpNF>\
+         <IE>{emit_ie}</IE>\
+         {dest_tag}\
+         <vNF>{v_nf}</vNF>\
+         <vICMS>{v_icms}</vICMS>",
+        c_orgao = epec_data.c_orgao_autor,
+        ver_aplic = epec_data.ver_aplic,
+        dh_emi = epec_data.dh_emi,
+        tp_nf = epec_data.tp_nf,
+        emit_ie = epec_data.emit_ie,
+        v_nf = epec_data.v_nf,
+        v_icms = epec_data.v_icms,
+    );
+
+    // EPEC NFC-e goes to the state endpoint, NOT AN.
+    // cOrgao in the event envelope = IBGE code of the issuer's state.
+    build_event_xml_with_org(
+        &epec_data.access_key,
+        event_types::EPEC,
+        1, // nSeqEvento = 1 always for EPEC
+        &epec_data.tax_id,
+        environment,
+        &additional,
+        Some(&epec_data.c_orgao_autor),
+    )
+}
+
 /// Item for a prorrogacao (ICMS extension) request.
 ///
 /// Each item contains the item number and the requested quantity.
@@ -3430,5 +3671,207 @@ mod tests {
         assert!(xml.contains("<tpAmb>2</tpAmb>"));
         assert!(xml.contains("<cUFAutor>35</cUFAutor>"));
         assert!(xml.contains(&format!("<CNPJ>{TEST_CNPJ}</CNPJ>")));
+    }
+
+    // ── EPEC NFC-e status (SP only) ─────────────────────────────────
+
+    #[test]
+    fn epec_nfce_status_request_structure() {
+        let xml = build_epec_nfce_status_request("SP", SefazEnvironment::Homologation);
+        assert!(xml.contains("<consStatServ"));
+        assert!(xml.contains(&format!("xmlns=\"{NFE_NAMESPACE}\"")));
+        assert!(xml.contains(&format!("versao=\"{NFE_VERSION}\"")));
+        assert!(xml.contains("<tpAmb>2</tpAmb>"));
+        assert!(xml.contains("<cUF>35</cUF>"));
+        assert!(xml.contains("<xServ>STATUS</xServ>"));
+        assert!(xml.contains("</consStatServ>"));
+    }
+
+    #[test]
+    fn epec_nfce_status_request_production() {
+        let xml = build_epec_nfce_status_request("SP", SefazEnvironment::Production);
+        assert!(xml.contains("<tpAmb>1</tpAmb>"));
+    }
+
+    // ── EPEC NFC-e data extraction ──────────────────────────────────
+
+    /// Sample NFC-e XML for EPEC NFC-e extraction tests (with dest).
+    fn sample_nfce_xml_with_dest() -> String {
+        format!(
+            concat!(
+                r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+                r#"<infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>1</tpNF><dhEmi>2026-03-12T10:00:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>123456789</IE></emit>"#,
+                r#"<dest><CPF>12345678909</CPF><UF>SP</UF></dest>"#,
+                r#"<total><ICMSTot><vNF>150.00</vNF><vICMS>27.00</vICMS><vST>0.00</vST></ICMSTot></total>"#,
+                r#"<infRespTec><verProc>fiscal-rs 0.1.0</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        )
+    }
+
+    /// Sample NFC-e XML without dest (consumer sale).
+    fn sample_nfce_xml_without_dest() -> String {
+        format!(
+            concat!(
+                r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+                r#"<infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>1</tpNF><dhEmi>2026-03-12T14:30:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>123456789</IE></emit>"#,
+                r#"<total><ICMSTot><vNF>50.00</vNF><vICMS>9.00</vICMS><vST>0.00</vST></ICMSTot></total>"#,
+                r#"<infRespTec><verProc>fiscal-rs 0.1.0</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        )
+    }
+
+    #[test]
+    fn extract_epec_nfce_data_with_dest() {
+        let xml = sample_nfce_xml_with_dest();
+        let data = extract_epec_nfce_data(&xml, None).unwrap();
+
+        assert_eq!(data.access_key, TEST_KEY);
+        assert_eq!(data.c_orgao_autor, "35");
+        assert_eq!(data.ver_aplic, "fiscal-rs 0.1.0");
+        assert_eq!(data.dh_emi, "2026-03-12T10:00:00-03:00");
+        assert_eq!(data.tp_nf, "1");
+        assert_eq!(data.emit_ie, "123456789");
+        assert_eq!(data.dest_uf.as_deref(), Some("SP"));
+        assert_eq!(data.dest_id_tag.as_deref(), Some("<CPF>12345678909</CPF>"));
+        assert_eq!(data.dest_ie, None);
+        assert_eq!(data.v_nf, "150.00");
+        assert_eq!(data.v_icms, "27.00");
+        assert_eq!(data.tax_id, "12345678000199");
+    }
+
+    #[test]
+    fn extract_epec_nfce_data_without_dest() {
+        let xml = sample_nfce_xml_without_dest();
+        let data = extract_epec_nfce_data(&xml, None).unwrap();
+
+        assert_eq!(data.access_key, TEST_KEY);
+        assert_eq!(data.dest_uf, None);
+        assert_eq!(data.dest_id_tag, None);
+        assert_eq!(data.dest_ie, None);
+        assert_eq!(data.v_nf, "50.00");
+        assert_eq!(data.v_icms, "9.00");
+    }
+
+    #[test]
+    fn extract_epec_nfce_data_with_ver_aplic_override() {
+        let xml = sample_nfce_xml_with_dest();
+        let data = extract_epec_nfce_data(&xml, Some("MyPOS 3.0")).unwrap();
+        assert_eq!(data.ver_aplic, "MyPOS 3.0");
+    }
+
+    #[test]
+    fn extract_epec_nfce_data_rejects_missing_inf_nfe() {
+        let xml = "<NFe><ide/></NFe>";
+        let err = extract_epec_nfce_data(xml, None).unwrap_err();
+        assert!(matches!(err, fiscal_core::FiscalError::XmlParsing(_)));
+    }
+
+    // ── EPEC NFC-e request building ─────────────────────────────────
+
+    #[test]
+    fn build_epec_nfce_request_with_dest() {
+        let xml = sample_nfce_xml_with_dest();
+        let data = extract_epec_nfce_data(&xml, None).unwrap();
+        let request = build_epec_nfce_request(&data, SefazEnvironment::Homologation);
+
+        // Event type
+        assert!(
+            request.contains("<tpEvento>110140</tpEvento>"),
+            "EPEC NFC-e must have tpEvento=110140"
+        );
+        // Description
+        assert!(
+            request.contains("<descEvento>EPEC</descEvento>"),
+            "EPEC NFC-e must have descEvento=EPEC"
+        );
+        // cOrgao in envelope should be the state code (35 for SP), NOT 91
+        assert!(
+            request.contains("<cOrgao>35</cOrgao>"),
+            "EPEC NFC-e envelope must use cOrgao=35 (state), not 91 (AN)"
+        );
+        // cOrgaoAutor in detEvento
+        assert!(request.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        // tpAutor=1
+        assert!(request.contains("<tpAutor>1</tpAutor>"));
+        // verAplic
+        assert!(request.contains("<verAplic>fiscal-rs 0.1.0</verAplic>"));
+        // dhEmi
+        assert!(request.contains("<dhEmi>2026-03-12T10:00:00-03:00</dhEmi>"));
+        // tpNF
+        assert!(request.contains("<tpNF>1</tpNF>"));
+        // Issuer IE
+        assert!(request.contains("<IE>123456789</IE>"));
+        // Dest section with CPF
+        assert!(request.contains("<dest>"));
+        assert!(request.contains("<UF>SP</UF>"));
+        assert!(request.contains("<CPF>12345678909</CPF>"));
+        assert!(request.contains("</dest>"));
+        // vNF and vICMS (no vST for NFC-e EPEC)
+        assert!(request.contains("<vNF>150.00</vNF>"));
+        assert!(request.contains("<vICMS>27.00</vICMS>"));
+        assert!(
+            !request.contains("<vST>"),
+            "EPEC NFC-e must NOT contain <vST>"
+        );
+        // nSeqEvento=1
+        assert!(request.contains("<nSeqEvento>1</nSeqEvento>"));
+        // envEvento wrapper
+        assert!(request.contains("<envEvento"));
+        assert!(request.contains("</envEvento>"));
+        // Access key
+        assert!(request.contains(&format!("<chNFe>{TEST_KEY}</chNFe>")));
+        // Event ID
+        assert!(request.contains(&format!("Id=\"ID110140{TEST_KEY}01\"")));
+        // tpAmb=2 (homologation)
+        assert!(request.contains("<tpAmb>2</tpAmb>"));
+        // Issuer tax ID in envelope
+        assert!(request.contains("<CNPJ>12345678000199</CNPJ>"));
+    }
+
+    #[test]
+    fn build_epec_nfce_request_without_dest() {
+        let xml = sample_nfce_xml_without_dest();
+        let data = extract_epec_nfce_data(&xml, None).unwrap();
+        let request = build_epec_nfce_request(&data, SefazEnvironment::Production);
+
+        // Event type
+        assert!(request.contains("<tpEvento>110140</tpEvento>"));
+        // Production
+        assert!(request.contains("<tpAmb>1</tpAmb>"));
+        // Should NOT contain <dest> section
+        assert!(
+            !request.contains("<dest>"),
+            "EPEC NFC-e without recipient must NOT contain <dest>"
+        );
+        // Should still have vNF and vICMS
+        assert!(request.contains("<vNF>50.00</vNF>"));
+        assert!(request.contains("<vICMS>9.00</vICMS>"));
+        // cOrgao = state code, not 91
+        assert!(request.contains("<cOrgao>35</cOrgao>"));
+    }
+
+    #[test]
+    fn build_epec_nfce_request_uses_state_c_orgao_not_an() {
+        let xml = sample_nfce_xml_with_dest();
+        let data = extract_epec_nfce_data(&xml, None).unwrap();
+        let request = build_epec_nfce_request(&data, SefazEnvironment::Homologation);
+
+        // The key difference from regular EPEC: cOrgao = state code (35), not 91
+        assert!(
+            !request.contains("<cOrgao>91</cOrgao>"),
+            "EPEC NFC-e must NOT use cOrgao=91 (that is for standard EPEC to AN)"
+        );
+        assert!(
+            request.contains("<cOrgao>35</cOrgao>"),
+            "EPEC NFC-e must use cOrgao from the issuer's state"
+        );
     }
 }

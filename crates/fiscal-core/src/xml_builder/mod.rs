@@ -77,10 +77,17 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     let mut total_outro: i64 = 0;
     let mut total_tot_trib: i64 = 0;
     let mut total_ipi_devol: i64 = 0;
+    let mut total_pis_st: i64 = 0;
+    let mut total_cofins_st: i64 = 0;
+    let mut any_ind_deduz_deson = false;
 
     let mut det_elements = Vec::with_capacity(data.items.len());
     for item in &data.items {
         let det_result = det::build_det(item, data)?;
+        // Track ind_deduz_deson from any item
+        if det_result.ind_deduz_deson {
+            any_ind_deduz_deson = true;
+        }
         // Only accumulate into totals when indTot == 1 (the default)
         if det_result.ind_tot == 1 {
             total_products += item.total_price.0;
@@ -94,6 +101,8 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             total_outro += det_result.v_outro;
             total_tot_trib += det_result.v_tot_trib;
             total_ipi_devol += det_result.v_ipi_devol;
+            total_pis_st += det_result.v_pis_st;
+            total_cofins_st += det_result.v_cofins_st;
             merge_icms_totals(&mut icms_totals, &det_result.icms_totals);
         }
         det_elements.push(det_result.xml);
@@ -123,6 +132,11 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
 
     inf_children.extend(det_elements);
 
+    // Propagate item-level indDeduzDeson to ICMS totals
+    if any_ind_deduz_deson {
+        icms_totals.ind_deduz_deson = true;
+    }
+
     inf_children.push(total::build_total(
         total_products,
         &icms_totals,
@@ -137,11 +151,15 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             v_outro: total_outro,
             v_tot_trib: total_tot_trib,
             v_ipi_devol: total_ipi_devol,
+            v_pis_st: total_pis_st,
+            v_cofins_st: total_cofins_st,
         },
         data.ret_trib.as_ref(),
         data.issqn_tot.as_ref(),
         data.is_tot.as_ref(),
         data.ibs_cbs_tot.as_ref(),
+        data.schema_version,
+        data.calculation_method,
     ));
 
     inf_children.push(transp::build_transp(data));
@@ -177,8 +195,12 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     if let Some(ref tech) = data.tech_responsible {
         inf_children.push(optional::build_tech_responsible_with_key(tech, &access_key));
     }
-    if let Some(ref agro) = data.agropecuario {
-        inf_children.push(optional::build_agropecuario(agro));
+    // agropecuario — only emitted when schema is PL_010 or later
+    // (matching PHP: if ($this->schema < 10) { return; })
+    if data.schema_version.is_pl010() {
+        if let Some(ref agro) = data.agropecuario {
+            inf_children.push(optional::build_agropecuario(agro));
+        }
     }
 
     // Matches PHP sped-nfe: no xmlns on infNFe (inherited from NFe parent),
@@ -189,7 +211,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
         TagContent::Children(inf_children),
     );
 
-    let xml = format!(
+    let mut xml = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>{}",
         tag(
             "NFe",
@@ -197,6 +219,10 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             TagContent::Children(vec![inf_nfe])
         ),
     );
+
+    if data.only_ascii {
+        xml = crate::sanitize::sanitize_xml_text(&xml);
+    }
 
     Ok(InvoiceXmlResult { xml, access_key })
 }

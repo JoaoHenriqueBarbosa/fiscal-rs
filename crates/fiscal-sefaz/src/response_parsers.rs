@@ -57,6 +57,63 @@ pub struct DistDFeResponse {
     pub raw_xml: String,
 }
 
+/// Parsed result of a SEFAZ inutilização (`retInutNFe`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct InutilizacaoResponse {
+    /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.
+    pub tp_amb: String,
+    /// SEFAZ application version (`verAplic`).
+    pub ver_aplic: String,
+    /// SEFAZ status code (`cStat`).
+    pub c_stat: String,
+    /// Human-readable status message (`xMotivo`).
+    pub x_motivo: String,
+    /// UF code (`cUF`).
+    pub c_uf: String,
+    /// Year of the inutilização (`ano`).
+    pub ano: String,
+    /// CNPJ of the emitter.
+    pub cnpj: String,
+    /// Fiscal document model (`mod`).
+    pub modelo: String,
+    /// Series number (`serie`).
+    pub serie: String,
+    /// Initial NF-e number (`nNFIni`).
+    pub n_nf_ini: String,
+    /// Final NF-e number (`nNFFin`).
+    pub n_nf_fin: String,
+    /// Timestamp when SEFAZ received the request (`dhRecbto`).
+    pub dh_recbto: Option<String>,
+    /// Protocol number (`nProt`).
+    pub n_prot: Option<String>,
+}
+
+/// A single CSC token (id + secret) from the NFC-e CSC administration response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CscToken {
+    /// CSC identifier (`idCsc`).
+    pub id_csc: String,
+    /// CSC secret value (`CSC`).
+    pub csc: String,
+}
+
+/// Parsed result of a SEFAZ NFC-e CSC administration (`retAdmCscNFCe`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CscResponse {
+    /// Environment type (`tpAmb`): 1 = production, 2 = homologation.
+    pub tp_amb: String,
+    /// Operation indicator (`indOp`): 1 = consulta, 2 = novo, 3 = revogar.
+    pub ind_op: String,
+    /// SEFAZ status code (`cStat`).
+    pub c_stat: String,
+    /// Human-readable status message (`xMotivo`).
+    pub x_motivo: String,
+    /// Active CSC tokens (`idCsc` + `CSC` pairs), present for indOp 1 or 2.
+    pub tokens: Vec<CscToken>,
+}
+
 /// Parsed result of a SEFAZ Cadastro (`retConsCad`) response.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -229,6 +286,95 @@ pub fn parse_cadastro_response(xml: &str) -> Result<CadastroResponse, FiscalErro
     })
 }
 
+/// Parse a SEFAZ inutilização response (`retInutNFe`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts all fields from `<infInut>`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_inutilizacao_response(xml: &str) -> Result<InutilizacaoResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    // Try to narrow into <infInut> first
+    let scope = extract_inner_content(&body, "infInut").unwrap_or(&body);
+
+    let c_stat = extract_xml_tag_value(scope, "cStat").ok_or_else(|| {
+        FiscalError::XmlParsing("missing <cStat> in inutilização response".into())
+    })?;
+    let x_motivo = extract_xml_tag_value(scope, "xMotivo").unwrap_or_else(|| "Unknown".into());
+    let tp_amb = extract_xml_tag_value(scope, "tpAmb").unwrap_or_default();
+    let ver_aplic = extract_xml_tag_value(scope, "verAplic").unwrap_or_default();
+    let c_uf = extract_xml_tag_value(scope, "cUF").unwrap_or_default();
+    let ano = extract_xml_tag_value(scope, "ano").unwrap_or_default();
+    let cnpj = extract_xml_tag_value(scope, "CNPJ").unwrap_or_default();
+    let modelo = extract_xml_tag_value(scope, "mod").unwrap_or_default();
+    let serie = extract_xml_tag_value(scope, "serie").unwrap_or_default();
+    let n_nf_ini = extract_xml_tag_value(scope, "nNFIni").unwrap_or_default();
+    let n_nf_fin = extract_xml_tag_value(scope, "nNFFin").unwrap_or_default();
+    let dh_recbto = extract_xml_tag_value(scope, "dhRecbto");
+    let n_prot = extract_xml_tag_value(scope, "nProt");
+
+    Ok(InutilizacaoResponse {
+        tp_amb,
+        ver_aplic,
+        c_stat,
+        x_motivo,
+        c_uf,
+        ano,
+        cnpj,
+        modelo,
+        serie,
+        n_nf_ini,
+        n_nf_fin,
+        dh_recbto,
+        n_prot,
+    })
+}
+
+/// Parse a SEFAZ NFC-e CSC administration response (`retAdmCscNFCe`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts `tpAmb`, `indOp`, `cStat`,
+/// `xMotivo`, and any `idCsc`/`CSC` token pairs from `<retInfCsc>`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_csc_response(xml: &str) -> Result<CscResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    // Try to narrow into <retInfCsc> first
+    let scope = extract_inner_content(&body, "retInfCsc").unwrap_or(&body);
+
+    let c_stat = extract_xml_tag_value(scope, "cStat")
+        .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in CSC response".into()))?;
+    let x_motivo = extract_xml_tag_value(scope, "xMotivo").unwrap_or_default();
+    let tp_amb = extract_xml_tag_value(scope, "tpAmb").unwrap_or_default();
+    let ind_op = extract_xml_tag_value(scope, "indOp").unwrap_or_default();
+
+    // Collect all <idCsc>/<CSC> pairs
+    let ids = extract_all_tag_values(scope, "idCsc");
+    let cscs = extract_all_tag_values(scope, "CSC");
+
+    let tokens: Vec<CscToken> = ids
+        .into_iter()
+        .zip(cscs)
+        .map(|(id_csc, csc)| CscToken { id_csc, csc })
+        .collect();
+
+    Ok(CscResponse {
+        tp_amb,
+        ind_op,
+        c_stat,
+        x_motivo,
+        tokens,
+    })
+}
+
 // ── Private helpers ─────────────────────────────────────────────────────────
 
 /// Strip SOAP envelope (`<soap:Body>` or `<soapenv:Body>`) if present.
@@ -330,6 +476,29 @@ fn remove_ns_prefix(xml: &str, prefix: &str) -> String {
     let open = format!("<{prefix}");
     let close = format!("</{prefix}");
     xml.replace(&open, "<").replace(&close, "</")
+}
+
+/// Extract all occurrences of a simple XML tag's text content.
+///
+/// Searches for every `<tag_name>…</tag_name>` pair and returns the inner
+/// text of each occurrence. Does not handle namespaced tags or CDATA sections.
+fn extract_all_tag_values(xml: &str, tag_name: &str) -> Vec<String> {
+    let open = format!("<{tag_name}>");
+    let close = format!("</{tag_name}>");
+    let mut results = Vec::new();
+    let mut search_from = 0;
+
+    while let Some(start_rel) = xml[search_from..].find(&open) {
+        let content_start = search_from + start_rel + open.len();
+        if let Some(end_rel) = xml[content_start..].find(&close) {
+            results.push(xml[content_start..content_start + end_rel].to_string());
+            search_from = content_start + end_rel + close.len();
+        } else {
+            break;
+        }
+    }
+
+    results
 }
 
 /// Extract the raw content between the opening and closing of a tag,
@@ -589,6 +758,219 @@ mod tests {
     #[test]
     fn cadastro_response_rejects_malformed_xml() {
         let err = parse_cadastro_response("<garbage>nothing</garbage>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    // ── parse_inutilizacao_response ─────────────────────────────────
+
+    #[test]
+    fn parses_inutilizacao_response() {
+        let xml = concat!(
+            r#"<retInutNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            "<infInut>",
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP_NFE_PL009_V4</verAplic>",
+            "<cStat>102</cStat>",
+            "<xMotivo>Inutilizacao de numero homologado</xMotivo>",
+            "<cUF>35</cUF>",
+            "<ano>24</ano>",
+            "<CNPJ>11222333000181</CNPJ>",
+            "<mod>55</mod>",
+            "<serie>1</serie>",
+            "<nNFIni>100</nNFIni>",
+            "<nNFFin>110</nNFFin>",
+            "<dhRecbto>2024-06-01T14:30:00-03:00</dhRecbto>",
+            "<nProt>135240000054321</nProt>",
+            "</infInut>",
+            "</retInutNFe>"
+        );
+        let resp = parse_inutilizacao_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.ver_aplic, "SP_NFE_PL009_V4");
+        assert_eq!(resp.c_stat, "102");
+        assert_eq!(resp.x_motivo, "Inutilizacao de numero homologado");
+        assert_eq!(resp.c_uf, "35");
+        assert_eq!(resp.ano, "24");
+        assert_eq!(resp.cnpj, "11222333000181");
+        assert_eq!(resp.modelo, "55");
+        assert_eq!(resp.serie, "1");
+        assert_eq!(resp.n_nf_ini, "100");
+        assert_eq!(resp.n_nf_fin, "110");
+        assert_eq!(resp.dh_recbto.as_deref(), Some("2024-06-01T14:30:00-03:00"));
+        assert_eq!(resp.n_prot.as_deref(), Some("135240000054321"));
+    }
+
+    #[test]
+    fn parses_inutilizacao_response_without_optional_fields() {
+        let xml = concat!(
+            "<retInutNFe><infInut>",
+            "<tpAmb>1</tpAmb>",
+            "<verAplic>SVRS202406</verAplic>",
+            "<cStat>102</cStat>",
+            "<xMotivo>Inutilizacao de numero homologado</xMotivo>",
+            "<cUF>43</cUF>",
+            "<ano>24</ano>",
+            "<CNPJ>99888777000166</CNPJ>",
+            "<mod>65</mod>",
+            "<serie>2</serie>",
+            "<nNFIni>50</nNFIni>",
+            "<nNFFin>60</nNFFin>",
+            "</infInut></retInutNFe>"
+        );
+        let resp = parse_inutilizacao_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "1");
+        assert_eq!(resp.c_stat, "102");
+        assert_eq!(resp.c_uf, "43");
+        assert_eq!(resp.modelo, "65");
+        assert_eq!(resp.n_nf_ini, "50");
+        assert_eq!(resp.n_nf_fin, "60");
+        assert_eq!(resp.dh_recbto, None);
+        assert_eq!(resp.n_prot, None);
+    }
+
+    #[test]
+    fn parses_soap_wrapped_inutilizacao_response() {
+        let xml = r#"<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+            <soap:Body>
+                <nfeResultMsg:nfeInutilizacaoNF2Result xmlns:nfeResultMsg="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4">
+                    <nfe:retInutNFe xmlns:nfe="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+                        <nfe:infInut>
+                            <nfe:tpAmb>2</nfe:tpAmb>
+                            <nfe:verAplic>SP_NFE_PL009_V4</nfe:verAplic>
+                            <nfe:cStat>102</nfe:cStat>
+                            <nfe:xMotivo>Inutilizacao de numero homologado</nfe:xMotivo>
+                            <nfe:cUF>35</nfe:cUF>
+                            <nfe:ano>24</nfe:ano>
+                            <nfe:CNPJ>11222333000181</nfe:CNPJ>
+                            <nfe:mod>55</nfe:mod>
+                            <nfe:serie>1</nfe:serie>
+                            <nfe:nNFIni>200</nfe:nNFIni>
+                            <nfe:nNFFin>250</nfe:nNFFin>
+                            <nfe:dhRecbto>2024-07-10T09:15:00-03:00</nfe:dhRecbto>
+                            <nfe:nProt>135240000067890</nfe:nProt>
+                        </nfe:infInut>
+                    </nfe:retInutNFe>
+                </nfeResultMsg:nfeInutilizacaoNF2Result>
+            </soap:Body>
+        </soap:Envelope>"#;
+        let resp = parse_inutilizacao_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.c_stat, "102");
+        assert_eq!(resp.x_motivo, "Inutilizacao de numero homologado");
+        assert_eq!(resp.c_uf, "35");
+        assert_eq!(resp.cnpj, "11222333000181");
+        assert_eq!(resp.n_nf_ini, "200");
+        assert_eq!(resp.n_nf_fin, "250");
+        assert_eq!(resp.n_prot.as_deref(), Some("135240000067890"));
+    }
+
+    #[test]
+    fn inutilizacao_rejects_malformed_xml() {
+        let err = parse_inutilizacao_response("<retInutNFe>nothing</retInutNFe>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    // ── parse_csc_response ──────────────────────────────────────────
+
+    #[test]
+    fn parses_csc_response_consulta_ind_op_1() {
+        let xml = concat!(
+            r#"<retAdmCscNFCe versao="1.00">"#,
+            "<retInfCsc>",
+            "<tpAmb>2</tpAmb>",
+            "<indOp>1</indOp>",
+            "<cStat>150</cStat>",
+            "<xMotivo>Consulta CSC efetivada</xMotivo>",
+            "<idCsc>000001</idCsc>",
+            "<CSC>AAAA-BBBB-CCCC-DDDD-1111</CSC>",
+            "<idCsc>000002</idCsc>",
+            "<CSC>EEEE-FFFF-GGGG-HHHH-2222</CSC>",
+            "</retInfCsc>",
+            "</retAdmCscNFCe>"
+        );
+        let resp = parse_csc_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.ind_op, "1");
+        assert_eq!(resp.c_stat, "150");
+        assert_eq!(resp.x_motivo, "Consulta CSC efetivada");
+        assert_eq!(resp.tokens.len(), 2);
+        assert_eq!(resp.tokens[0].id_csc, "000001");
+        assert_eq!(resp.tokens[0].csc, "AAAA-BBBB-CCCC-DDDD-1111");
+        assert_eq!(resp.tokens[1].id_csc, "000002");
+        assert_eq!(resp.tokens[1].csc, "EEEE-FFFF-GGGG-HHHH-2222");
+    }
+
+    #[test]
+    fn parses_csc_response_novo_ind_op_2() {
+        let xml = concat!(
+            r#"<retAdmCscNFCe versao="1.00">"#,
+            "<retInfCsc>",
+            "<tpAmb>1</tpAmb>",
+            "<indOp>2</indOp>",
+            "<cStat>151</cStat>",
+            "<xMotivo>Novo CSC gerado com sucesso</xMotivo>",
+            "<idCsc>000003</idCsc>",
+            "<CSC>ZZZZ-YYYY-XXXX-WWWW-3333</CSC>",
+            "</retInfCsc>",
+            "</retAdmCscNFCe>"
+        );
+        let resp = parse_csc_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "1");
+        assert_eq!(resp.ind_op, "2");
+        assert_eq!(resp.c_stat, "151");
+        assert_eq!(resp.x_motivo, "Novo CSC gerado com sucesso");
+        assert_eq!(resp.tokens.len(), 1);
+        assert_eq!(resp.tokens[0].id_csc, "000003");
+        assert_eq!(resp.tokens[0].csc, "ZZZZ-YYYY-XXXX-WWWW-3333");
+    }
+
+    #[test]
+    fn parses_csc_response_revogar_ind_op_3() {
+        let xml = concat!(
+            r#"<retAdmCscNFCe versao="1.00">"#,
+            "<retInfCsc>",
+            "<tpAmb>2</tpAmb>",
+            "<indOp>3</indOp>",
+            "<cStat>152</cStat>",
+            "<xMotivo>CSC revogado com sucesso</xMotivo>",
+            "</retInfCsc>",
+            "</retAdmCscNFCe>"
+        );
+        let resp = parse_csc_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.ind_op, "3");
+        assert_eq!(resp.c_stat, "152");
+        assert_eq!(resp.x_motivo, "CSC revogado com sucesso");
+        assert_eq!(resp.tokens.len(), 0);
+    }
+
+    #[test]
+    fn parses_soap_wrapped_csc_response() {
+        let xml = r#"<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+            <soap:Body>
+                <nfe:retAdmCscNFCe xmlns:nfe="http://www.portalfiscal.inf.br/nfe" versao="1.00">
+                    <nfe:retInfCsc>
+                        <nfe:tpAmb>2</nfe:tpAmb>
+                        <nfe:indOp>1</nfe:indOp>
+                        <nfe:cStat>150</nfe:cStat>
+                        <nfe:xMotivo>Consulta CSC efetivada</nfe:xMotivo>
+                        <nfe:idCsc>000001</nfe:idCsc>
+                        <nfe:CSC>SOAP-TOKEN-1111</nfe:CSC>
+                    </nfe:retInfCsc>
+                </nfe:retAdmCscNFCe>
+            </soap:Body>
+        </soap:Envelope>"#;
+        let resp = parse_csc_response(xml).unwrap();
+        assert_eq!(resp.c_stat, "150");
+        assert_eq!(resp.ind_op, "1");
+        assert_eq!(resp.tokens.len(), 1);
+        assert_eq!(resp.tokens[0].id_csc, "000001");
+        assert_eq!(resp.tokens[0].csc, "SOAP-TOKEN-1111");
+    }
+
+    #[test]
+    fn csc_response_rejects_malformed_xml() {
+        let err = parse_csc_response("<garbage>nothing</garbage>").unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 }

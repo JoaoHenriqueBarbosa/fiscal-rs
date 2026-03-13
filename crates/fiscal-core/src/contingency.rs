@@ -7,8 +7,19 @@ use crate::xml_utils::extract_xml_tag_value;
 /// Contingency manager for NF-e emission.
 ///
 /// Manages activation and deactivation of contingency mode, used when the
-/// primary SEFAZ authorizer is unavailable. Supports SVC-AN, SVC-RS, and
-/// offline contingency types.
+/// primary SEFAZ authorizer is unavailable. Supports all contingency types
+/// defined in the NF-e specification: SVC-AN, SVC-RS, EPEC, FS-DA, FS-IA,
+/// and offline.
+///
+/// # JSON persistence
+///
+/// The state can be serialized to / deserialized from a compact JSON string
+/// using [`to_json`](Contingency::to_json) and [`load`](Contingency::load),
+/// matching the PHP `Contingency::__toString()` format:
+///
+/// ```json
+/// {"motive":"reason","timestamp":1480700623,"type":"SVCAN","tpEmis":6}
+/// ```
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Contingency {
@@ -31,6 +42,11 @@ impl Contingency {
             activated_at: None,
             timestamp: 0,
         }
+    }
+
+    /// Returns `true` when a contingency mode is currently active.
+    pub fn is_active(&self) -> bool {
+        self.contingency_type.is_some()
     }
 
     /// Activate contingency mode with the given type and justification reason.
@@ -83,10 +99,14 @@ impl Contingency {
 
     /// Load contingency state from a JSON string.
     ///
-    /// Expected JSON format:
+    /// Expected JSON format (matching PHP `Contingency`):
     /// ```json
     /// {"motive":"reason","timestamp":1480700623,"type":"SVCAN","tpEmis":6}
     /// ```
+    ///
+    /// Accepts all contingency type strings: `SVCAN`, `SVC-AN`, `SVCRS`,
+    /// `SVC-RS`, `EPEC`, `FSDA`, `FS-DA`, `FSIA`, `FS-IA`, `OFFLINE`,
+    /// and their lowercase equivalents.
     ///
     /// # Errors
     ///
@@ -103,17 +123,14 @@ impl Contingency {
         let tp_emis = extract_json_number(json, "tpEmis")
             .ok_or_else(|| FiscalError::Contingency("Missing 'tpEmis' in JSON".to_string()))?;
 
-        let contingency_type = match type_str.as_str() {
-            "SVCAN" | "SVC-AN" | "svc-an" => Some(ContingencyType::SvcAn),
-            "SVCRS" | "SVC-RS" | "svc-rs" => Some(ContingencyType::SvcRs),
-            "offline" | "OFFLINE" => Some(ContingencyType::Offline),
-            "" => None,
-            other => {
-                return Err(FiscalError::Contingency(format!(
-                    "Unrecognized contingency type: {other}"
-                )));
-            }
-        };
+        let contingency_type = ContingencyType::from_type_str(&type_str);
+
+        // Validate that, if a type is given, it is recognized
+        if !type_str.is_empty() && contingency_type.is_none() {
+            return Err(FiscalError::Contingency(format!(
+                "Unrecognized contingency type: {type_str}"
+            )));
+        }
 
         let _ = tp_emis; // Validated through contingency_type mapping
 
@@ -137,15 +154,41 @@ impl Contingency {
         })
     }
 
+    /// Serialize the contingency state to a JSON string.
+    ///
+    /// Produces the same format as the PHP `Contingency::__toString()`:
+    /// ```json
+    /// {"motive":"reason","timestamp":1480700623,"type":"SVCAN","tpEmis":6}
+    /// ```
+    ///
+    /// When deactivated, produces:
+    /// ```json
+    /// {"motive":"","timestamp":0,"type":"","tpEmis":1}
+    /// ```
+    pub fn to_json(&self) -> String {
+        let motive = self.reason.as_deref().unwrap_or("");
+        let type_str = self
+            .contingency_type
+            .map(|ct| ct.to_type_str())
+            .unwrap_or("");
+        let tp_emis = self.emission_type();
+        format!(
+            r#"{{"motive":"{}","timestamp":{},"type":"{}","tpEmis":{}}}"#,
+            escape_json_string(motive),
+            self.timestamp,
+            type_str,
+            tp_emis
+        )
+    }
+
     /// Get the emission type code for the current contingency state.
     ///
-    /// Returns `1` (normal) if no contingency is active, or `6` (SVC-AN),
-    /// `7` (SVC-RS), or `9` (offline) when contingency is active.
+    /// Returns `1` (normal) if no contingency is active, or the corresponding
+    /// `tpEmis` code: `2` (FS-IA), `4` (EPEC), `5` (FS-DA), `6` (SVC-AN),
+    /// `7` (SVC-RS), `9` (offline).
     pub fn emission_type(&self) -> u8 {
         match self.contingency_type {
-            Some(ContingencyType::SvcAn) => 6,
-            Some(ContingencyType::SvcRs) => 7,
-            Some(ContingencyType::Offline) => 9,
+            Some(ct) => ct.tp_emis(),
             None => 1,
         }
     }
@@ -155,9 +198,50 @@ impl Contingency {
         match self.contingency_type {
             Some(ContingencyType::SvcAn) => EmissionType::SvcAn,
             Some(ContingencyType::SvcRs) => EmissionType::SvcRs,
+            Some(ContingencyType::Epec) => EmissionType::Epec,
+            Some(ContingencyType::FsDa) => EmissionType::FsDa,
+            Some(ContingencyType::FsIa) => EmissionType::FsIa,
             Some(ContingencyType::Offline) => EmissionType::Offline,
             None => EmissionType::Normal,
         }
+    }
+
+    /// Check whether the current contingency mode has a dedicated web service.
+    ///
+    /// Only SVC-AN and SVC-RS have their own SEFAZ web services. Other types
+    /// (EPEC, FS-DA, FS-IA, offline) do not have their own web services for
+    /// NF-e authorization and will return an error if used with `sefazAutorizacao`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Contingency`] if:
+    /// - The document is model 65 (NFC-e) and an SVC contingency is active
+    ///   (NFC-e does not support SVC-AN/SVC-RS).
+    /// - The active contingency type does not have a dedicated web service
+    ///   (EPEC, FS-DA, FS-IA, offline).
+    pub fn check_web_service_availability(&self, model: InvoiceModel) -> Result<(), FiscalError> {
+        let ct = match self.contingency_type {
+            Some(ct) => ct,
+            None => return Ok(()),
+        };
+
+        if model == InvoiceModel::Nfce {
+            if matches!(ct, ContingencyType::SvcAn | ContingencyType::SvcRs) {
+                return Err(FiscalError::Contingency(
+                    "Não existe serviço para contingência SVCRS ou SVCAN para NFCe (modelo 65)."
+                        .to_string(),
+                ));
+            }
+        }
+
+        if !matches!(ct, ContingencyType::SvcAn | ContingencyType::SvcRs) {
+            return Err(FiscalError::Contingency(format!(
+                "Esse modo de contingência [{}] não possui webservice próprio, portanto não haverão envios.",
+                ct.to_type_str()
+            )));
+        }
+
+        Ok(())
     }
 }
 
@@ -167,10 +251,16 @@ impl Default for Contingency {
     }
 }
 
+impl core::fmt::Display for Contingency {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.to_json())
+    }
+}
+
 /// Get the default contingency type (SVC-AN or SVC-RS) for a given Brazilian state.
 ///
 /// Each state has a pre-assigned SVC authorizer:
-/// - **SVC-RS** (7 states): AM, BA, GO, MA, MS, MT, PE, PR
+/// - **SVC-RS** (8 states): AM, BA, GO, MA, MS, MT, PE, PR
 /// - **SVC-AN** (19 states): all others (AC, AL, AP, CE, DF, ES, MG, PA, PB,
 ///   PI, RJ, RN, RO, RR, RS, SC, SE, SP, TO)
 ///
@@ -183,6 +273,23 @@ pub fn contingency_for_state(uf: &str) -> ContingencyType {
         "AC" | "AL" | "AP" | "CE" | "DF" | "ES" | "MG" | "PA" | "PB" | "PI" | "RJ" | "RN"
         | "RO" | "RR" | "RS" | "SC" | "SE" | "SP" | "TO" => ContingencyType::SvcAn,
         _ => panic!("Unknown state abbreviation: {uf}"),
+    }
+}
+
+/// Get the default contingency type (SVC-AN or SVC-RS) for a given Brazilian state.
+///
+/// Same as [`contingency_for_state`] but returns a `Result` instead of panicking.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::InvalidStateCode`] if `uf` is not a valid 2-letter
+/// Brazilian state abbreviation.
+pub fn try_contingency_for_state(uf: &str) -> Result<ContingencyType, FiscalError> {
+    match uf {
+        "AM" | "BA" | "GO" | "MA" | "MS" | "MT" | "PE" | "PR" => Ok(ContingencyType::SvcRs),
+        "AC" | "AL" | "AP" | "CE" | "DF" | "ES" | "MG" | "PA" | "PB" | "PI" | "RJ" | "RN"
+        | "RO" | "RR" | "RS" | "SC" | "SE" | "SP" | "TO" => Ok(ContingencyType::SvcAn),
+        _ => Err(FiscalError::InvalidStateCode(uf.to_string())),
     }
 }
 
@@ -422,6 +529,28 @@ fn parse_offset_seconds(offset: &str) -> i32 {
     sign * (hours * 3600 + minutes * 60)
 }
 
+/// Escape a string for JSON output — handles `"`, `\`, and control characters.
+fn escape_json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => {
+                // \uXXXX for other control chars
+                for unit in c.encode_utf16(&mut [0; 2]) {
+                    out.push_str(&format!("\\u{unit:04x}"));
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 /// Extract a string value from a simple JSON object by key.
 /// E.g., from `{"key":"value"}` extracts "value" for key "key".
 fn extract_json_string(json: &str, key: &str) -> Option<String> {
@@ -470,6 +599,7 @@ mod tests {
     fn new_contingency_is_inactive() {
         let c = Contingency::new();
         assert!(c.contingency_type.is_none());
+        assert!(!c.is_active());
         assert_eq!(c.emission_type(), 1);
     }
 
@@ -477,6 +607,7 @@ mod tests {
     fn default_is_inactive() {
         let c = Contingency::default();
         assert!(c.contingency_type.is_none());
+        assert!(!c.is_active());
     }
 
     #[test]
@@ -489,6 +620,7 @@ mod tests {
         .unwrap();
         assert_eq!(c.contingency_type, Some(ContingencyType::SvcAn));
         assert_eq!(c.emission_type(), 6);
+        assert!(c.is_active());
         assert!(c.reason.is_some());
         assert!(c.activated_at.is_some());
     }
@@ -502,6 +634,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.emission_type(), 7);
+        assert_eq!(c.emission_type_enum(), EmissionType::SvcRs);
     }
 
     #[test]
@@ -513,12 +646,57 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.emission_type(), 9);
+        assert_eq!(c.emission_type_enum(), EmissionType::Offline);
+    }
+
+    #[test]
+    fn activate_epec() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::Epec,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert_eq!(c.emission_type(), 4);
+        assert_eq!(c.emission_type_enum(), EmissionType::Epec);
+    }
+
+    #[test]
+    fn activate_fs_da() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::FsDa,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert_eq!(c.emission_type(), 5);
+        assert_eq!(c.emission_type_enum(), EmissionType::FsDa);
+    }
+
+    #[test]
+    fn activate_fs_ia() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::FsIa,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert_eq!(c.emission_type(), 2);
+        assert_eq!(c.emission_type_enum(), EmissionType::FsIa);
     }
 
     #[test]
     fn activate_rejects_short_reason() {
         let mut c = Contingency::new();
         let result = c.activate(ContingencyType::SvcAn, "Short");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn activate_rejects_long_reason() {
+        let mut c = Contingency::new();
+        let motive = "A".repeat(257);
+        let result = c.activate(ContingencyType::SvcAn, &motive);
         assert!(result.is_err());
     }
 
@@ -532,7 +710,9 @@ mod tests {
         .unwrap();
         c.deactivate();
         assert!(c.contingency_type.is_none());
+        assert!(!c.is_active());
         assert_eq!(c.emission_type(), 1);
+        assert_eq!(c.emission_type_enum(), EmissionType::Normal);
     }
 
     #[test]
@@ -543,6 +723,120 @@ mod tests {
         assert_eq!(c.contingency_type, Some(ContingencyType::SvcAn));
         assert_eq!(c.emission_type(), 6);
         assert_eq!(c.reason.as_deref(), Some("Testes Unitarios"));
+        assert!(c.is_active());
+    }
+
+    #[test]
+    fn load_svc_rs_from_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCRS","tpEmis":7}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.contingency_type, Some(ContingencyType::SvcRs));
+        assert_eq!(c.emission_type(), 7);
+    }
+
+    #[test]
+    fn load_epec_from_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"EPEC","tpEmis":4}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.contingency_type, Some(ContingencyType::Epec));
+        assert_eq!(c.emission_type(), 4);
+    }
+
+    #[test]
+    fn load_fs_da_from_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"FSDA","tpEmis":5}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.contingency_type, Some(ContingencyType::FsDa));
+        assert_eq!(c.emission_type(), 5);
+    }
+
+    #[test]
+    fn load_fs_ia_from_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"FSIA","tpEmis":2}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.contingency_type, Some(ContingencyType::FsIa));
+        assert_eq!(c.emission_type(), 2);
+    }
+
+    #[test]
+    fn load_offline_from_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"OFFLINE","tpEmis":9}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.contingency_type, Some(ContingencyType::Offline));
+        assert_eq!(c.emission_type(), 9);
+    }
+
+    #[test]
+    fn load_deactivated_from_json() {
+        let json = r#"{"motive":"","timestamp":0,"type":"","tpEmis":1}"#;
+        let c = Contingency::load(json).unwrap();
+        assert!(c.contingency_type.is_none());
+        assert!(!c.is_active());
+        assert_eq!(c.emission_type(), 1);
+    }
+
+    #[test]
+    fn load_rejects_unknown_type() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"UNKNOWN","tpEmis":1}"#;
+        let result = Contingency::load(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn to_json_activated() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(c.to_json(), json);
+    }
+
+    #[test]
+    fn to_json_deactivated() {
+        let c = Contingency::new();
+        assert_eq!(
+            c.to_json(),
+            r#"{"motive":"","timestamp":0,"type":"","tpEmis":1}"#
+        );
+    }
+
+    #[test]
+    fn to_json_roundtrip() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCRS","tpEmis":7}"#;
+        let c = Contingency::load(json).unwrap();
+        let output = c.to_json();
+        assert_eq!(output, json);
+        // Load again and verify
+        let c2 = Contingency::load(&output).unwrap();
+        assert_eq!(c2.contingency_type, c.contingency_type);
+        assert_eq!(c2.reason, c.reason);
+        assert_eq!(c2.timestamp, c.timestamp);
+    }
+
+    #[test]
+    fn deactivate_produces_correct_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let mut c = Contingency::load(json).unwrap();
+        c.deactivate();
+        assert_eq!(
+            c.to_json(),
+            r#"{"motive":"","timestamp":0,"type":"","tpEmis":1}"#
+        );
+    }
+
+    #[test]
+    fn display_matches_to_json() {
+        let json =
+            r#"{"motive":"Testes Unitarios","timestamp":1480700623,"type":"SVCAN","tpEmis":6}"#;
+        let c = Contingency::load(json).unwrap();
+        assert_eq!(format!("{c}"), c.to_json());
     }
 
     #[test]
@@ -577,5 +871,175 @@ mod tests {
     #[test]
     fn contingency_for_state_am() {
         assert_eq!(contingency_for_state("AM").as_str(), "svc-rs");
+    }
+
+    #[test]
+    fn try_contingency_for_state_valid() {
+        assert_eq!(
+            try_contingency_for_state("SP").unwrap(),
+            ContingencyType::SvcAn
+        );
+        assert_eq!(
+            try_contingency_for_state("AM").unwrap(),
+            ContingencyType::SvcRs
+        );
+    }
+
+    #[test]
+    fn try_contingency_for_state_invalid() {
+        assert!(try_contingency_for_state("XX").is_err());
+    }
+
+    #[test]
+    fn check_web_service_nfe_svc_an_ok() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert!(c.check_web_service_availability(InvoiceModel::Nfe).is_ok());
+    }
+
+    #[test]
+    fn check_web_service_nfe_svc_rs_ok() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcRs,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert!(c.check_web_service_availability(InvoiceModel::Nfe).is_ok());
+    }
+
+    #[test]
+    fn check_web_service_nfce_svc_fails() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        assert!(
+            c.check_web_service_availability(InvoiceModel::Nfce)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn check_web_service_epec_no_webservice() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::Epec,
+            "A valid reason for contingency mode activation",
+        )
+        .unwrap();
+        let err = c
+            .check_web_service_availability(InvoiceModel::Nfe)
+            .unwrap_err();
+        assert!(err.to_string().contains("EPEC"));
+    }
+
+    #[test]
+    fn check_web_service_normal_mode_ok() {
+        let c = Contingency::new();
+        assert!(c.check_web_service_availability(InvoiceModel::Nfe).is_ok());
+        assert!(c.check_web_service_availability(InvoiceModel::Nfce).is_ok());
+    }
+
+    #[test]
+    fn contingency_type_display() {
+        assert_eq!(format!("{}", ContingencyType::SvcAn), "SVCAN");
+        assert_eq!(format!("{}", ContingencyType::SvcRs), "SVCRS");
+        assert_eq!(format!("{}", ContingencyType::Epec), "EPEC");
+        assert_eq!(format!("{}", ContingencyType::FsDa), "FSDA");
+        assert_eq!(format!("{}", ContingencyType::FsIa), "FSIA");
+        assert_eq!(format!("{}", ContingencyType::Offline), "OFFLINE");
+    }
+
+    #[test]
+    fn contingency_type_from_str() {
+        assert_eq!(
+            "SVCAN".parse::<ContingencyType>().unwrap(),
+            ContingencyType::SvcAn
+        );
+        assert_eq!(
+            "SVC-AN".parse::<ContingencyType>().unwrap(),
+            ContingencyType::SvcAn
+        );
+        assert_eq!(
+            "SVCRS".parse::<ContingencyType>().unwrap(),
+            ContingencyType::SvcRs
+        );
+        assert_eq!(
+            "EPEC".parse::<ContingencyType>().unwrap(),
+            ContingencyType::Epec
+        );
+        assert_eq!(
+            "FSDA".parse::<ContingencyType>().unwrap(),
+            ContingencyType::FsDa
+        );
+        assert_eq!(
+            "FSIA".parse::<ContingencyType>().unwrap(),
+            ContingencyType::FsIa
+        );
+        assert_eq!(
+            "OFFLINE".parse::<ContingencyType>().unwrap(),
+            ContingencyType::Offline
+        );
+        assert!("UNKNOWN".parse::<ContingencyType>().is_err());
+    }
+
+    #[test]
+    fn contingency_type_from_tp_emis() {
+        assert_eq!(
+            ContingencyType::from_tp_emis(2),
+            Some(ContingencyType::FsIa)
+        );
+        assert_eq!(
+            ContingencyType::from_tp_emis(4),
+            Some(ContingencyType::Epec)
+        );
+        assert_eq!(
+            ContingencyType::from_tp_emis(5),
+            Some(ContingencyType::FsDa)
+        );
+        assert_eq!(
+            ContingencyType::from_tp_emis(6),
+            Some(ContingencyType::SvcAn)
+        );
+        assert_eq!(
+            ContingencyType::from_tp_emis(7),
+            Some(ContingencyType::SvcRs)
+        );
+        assert_eq!(
+            ContingencyType::from_tp_emis(9),
+            Some(ContingencyType::Offline)
+        );
+        assert_eq!(ContingencyType::from_tp_emis(1), None);
+        assert_eq!(ContingencyType::from_tp_emis(0), None);
+        assert_eq!(ContingencyType::from_tp_emis(3), None);
+    }
+
+    #[test]
+    fn escape_json_string_basic() {
+        assert_eq!(escape_json_string("hello"), "hello");
+        assert_eq!(escape_json_string(r#"say "hi""#), r#"say \"hi\""#);
+        assert_eq!(escape_json_string("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn all_27_states_have_mapping() {
+        let states = [
+            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
+            "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+        ];
+        for uf in states {
+            let ct = contingency_for_state(uf);
+            assert!(
+                ct == ContingencyType::SvcAn || ct == ContingencyType::SvcRs,
+                "State {uf} should map to SVC-AN or SVC-RS"
+            );
+        }
     }
 }

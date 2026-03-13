@@ -48,4 +48,5 @@ IcmsTotals {
     v_icms_mono_ret: Cents(
         0,
     ),
+    ind_deduz_deson: false,
 }

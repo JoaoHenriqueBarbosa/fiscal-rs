@@ -1862,7 +1862,7 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_103_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn103 {
             orig: "0".into(),
             csosn: "103".into(),
         });
@@ -1875,7 +1875,7 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_300_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn300 {
             orig: "0".into(),
             csosn: "300".into(),
         });
@@ -1888,7 +1888,7 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_400_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn400 {
             orig: "0".into(),
             csosn: "400".into(),
         });
@@ -1983,7 +1983,7 @@ mod tag_icmssn_ported {
 
     #[test]
     fn test_tagicmssn_203_uses_same_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn202 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn203 {
             orig: "0".into(),
             csosn: "203".into(),
             mod_bc_st: "4".into(),

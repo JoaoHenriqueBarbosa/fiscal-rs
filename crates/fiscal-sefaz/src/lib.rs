@@ -18,6 +18,8 @@ pub mod response_parsers;
 pub mod services;
 /// SEFAZ endpoint URL resolution by UF and environment.
 pub mod urls;
+/// NF-e XML validation: pre-send structural checks and post-authorization SEFAZ verification.
+pub mod validate;
 
 mod soap;
 

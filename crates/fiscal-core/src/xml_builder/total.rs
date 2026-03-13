@@ -4,7 +4,7 @@ use crate::format_utils::format_cents;
 use crate::newtypes::Cents;
 use crate::tax_ibs_cbs::{self, IbsCbsTotData, IsTotData};
 use crate::tax_icms::IcmsTotals;
-use crate::types::{IssqnTotData, RetTribData};
+use crate::types::{CalculationMethod, IssqnTotData, RetTribData, SchemaVersion};
 use crate::xml_utils::{TagContent, tag};
 
 /// Accumulated non-ICMS totals for the invoice total calculation.
@@ -30,9 +30,68 @@ pub struct OtherTotals {
     pub v_tot_trib: i64,
     /// Total IPI devolution value in cents (vIPIDevol).
     pub v_ipi_devol: i64,
+    /// Total PIS-ST value in cents (vPISST, accumulated from items with indSomaPISST=1).
+    pub v_pis_st: i64,
+    /// Total COFINS-ST value in cents (vCOFINSST, accumulated from items with indSomaCOFINSST=1).
+    pub v_cofins_st: i64,
+}
+
+/// Calculate `vNF` using the V1 method (from accumulated struct values).
+///
+/// Matches the PHP `buildTotalICMS()` formula:
+/// ```text
+/// vNF = vProd - vDesc - (vICMSDeson * indDeduzDeson)
+///     + vST + vFCPST + vICMSMonoReten
+///     + vFrete + vSeg + vOutro
+///     + vII + vIPI + vIPIDevol
+///     + vServ + vPISST + vCOFINSST
+/// ```
+fn calculate_v_nf_v1(
+    total_products: i64,
+    icms: &IcmsTotals,
+    other: &OtherTotals,
+    v_serv: i64,
+) -> i64 {
+    let deson_deduction = if icms.ind_deduz_deson {
+        icms.v_icms_deson.0
+    } else {
+        0
+    };
+
+    total_products - other.v_desc - deson_deduction
+        + icms.v_st.0
+        + icms.v_fcp_st.0
+        + icms.v_icms_mono_reten.0
+        + other.v_frete
+        + other.v_seg
+        + other.v_outro
+        + other.v_ii
+        + other.v_ipi
+        + other.v_ipi_devol
+        + other.v_pis_st
+        + other.v_cofins_st
+        + v_serv
+}
+
+/// Calculate `vNF` using the V2 method (from built XML tag values).
+///
+/// In the Rust implementation, since we accumulate from the same source
+/// data, V2 produces the same result as V1.  The function exists for API
+/// parity with PHP `sped-nfe` and for future divergence.
+fn calculate_v_nf_v2(
+    total_products: i64,
+    icms: &IcmsTotals,
+    other: &OtherTotals,
+    v_serv: i64,
+) -> i64 {
+    // V2 uses the same formula — the PHP difference is only in _where_
+    // the input values come from (DOM tags vs. accumulated array).
+    calculate_v_nf_v1(total_products, icms, other, v_serv)
 }
 
 /// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, and IBSCBSTot.
+///
+/// `schema_version` controls whether PL_010-exclusive totals (ISTot, IBSCBSTot) are emitted.
 pub fn build_total(
     total_products: i64,
     icms: &IcmsTotals,
@@ -41,23 +100,19 @@ pub fn build_total(
     issqn_tot: Option<&IssqnTotData>,
     is_tot: Option<&IsTotData>,
     ibs_cbs_tot: Option<&IbsCbsTotData>,
+    schema_version: SchemaVersion,
+    calculation_method: CalculationMethod,
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
-    // Calculate vNF per PHP formula:
-    // vNF = vProd - vDesc - (vICMSDeson * indDeduzDeson) + vST + vFCPST
-    //       + vFrete + vSeg + vOutro + vII + vIPI + vIPIDevol + vServ
-    // Note: indDeduzDeson and vServ are not currently implemented,
-    // so we omit those terms for now.
-    let v_nf = total_products - other.v_desc
-        + icms.v_st.0
-        + icms.v_fcp_st.0
-        + other.v_frete
-        + other.v_seg
-        + other.v_outro
-        + other.v_ii
-        + other.v_ipi
-        + other.v_ipi_devol;
+    // Extract vServ from ISSQNTot for the vNF formula
+    let v_serv = issqn_tot.and_then(|iq| iq.v_serv).map(|c| c.0).unwrap_or(0);
+
+    // Calculate vNF using the selected method.
+    let v_nf = match calculation_method {
+        CalculationMethod::V1 => calculate_v_nf_v1(total_products, icms, other, v_serv),
+        CalculationMethod::V2 => calculate_v_nf_v2(total_products, icms, other, v_serv),
+    };
 
     // Optional ICMSTot fields — PHP sped-nfe omits these when <= 0
     let mut icms_children = vec![
@@ -175,14 +230,18 @@ pub fn build_total(
         total_children.push(build_issqn_tot(iqt));
     }
 
-    // ISTot — emitted when IS (Imposto Seletivo) is present
-    if let Some(ist) = is_tot {
-        total_children.push(tax_ibs_cbs::build_is_tot_xml(ist));
-    }
+    // ISTot and IBSCBSTot — only emitted when schema is PL_010 or later
+    // (matching PHP: $this->schema > 9)
+    if schema_version.is_pl010() {
+        // ISTot — emitted when IS (Imposto Seletivo) is present
+        if let Some(ist) = is_tot {
+            total_children.push(tax_ibs_cbs::build_is_tot_xml(ist));
+        }
 
-    // IBSCBSTot — emitted when IBS/CBS is present
-    if let Some(ibst) = ibs_cbs_tot {
-        total_children.push(tax_ibs_cbs::build_ibs_cbs_tot_xml(ibst));
+        // IBSCBSTot — emitted when IBS/CBS is present
+        if let Some(ibst) = ibs_cbs_tot {
+            total_children.push(tax_ibs_cbs::build_ibs_cbs_tot_xml(ibst));
+        }
     }
 
     if let Some(rt) = ret_trib {
@@ -295,7 +354,14 @@ mod tests {
             v_outro: 0,
             v_tot_trib: 0,
             v_ipi_devol: 0,
+            v_pis_st: 0,
+            v_cofins_st: 0,
         }
+    }
+
+    /// Default calculation method for tests (V2, matching PHP default).
+    fn default_method() -> CalculationMethod {
+        CalculationMethod::V2
     }
 
     #[test]
@@ -370,6 +436,8 @@ mod tests {
             Some(&data),
             None,
             None,
+            SchemaVersion::PL009,
+            default_method(),
         );
 
         // ISSQNtot should appear after ICMSTot
@@ -385,7 +453,17 @@ mod tests {
 
     #[test]
     fn no_issqn_tot_when_none() {
-        let xml = build_total(0, &zero_icms(), &zero_other(), None, None, None, None);
+        let xml = build_total(
+            0,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
         assert!(!xml.contains("<ISSQNtot>"));
     }
 
@@ -399,7 +477,17 @@ mod tests {
         icms.q_bc_mono_ret = 6000;
         icms.v_icms_mono_ret = Cents(3000);
 
-        let xml = build_total(100000, &icms, &zero_other(), None, None, None, None);
+        let xml = build_total(
+            100000,
+            &icms,
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
 
         // All monophasic fields must be present
         assert!(xml.contains("<qBCMono>100.00</qBCMono>"));
@@ -422,7 +510,17 @@ mod tests {
 
     #[test]
     fn icms_mono_fields_omitted_when_zero() {
-        let xml = build_total(100000, &zero_icms(), &zero_other(), None, None, None, None);
+        let xml = build_total(
+            100000,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
 
         assert!(
             !xml.contains("<qBCMono>"),
@@ -457,7 +555,17 @@ mod tests {
         icms.v_icms_mono = Cents(2500);
         icms.q_bc_mono_ret = 5000;
 
-        let xml = build_total(100000, &icms, &zero_other(), None, None, None, None);
+        let xml = build_total(
+            100000,
+            &icms,
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
 
         // q_bc_mono is 0, should be omitted
         assert!(!xml.contains("<qBCMono>"));
@@ -484,6 +592,93 @@ mod tests {
                 <dCompet>2026-06-15</dCompet>\
                 <cRegTrib>1</cRegTrib>\
             </ISSQNtot>"
+        );
+    }
+
+    /// Quando indDeduzDeson=1 e vICMSDeson=100.00 (10000 cents),
+    /// vNF deve ser reduzido em 100.00.
+    #[test]
+    fn vnf_reduced_by_vicms_deson_when_ind_deduz_deson_is_true() {
+        // vProd = 1000.00
+        let total_products: i64 = 100_000;
+        let mut icms = zero_icms();
+        icms.v_icms_deson = Cents(10_000); // 100.00
+        icms.ind_deduz_deson = true;
+
+        let xml = build_total(
+            total_products,
+            &icms,
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
+
+        // vNF = vProd - vDesc - vICMSDeson + ... = 1000.00 - 0 - 100.00 = 900.00
+        assert_eq!(
+            xml.contains("<vNF>900.00</vNF>"),
+            true,
+            "vNF deve ser 900.00 quando indDeduzDeson=1 e vICMSDeson=100.00. XML: {}",
+            xml
+        );
+    }
+
+    /// Quando indDeduzDeson=false (padrão), vICMSDeson NÃO é subtraído de vNF.
+    #[test]
+    fn vnf_unchanged_without_desoneracao() {
+        let total_products: i64 = 100_000;
+        let mut icms = zero_icms();
+        icms.v_icms_deson = Cents(10_000); // 100.00 — presente mas não deduzido
+        icms.ind_deduz_deson = false;
+
+        let xml = build_total(
+            total_products,
+            &icms,
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
+
+        // vNF = vProd = 1000.00 (desoneração NÃO deduzida)
+        assert_eq!(
+            xml.contains("<vNF>1000.00</vNF>"),
+            true,
+            "vNF deve ser 1000.00 quando indDeduzDeson=false. XML: {}",
+            xml
+        );
+    }
+
+    /// vServ do ISSQNTot deve ser somado ao vNF.
+    #[test]
+    fn vnf_includes_vserv_from_issqn() {
+        let total_products: i64 = 100_000; // vProd = 1000.00
+        let issqn = IssqnTotData::new("2026-03-12").v_serv(Cents(50_000)); // vServ = 500.00
+
+        let xml = build_total(
+            total_products,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            Some(&issqn),
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
+
+        // vNF = vProd + vServ = 1000.00 + 500.00 = 1500.00
+        assert_eq!(
+            xml.contains("<vNF>1500.00</vNF>"),
+            true,
+            "vNF deve ser 1500.00 incluindo vServ=500.00. XML: {}",
+            xml
         );
     }
 }

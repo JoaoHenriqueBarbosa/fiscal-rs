@@ -34,7 +34,7 @@ use reqwest::{Client, Identity};
 use fiscal_core::FiscalError;
 use fiscal_core::types::SefazEnvironment;
 
-use crate::request_builders;
+use crate::request_builders::{self, RtcCredPresItem, RtcItem};
 use crate::response_parsers::{
     self, AuthorizationResponse, CadastroResponse, CancellationResponse, DistDFeResponse,
     StatusResponse,
@@ -516,12 +516,7 @@ impl SefazClient {
     ) -> Result<CadastroResponse, FiscalError> {
         let request_xml = request_builders::build_cadastro_request(uf, search_type, search_value);
         let raw = self
-            .send(
-                SefazService::ConsultaCadastro,
-                uf,
-                environment,
-                &request_xml,
-            )
+            .send_cadastro_raw(uf, environment, &request_xml)
             .await?;
         response_parsers::parse_cadastro_response(&raw)
     }
@@ -550,6 +545,79 @@ impl SefazClient {
         let request_xml = request_builders::build_epec_request(epec_data, environment);
         let raw = self
             .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Check EPEC NFC-e service status (`EPECStatusServico`, SP only).
+    ///
+    /// Queries the operational status of the EPEC NFC-e service. This
+    /// service exists only in SP (São Paulo) for model 65 (NFC-e),
+    /// matching the PHP `sefazStatusEpecNfce()` method from
+    /// `TraitEPECNfce`.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation (must be `"SP"`).
+    /// * `environment` — SEFAZ environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn epec_nfce_status(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+    ) -> Result<StatusResponse, FiscalError> {
+        let request_xml = request_builders::build_epec_nfce_status_request(uf, environment);
+        let raw = self
+            .send_model(
+                SefazService::EpecNfceStatusServico,
+                uf,
+                environment,
+                &request_xml,
+                65,
+            )
+            .await?;
+        response_parsers::parse_status_response(&raw)
+    }
+
+    /// Submit an EPEC event for NFC-e (`RecepcaoEPEC`, tpEvento=110140,
+    /// SP only).
+    ///
+    /// The EPEC NFC-e event is sent to the state's `RecepcaoEPEC` endpoint
+    /// (not Ambiente Nacional). This is only available in SP and differs
+    /// from the standard EPEC: no `<vST>`, optional `<dest>`, and
+    /// `cOrgao` is the state's IBGE code.
+    ///
+    /// Matches the PHP `sefazEpecNfce()` method from `TraitEPECNfce`.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation (must be `"SP"`).
+    /// * `epec_data` — Pre-extracted NFC-e data for the EPEC event.
+    /// * `environment` — SEFAZ environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn epec_nfce(
+        &self,
+        uf: &str,
+        epec_data: &request_builders::EpecNfceData,
+        environment: SefazEnvironment,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_epec_nfce_request(epec_data, environment);
+        let raw = self
+            .send_model(
+                SefazService::RecepcaoEpecNfce,
+                uf,
+                environment,
+                &request_xml,
+                65,
+            )
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -1267,6 +1335,284 @@ impl SefazClient {
         self.send_rtc_event(uf, environment, &xml).await
     }
 
+    /// RTC: Importacao via ZFM (tpEvento=112120).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_importacao_zfm(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_importacao_zfm(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Roubo/perda em transporte pelo fornecedor (tpEvento=112130).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_roubo_perda_fornecedor(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_roubo_perda_fornecedor(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Fornecimento nao realizado (tpEvento=112140).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_fornecimento_nao_realizado(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_fornecimento_nao_realizado(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Solicitacao de apropriacao de credito presumido (tpEvento=211110).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_sol_aprop_cred_presumido(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcCredPresItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_sol_aprop_cred_presumido(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Destinacao de item para consumo pessoal (tpEvento=211120).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_destino_consumo_pessoal(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        tp_autor: u8,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_destino_consumo_pessoal(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            tp_autor,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Perecimento/roubo transporte adquirente (tpEvento=211124).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_roubo_perda_adquirente(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_roubo_perda_adquirente(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Imobilizacao de item (tpEvento=211130).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_imobilizacao_item(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_imobilizacao_item(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Apropriacao de credito combustivel (tpEvento=211140).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_apropriacao_credito_comb(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_apropriacao_credito_comb(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Apropriacao de credito bens/servicos (tpEvento=211150).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_apropriacao_credito_bens(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        itens: &[RtcItem],
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_apropriacao_credito_bens(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            itens,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    // ── Validation ────────────────────────────────────────────────────
+
+    /// Validate an authorized NF-e against SEFAZ records.
+    ///
+    /// Extracts the access key, protocol number, and digest value from the
+    /// local authorized NF-e XML, then queries SEFAZ via
+    /// [`consult`](Self::consult) and compares:
+    ///
+    /// 1. Protocol number (`nProt`)
+    /// 2. Digest value (`digVal` / `DigestValue`)
+    /// 3. Access key (`chNFe`)
+    ///
+    /// Returns a [`ValidationResult`](crate::validate::ValidationResult)
+    /// with `is_valid = true` only when all three match.
+    ///
+    /// Mirrors the PHP `Tools::sefazValidate()` method.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation.
+    /// * `nfe_xml` — The complete authorized NF-e XML (with `<protNFe>` attached).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::XmlParsing`] if the local XML is missing
+    /// required elements.
+    /// Returns [`FiscalError::Network`] on SEFAZ communication failure.
+    pub async fn sefaz_validate(
+        &self,
+        uf: &str,
+        nfe_xml: &str,
+    ) -> Result<crate::validate::ValidationResult, FiscalError> {
+        let (access_key, protocol, digest) = crate::validate::extract_nfe_validation_data(nfe_xml)?;
+
+        // Determine environment from tpAmb in the XML
+        let tp_amb =
+            fiscal_core::xml_utils::extract_xml_tag_value(nfe_xml, "tpAmb").ok_or_else(|| {
+                FiscalError::XmlParsing("Tag <tpAmb> não encontrada no XML".to_string())
+            })?;
+        let environment = if tp_amb == "1" {
+            SefazEnvironment::Production
+        } else {
+            SefazEnvironment::Homologation
+        };
+
+        // Query SEFAZ by access key
+        let request_xml = request_builders::build_consulta_request(&access_key, environment);
+        let raw = self
+            .send(
+                SefazService::ConsultaProtocolo,
+                uf,
+                environment,
+                &request_xml,
+            )
+            .await?;
+
+        // Compare local vs SEFAZ data
+        crate::validate::validate_authorized_nfe(&access_key, &protocol, &digest, &raw)
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
     /// Send a raw request XML to a SEFAZ service using gzip compression.
@@ -1325,6 +1671,48 @@ impl SefazClient {
         let meta = service.meta();
         // AN is not a real state code, but we use it for envelope building
         let envelope = soap::build_envelope(request_xml, "AN", &meta)?;
+        let action = soap::build_action(&meta);
+
+        let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
+
+        let response = self
+            .http
+            .post(&url)
+            .header("Content-Type", &content_type)
+            .body(envelope)
+            .send()
+            .await
+            .map_err(|e| FiscalError::Network(format!("{e}")))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| FiscalError::Network(format!("Failed to read response body: {e}")))?;
+
+        if !status.is_success() {
+            return Err(FiscalError::Network(format!(
+                "SEFAZ returned HTTP {status}: {body}"
+            )));
+        }
+
+        Ok(body)
+    }
+
+    /// Send a ConsultaCadastro request with the `<nfeCabecMsg>` SOAP header.
+    ///
+    /// Uses `build_envelope_with_header` which adds the legacy
+    /// `<soap:Header><nfeCabecMsg>` block required by this v2.00 service.
+    async fn send_cadastro_raw(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        request_xml: &str,
+    ) -> Result<String, FiscalError> {
+        let service = SefazService::ConsultaCadastro;
+        let url = get_sefaz_url_for_model(uf, environment, service.url_key(), 55)?;
+        let meta = service.meta();
+        let envelope = soap::build_envelope_with_header(request_xml, uf, &meta)?;
         let action = soap::build_action(&meta);
 
         let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");

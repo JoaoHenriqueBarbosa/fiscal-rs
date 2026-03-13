@@ -38,10 +38,11 @@ use fiscal::tax_pis_cofins_ipi::{
 };
 use fiscal::types::{
     AccessKeyParams, AgropecuarioData, AgropecuarioDefensivoData, AgropecuarioGuiaData,
-    AuthorizedXml, BillingData, BillingInvoice, CompraGovData, ContingencyType, EmissionType,
-    ExportData, Installment, IntermediaryData, InvoiceItemData, InvoiceModel, IssuerData,
-    LocationData, NfceQrCodeParams, PagAntecipadoData, PaymentData, PurchaseData, PutQRTagParams,
-    QrCodeVersion, RecipientData, SefazEnvironment, TaxRegime, TechResponsibleData,
+    AuthorizedXml, BillingData, BillingInvoice, CalculationMethod, CompraGovData, ContingencyType,
+    EmissionType, ExportData, Installment, IntermediaryData, InvoiceItemData, InvoiceModel,
+    IssuerData, LocationData, NfceQrCodeParams, PagAntecipadoData, PaymentData, PurchaseData,
+    PutQRTagParams, QrCodeVersion, RecipientData, SchemaVersion, SefazEnvironment, TaxRegime,
+    TechResponsibleData,
 };
 use fiscal::xml_builder::InvoiceBuilder;
 use fiscal::xml_builder::access_key::{
@@ -739,6 +740,8 @@ fn bench_build_total(bencher: divan::Bencher) {
         v_outro: 0,
         v_tot_trib: 0,
         v_ipi_devol: 0,
+        v_pis_st: 0,
+        v_cofins_st: 0,
     };
     bencher.bench(|| {
         build_total(
@@ -749,6 +752,8 @@ fn bench_build_total(bencher: divan::Bencher) {
             divan::black_box(None),
             divan::black_box(None),
             divan::black_box(None),
+            divan::black_box(SchemaVersion::PL009),
+            divan::black_box(CalculationMethod::V2),
         )
     });
 }

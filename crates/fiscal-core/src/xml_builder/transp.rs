@@ -182,6 +182,7 @@ mod tests {
         );
 
         InvoiceBuildData {
+            schema_version: crate::types::SchemaVersion::PL009,
             model: InvoiceModel::Nfe,
             series: 1,
             number: 1,
@@ -226,6 +227,8 @@ mod tests {
             exit_at: None,
             destination_indicator: None,
             ver_proc: None,
+            only_ascii: false,
+            calculation_method: crate::types::CalculationMethod::V2,
         }
     }
 

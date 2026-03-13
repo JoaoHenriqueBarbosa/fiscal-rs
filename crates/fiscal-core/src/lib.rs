@@ -36,6 +36,8 @@ pub mod gtin;
 pub mod newtypes;
 /// NFC-e QR code URL builder and XML injection.
 pub mod qrcode;
+/// ASCII sanitization for XML text content (replaces accented characters).
+pub mod sanitize;
 /// NF-e XML document type identification and XML-to-JSON conversion.
 pub mod standardize;
 /// Brazilian state IBGE code lookup tables and helpers.
@@ -54,6 +56,8 @@ pub mod tax_is;
 pub mod tax_issqn;
 /// PIS, COFINS, IPI, and II tax computation and XML generation.
 pub mod tax_pis_cofins_ipi;
+/// Timezone lookup by Brazilian state (UF).
+pub mod timezone;
 /// Public data structures for NF-e / NFC-e documents.
 pub mod types;
 /// Typestate XML builder for NF-e / NFC-e documents.

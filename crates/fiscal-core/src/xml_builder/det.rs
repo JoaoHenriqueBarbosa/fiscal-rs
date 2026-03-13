@@ -1,7 +1,7 @@
 //! Build `<det>` (item detail) elements of the NF-e XML.
 
 use crate::FiscalError;
-use crate::format_utils::{format_cents, format_decimal};
+use crate::format_utils::{format_cents, format_decimal, format_rate4};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_ibs_cbs;
 use crate::tax_icms::{self, IcmsCsosn, IcmsCst, IcmsTotals, IcmsVariant};
@@ -46,6 +46,12 @@ pub struct DetResult {
     pub v_tot_trib: i64,
     /// IPI devolution value in cents contributed by this item.
     pub v_ipi_devol: i64,
+    /// PIS-ST value in cents contributed by this item (only when indSomaPISST = 1).
+    pub v_pis_st: i64,
+    /// COFINS-ST value in cents contributed by this item (only when indSomaCOFINSST = 1).
+    pub v_cofins_st: i64,
+    /// Whether this item has indDeduzDeson = 1 (desoneration deduction applies).
+    pub ind_deduz_deson: bool,
     /// Whether this item uses ISSQN instead of ICMS.
     pub has_issqn: bool,
 }
@@ -79,7 +85,19 @@ fn build_icms_variant(
                     }
                 })?,
             },
-            "102" | "103" | "300" | "400" => IcmsCsosn::Csosn102 {
+            "102" => IcmsCsosn::Csosn102 {
+                orig,
+                csosn: csosn_code.to_string(),
+            },
+            "103" => IcmsCsosn::Csosn103 {
+                orig,
+                csosn: csosn_code.to_string(),
+            },
+            "300" => IcmsCsosn::Csosn300 {
+                orig,
+                csosn: csosn_code.to_string(),
+            },
+            "400" => IcmsCsosn::Csosn400 {
                 orig,
                 csosn: csosn_code.to_string(),
             },
@@ -114,7 +132,36 @@ fn build_icms_variant(
                 p_cred_sn: item.icms_p_cred_sn,
                 v_cred_icms_sn: item.icms_v_cred_icms_sn,
             },
-            "202" | "203" => IcmsCsosn::Csosn202 {
+            "202" => IcmsCsosn::Csosn202 {
+                orig,
+                csosn: csosn_code.to_string(),
+                mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "modBCST".to_string(),
+                    }
+                })?,
+                p_mva_st: item.icms_p_mva_st,
+                p_red_bc_st: item.icms_red_bc_st,
+                v_bc_st: item
+                    .icms_v_bc_st
+                    .ok_or_else(|| FiscalError::MissingRequiredField {
+                        field: "vBCST".to_string(),
+                    })?,
+                p_icms_st: item.icms_p_icms_st.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "pICMSST".to_string(),
+                    }
+                })?,
+                v_icms_st: item.icms_v_icms_st.ok_or_else(|| {
+                    FiscalError::MissingRequiredField {
+                        field: "vICMSST".to_string(),
+                    }
+                })?,
+                v_bc_fcp_st: item.icms_v_bc_fcp_st,
+                p_fcp_st: item.icms_p_fcp_st,
+                v_fcp_st: item.icms_v_fcp_st,
+            },
+            "203" => IcmsCsosn::Csosn203 {
                 orig,
                 csosn: csosn_code.to_string(),
                 mod_bc_st: item.icms_mod_bc_st.map(|v| v.to_string()).ok_or_else(|| {
@@ -251,7 +298,7 @@ fn build_icms_variant(
                 v_fcp: item.icms_v_fcp,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
             },
             "30" => IcmsCst::Cst30 {
                 orig,
@@ -282,25 +329,25 @@ fn build_icms_variant(
                 v_fcp_st: item.icms_v_fcp_st,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
             },
             "40" => IcmsCst::Cst40 {
                 orig,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
             },
             "41" => IcmsCst::Cst41 {
                 orig,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
             },
             "50" => IcmsCst::Cst50 {
                 orig,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
             },
             "51" => IcmsCst::Cst51 {
                 orig,
@@ -374,7 +421,7 @@ fn build_icms_variant(
                 v_fcp_st: item.icms_v_fcp_st,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
                 v_icms_st_deson: None,
                 mot_des_icms_st: None,
             },
@@ -406,7 +453,7 @@ fn build_icms_variant(
                 v_fcp_st: item.icms_v_fcp_st,
                 v_icms_deson: item.icms_v_icms_deson,
                 mot_des_icms: item.icms_mot_des_icms.map(|v| v.to_string()),
-                ind_deduz_deson: None,
+                ind_deduz_deson: item.icms_ind_deduz_deson.clone(),
                 v_icms_st_deson: None,
                 mot_des_icms_st: None,
             },
@@ -421,6 +468,15 @@ pub(crate) fn build_det(
     item: &InvoiceItemData,
     data: &InvoiceBuildData,
 ) -> Result<DetResult, FiscalError> {
+    // Validate NVE: up to 8 per item
+    if item.nve.len() > 8 {
+        return Err(FiscalError::InvalidTaxData(format!(
+            "Item {}: NVE limited to 8 entries, got {}",
+            item.item_number,
+            item.nve.len()
+        )));
+    }
+
     let is_simples = matches!(
         data.issuer.tax_regime,
         TaxRegime::SimplesNacional | TaxRegime::SimplesExcess
@@ -497,6 +553,31 @@ pub(crate) fn build_det(
     // Build prod options (rastro, veicProd, med, arma, comb, nRECOPI)
     let prod_options = build_prod_options(item);
 
+    // Build PIS-ST (optional)
+    let mut v_pis_st = 0i64;
+    if let Some(ref pis_st_data) = item.pis_st {
+        // Accumulate only when indSomaPISST == 1 (matches PHP)
+        if pis_st_data.ind_soma_pis_st == Some(1) {
+            v_pis_st = pis_st_data.v_pis.0;
+        }
+    }
+
+    // Build COFINS-ST (optional)
+    let mut v_cofins_st = 0i64;
+    if let Some(ref cofins_st_data) = item.cofins_st {
+        // Accumulate only when indSomaCOFINSST == 1 (matches PHP)
+        if cofins_st_data.ind_soma_cofins_st == Some(1) {
+            v_cofins_st = cofins_st_data.v_cofins.0;
+        }
+    }
+
+    // Detect indDeduzDeson from item ICMS data
+    let item_ind_deduz_deson = item
+        .icms_ind_deduz_deson
+        .as_deref()
+        .map(|v| v == "1")
+        .unwrap_or(false);
+
     // Build det-level extras (infAdProd, obsItem, DFeReferenciado)
     let det_extras = build_det_extras(item);
 
@@ -508,8 +589,18 @@ pub(crate) fn build_det(
     if !ipi_xml.is_empty() {
         imposto_children.push(ipi_xml);
     }
-    imposto_children.push(pis_xml);
-    imposto_children.push(cofins_xml);
+    // PIS or PISST (mutually exclusive per PHP sped-nfe)
+    if let Some(ref pis_st) = item.pis_st {
+        imposto_children.push(tax_pis_cofins_ipi::build_pis_st_xml(pis_st));
+    } else {
+        imposto_children.push(pis_xml);
+    }
+    // COFINS or COFINSST (mutually exclusive per PHP sped-nfe)
+    if let Some(ref cofins_st) = item.cofins_st {
+        imposto_children.push(tax_pis_cofins_ipi::build_cofins_st_xml(cofins_st));
+    } else {
+        imposto_children.push(cofins_xml);
+    }
     if !ii_xml.is_empty() {
         imposto_children.push(ii_xml);
     }
@@ -518,13 +609,16 @@ pub(crate) fn build_det(
     }
 
     // Build IS (Imposto Seletivo) -- optional, inside <imposto>
-    if let Some(ref is_data) = item.is_data {
-        imposto_children.push(tax_is::build_is_xml(is_data));
-    }
+    // Only emitted when schema is PL_010 or later (matching PHP: $this->schema > 9)
+    if data.schema_version.is_pl010() {
+        if let Some(ref is_data) = item.is_data {
+            imposto_children.push(tax_is::build_is_xml(is_data));
+        }
 
-    // Build IBS/CBS -- optional, inside <imposto>
-    if let Some(ref ibs_cbs_data) = item.ibs_cbs {
-        imposto_children.push(tax_ibs_cbs::build_ibs_cbs_xml(ibs_cbs_data));
+        // Build IBS/CBS -- optional, inside <imposto>
+        if let Some(ref ibs_cbs_data) = item.ibs_cbs {
+            imposto_children.push(tax_ibs_cbs::build_ibs_cbs_xml(ibs_cbs_data));
+        }
     }
 
     // Assemble prod
@@ -556,6 +650,9 @@ pub(crate) fn build_det(
         ),
         tag("NCM", &[], TagContent::Text(&item.ncm)),
     ];
+    for nve_code in &item.nve {
+        prod_children.push(tag("NVE", &[], TagContent::Text(nve_code)));
+    }
     if let Some(ref cest) = item.cest {
         prod_children.push(tag("CEST", &[], TagContent::Text(cest)));
         if let Some(ref ind) = item.cest_ind_escala {
@@ -567,6 +664,23 @@ pub(crate) fn build_det(
     }
     if let Some(ref cb) = item.c_benef {
         prod_children.push(tag("cBenef", &[], TagContent::Text(cb)));
+    }
+    // gCred (crédito presumido ICMS) — up to 4 per item, inside <prod>
+    for gc in item.g_cred.iter().take(4) {
+        let p_str = format_rate4(gc.p_cred_presumido.0);
+        let mut gc_children = vec![
+            tag(
+                "cCredPresumido",
+                &[],
+                TagContent::Text(&gc.c_cred_presumido),
+            ),
+            tag("pCredPresumido", &[], TagContent::Text(&p_str)),
+        ];
+        if let Some(v) = gc.v_cred_presumido {
+            let v_str = format_cents(v.0, 2);
+            gc_children.push(tag("vCredPresumido", &[], TagContent::Text(&v_str)));
+        }
+        prod_children.push(tag("gCred", &[], TagContent::Children(gc_children)));
     }
     if let Some(ref ex) = item.extipi {
         prod_children.push(tag("EXTIPI", &[], TagContent::Text(ex)));
@@ -683,6 +797,9 @@ pub(crate) fn build_det(
         ind_tot: item.ind_tot.unwrap_or(1),
         v_tot_trib: item.v_tot_trib.map(|c| c.0).unwrap_or(0),
         v_ipi_devol,
+        v_pis_st,
+        v_cofins_st,
+        ind_deduz_deson: item_ind_deduz_deson,
         has_issqn,
     })
 }
@@ -969,10 +1086,10 @@ fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::newtypes::{Cents, IbgeCode, Rate};
+    use crate::newtypes::{Cents, IbgeCode, Rate, Rate4};
     use crate::tax_issqn::IssqnData as TaxIssqnData;
     use crate::types::{
-        CideData, CombData, EncerranteData, InvoiceItemData, InvoiceModel, IssuerData,
+        CideData, CombData, EncerranteData, GCredData, InvoiceItemData, InvoiceModel, IssuerData,
         OrigCombData, SefazEnvironment, TaxRegime,
     };
 
@@ -992,6 +1109,7 @@ mod tests {
         );
 
         InvoiceBuildData {
+            schema_version: crate::types::SchemaVersion::PL009,
             model: InvoiceModel::Nfe,
             series: 1,
             number: 1,
@@ -1036,6 +1154,8 @@ mod tests {
             ibs_cbs_tot: None,
             destination_indicator: None,
             ver_proc: None,
+            only_ascii: false,
+            calculation_method: crate::types::CalculationMethod::V2,
         }
     }
 
@@ -1720,5 +1840,218 @@ mod tests {
 
         assert!(!result.xml.contains("<impostoDevol>"));
         assert_eq!(result.v_ipi_devol, 0);
+    }
+
+    // ── NVE (Nomenclatura de Valor Aduaneiro e Estatística) ──────────────
+
+    #[test]
+    fn nve_single_code_produces_correct_xml() {
+        let item = sample_item().nve("AA0001");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<NVE>AA0001</NVE>"));
+        // NVE must appear after NCM
+        let ncm_pos = result.xml.find("<NCM>").expect("<NCM> must exist");
+        let nve_pos = result
+            .xml
+            .find("<NVE>AA0001</NVE>")
+            .expect("<NVE> must exist");
+        assert!(nve_pos > ncm_pos, "NVE must come after NCM");
+    }
+
+    #[test]
+    fn nve_multiple_codes_produces_correct_xml() {
+        let item = sample_item().nve("AA0001").nve("BB0002").nve("CC0003");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<NVE>AA0001</NVE>"));
+        assert!(result.xml.contains("<NVE>BB0002</NVE>"));
+        assert!(result.xml.contains("<NVE>CC0003</NVE>"));
+        // Verify order: AA0001 before BB0002 before CC0003
+        let pos_a = result.xml.find("<NVE>AA0001</NVE>").expect("AA0001");
+        let pos_b = result.xml.find("<NVE>BB0002</NVE>").expect("BB0002");
+        let pos_c = result.xml.find("<NVE>CC0003</NVE>").expect("CC0003");
+        assert!(pos_a < pos_b, "NVE codes must preserve insertion order");
+        assert!(pos_b < pos_c, "NVE codes must preserve insertion order");
+    }
+
+    #[test]
+    fn nve_eight_codes_is_valid() {
+        let item = sample_item()
+            .nve("AA0001")
+            .nve("AA0002")
+            .nve("AA0003")
+            .nve("AA0004")
+            .nve("AA0005")
+            .nve("AA0006")
+            .nve("AA0007")
+            .nve("AA0008");
+        let data = sample_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_ok(), "8 NVE codes should be valid");
+        let xml = result.expect("valid").xml;
+        assert_eq!(xml.matches("<NVE>").count(), 8);
+    }
+
+    #[test]
+    fn nve_nine_codes_returns_error() {
+        let item = sample_item()
+            .nve("AA0001")
+            .nve("AA0002")
+            .nve("AA0003")
+            .nve("AA0004")
+            .nve("AA0005")
+            .nve("AA0006")
+            .nve("AA0007")
+            .nve("AA0008")
+            .nve("AA0009");
+        let data = sample_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_err(), "9 NVE codes should be rejected");
+        let err = result.unwrap_err();
+        assert_eq!(
+            err,
+            FiscalError::InvalidTaxData("Item 1: NVE limited to 8 entries, got 9".to_string())
+        );
+    }
+
+    #[test]
+    fn nve_empty_vec_produces_no_nve_tags() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<NVE>"));
+    }
+
+    #[test]
+    fn nve_appears_before_cest() {
+        let item = sample_item().nve("AA0001").cest("1234567");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let nve_pos = result
+            .xml
+            .find("<NVE>AA0001</NVE>")
+            .expect("<NVE> must exist");
+        let cest_pos = result.xml.find("<CEST>").expect("<CEST> must exist");
+        assert!(nve_pos < cest_pos, "NVE must come before CEST");
+    }
+
+    // ── gCred (crédito presumido ICMS) ──────────────────────────────────────
+
+    #[test]
+    fn gcred_single_with_value_produces_correct_xml() {
+        let gc = GCredData::new("SP000001", Rate4(50000)).v_cred_presumido(Cents(1500));
+        let item = sample_item().g_cred(vec![gc]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains(
+            "<gCred><cCredPresumido>SP000001</cCredPresumido>\
+             <pCredPresumido>5.0000</pCredPresumido>\
+             <vCredPresumido>15.00</vCredPresumido></gCred>"
+        ));
+    }
+
+    #[test]
+    fn gcred_without_value_omits_v_cred_presumido() {
+        let gc = GCredData::new("RJ000002", Rate4(120000));
+        let item = sample_item().g_cred(vec![gc]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains(
+            "<gCred>\
+                <cCredPresumido>RJ000002</cCredPresumido>\
+                <pCredPresumido>12.0000</pCredPresumido>\
+            </gCred>"
+        ));
+        assert!(!result.xml.contains("<vCredPresumido>"));
+    }
+
+    #[test]
+    fn gcred_multiple_entries_up_to_four() {
+        let entries = vec![
+            GCredData::new("SP000001", Rate4(10000)).v_cred_presumido(Cents(100)),
+            GCredData::new("SP000002", Rate4(20000)).v_cred_presumido(Cents(200)),
+            GCredData::new("SP000003", Rate4(30000)).v_cred_presumido(Cents(300)),
+            GCredData::new("SP000004", Rate4(40000)).v_cred_presumido(Cents(400)),
+        ];
+        let item = sample_item().g_cred(entries);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<cCredPresumido>SP000001</cCredPresumido>")
+        );
+        assert!(
+            result
+                .xml
+                .contains("<cCredPresumido>SP000002</cCredPresumido>")
+        );
+        assert!(
+            result
+                .xml
+                .contains("<cCredPresumido>SP000003</cCredPresumido>")
+        );
+        assert!(
+            result
+                .xml
+                .contains("<cCredPresumido>SP000004</cCredPresumido>")
+        );
+    }
+
+    #[test]
+    fn gcred_truncates_at_four_entries() {
+        let entries = vec![
+            GCredData::new("SP000001", Rate4(10000)),
+            GCredData::new("SP000002", Rate4(20000)),
+            GCredData::new("SP000003", Rate4(30000)),
+            GCredData::new("SP000004", Rate4(40000)),
+            GCredData::new("SP000005", Rate4(50000)),
+        ];
+        let item = sample_item().g_cred(entries);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<cCredPresumido>SP000004</cCredPresumido>")
+        );
+        assert!(
+            !result
+                .xml
+                .contains("<cCredPresumido>SP000005</cCredPresumido>")
+        );
+    }
+
+    #[test]
+    fn gcred_positioned_after_cbenef_before_cfop() {
+        let gc = GCredData::new("MG000001", Rate4(50000)).v_cred_presumido(Cents(1000));
+        let item = sample_item().c_benef("SEM CBENEF").g_cred(vec![gc]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let cbenef_pos = result.xml.find("<cBenef>").expect("cBenef should exist");
+        let gcred_pos = result.xml.find("<gCred>").expect("gCred should exist");
+        let cfop_pos = result.xml.find("<CFOP>").expect("CFOP should exist");
+
+        assert!(gcred_pos > cbenef_pos, "gCred must come after cBenef");
+        assert!(gcred_pos < cfop_pos, "gCred must come before CFOP");
+    }
+
+    #[test]
+    fn gcred_empty_vec_produces_no_gcred_tags() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<gCred>"));
     }
 }

@@ -50,6 +50,7 @@ pub struct InvoiceBuilder<State = Draft> {
     issuer: IssuerData,
     environment: SefazEnvironment,
     model: InvoiceModel,
+    schema_version: SchemaVersion,
 
     // Defaults provided, overridable
     series: u32,
@@ -99,6 +100,10 @@ pub struct InvoiceBuilder<State = Draft> {
     is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
 
+    // ASCII sanitization
+    only_ascii: bool,
+    calculation_method: crate::types::CalculationMethod,
+
     // Present only after build
     result_xml: Option<String>,
     result_access_key: Option<String>,
@@ -124,6 +129,7 @@ impl InvoiceBuilder<Draft> {
             issuer,
             environment,
             model,
+            schema_version: SchemaVersion::default(),
             series: 1,
             invoice_number: 1,
             emission_type: EmissionType::Normal,
@@ -164,6 +170,8 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: None,
             is_tot: None,
             ibs_cbs_tot: None,
+            only_ascii: false,
+            calculation_method: crate::types::CalculationMethod::V2,
             result_xml: None,
             result_access_key: None,
             result_signed_xml: None,
@@ -188,6 +196,19 @@ impl InvoiceBuilder<Draft> {
     /// Set the emission type (default: [`EmissionType::Normal`]).
     pub fn emission_type(mut self, et: EmissionType) -> Self {
         self.emission_type = et;
+        self
+    }
+
+    /// Set the schema version (default: [`SchemaVersion::PL009`]).
+    ///
+    /// When [`PL009`](SchemaVersion::PL009), PL_010-exclusive tags (IBS/CBS, IS,
+    /// `gCompraGov`, `gPagAntecipado`, `agropecuario`) are silently omitted
+    /// even if data is provided.
+    ///
+    /// When [`PL010`](SchemaVersion::PL010), all reform-related tags are emitted
+    /// normally.
+    pub fn schema_version(mut self, sv: SchemaVersion) -> Self {
+        self.schema_version = sv;
         self
     }
 
@@ -419,6 +440,29 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Enable or disable ASCII-only mode.
+    ///
+    /// When enabled, accented characters (common in Brazilian Portuguese) are
+    /// replaced by their closest ASCII equivalents in the generated XML.
+    /// For example, "São Paulo" becomes "Sao Paulo".
+    ///
+    /// This mirrors the PHP `Make::setOnlyAscii()` method.
+    pub fn only_ascii(mut self, enabled: bool) -> Self {
+        self.only_ascii = enabled;
+        self
+    }
+
+    /// Set the calculation method for automatic totals (`vNF` and `vItem`).
+    ///
+    /// - [`V1`](CalculationMethod::V1) — from accumulated struct values.
+    /// - [`V2`](CalculationMethod::V2) — from built XML tags (default).
+    ///
+    /// Matches the PHP `setCalculationMethod()` API.
+    pub fn calculation_method(mut self, m: crate::types::CalculationMethod) -> Self {
+        self.calculation_method = m;
+        self
+    }
+
     /// Validate and build the XML, transitioning to [`Built`].
     ///
     /// # Errors
@@ -428,6 +472,7 @@ impl InvoiceBuilder<Draft> {
     /// - Tax data is invalid
     pub fn build(self) -> Result<InvoiceBuilder<Built>, FiscalError> {
         let data = InvoiceBuildData {
+            schema_version: self.schema_version,
             model: self.model,
             series: self.series,
             number: self.invoice_number,
@@ -471,6 +516,8 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
+            only_ascii: self.only_ascii,
+            calculation_method: self.calculation_method,
         };
 
         let result = super::generate_xml(&data)?;
@@ -479,6 +526,7 @@ impl InvoiceBuilder<Draft> {
             issuer: data.issuer,
             environment: data.environment,
             model: data.model,
+            schema_version: data.schema_version,
             series: data.series,
             invoice_number: data.number,
             emission_type: data.emission_type,
@@ -519,6 +567,8 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: data.pag_antecipado,
             is_tot: data.is_tot,
             ibs_cbs_tot: data.ibs_cbs_tot,
+            only_ascii: data.only_ascii,
+            calculation_method: data.calculation_method,
             result_xml: Some(result.xml),
             result_access_key: Some(result.access_key),
             result_signed_xml: None,
@@ -584,6 +634,7 @@ impl InvoiceBuilder<Built> {
             issuer: self.issuer,
             environment: self.environment,
             model: self.model,
+            schema_version: self.schema_version,
             series: self.series,
             invoice_number: self.invoice_number,
             emission_type: self.emission_type,
@@ -624,6 +675,8 @@ impl InvoiceBuilder<Built> {
             pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
+            only_ascii: self.only_ascii,
+            calculation_method: self.calculation_method,
             result_xml: self.result_xml,
             result_access_key: self.result_access_key,
             result_signed_xml: Some(signed_xml),

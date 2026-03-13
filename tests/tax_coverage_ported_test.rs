@@ -634,7 +634,7 @@ mod icmssn_csosn {
 
     #[test]
     fn test_icmssn103_csosn_103_uses_icmssn102_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn103 {
             orig: "0".into(),
             csosn: "103".into(),
         });
@@ -645,7 +645,7 @@ mod icmssn_csosn {
 
     #[test]
     fn test_icmssn300_csosn_300_uses_icmssn102_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn300 {
             orig: "0".into(),
             csosn: "300".into(),
         });
@@ -656,7 +656,7 @@ mod icmssn_csosn {
 
     #[test]
     fn test_icmssn400_csosn_400_uses_icmssn102_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn102 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn400 {
             orig: "0".into(),
             csosn: "400".into(),
         });
@@ -742,7 +742,7 @@ mod icmssn_csosn {
 
     #[test]
     fn test_icmssn203_csosn_203_uses_icmssn202_wrapper() {
-        let v = IcmsVariant::from(IcmsCsosn::Csosn202 {
+        let v = IcmsVariant::from(IcmsCsosn::Csosn203 {
             orig: "0".into(),
             csosn: "203".into(),
             mod_bc_st: "4".into(),

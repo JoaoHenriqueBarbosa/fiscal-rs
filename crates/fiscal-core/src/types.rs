@@ -77,6 +77,35 @@ impl SefazEnvironment {
     }
 }
 
+/// NF-e schema version selector.
+///
+/// Controls which XML schema layout the builder emits:
+///
+/// - [`PL009`](SchemaVersion::PL009) — standard NF-e schema (PL_009_V4), without tax-reform
+///   tags. This is the default for backward compatibility.
+/// - [`PL010`](SchemaVersion::PL010) — tax-reform schema (PL_010+), adds IBS, CBS, IS,
+///   `gCompraGov`, `gPagAntecipado`, `agropecuario`, and per-item `vItem` tags.
+///
+/// When [`PL009`](SchemaVersion::PL009) is selected the builder silently omits
+/// all PL_010-exclusive tags even if data is provided, matching the behaviour
+/// of the PHP `sped-nfe` `$schema` property.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum SchemaVersion {
+    /// PL_009_V4 — standard schema without tax-reform tags (default).
+    #[default]
+    PL009,
+    /// PL_010 — tax-reform schema with IBS/CBS, IS, gCompraGov, gPagAntecipado, agropecuario.
+    PL010,
+}
+
+impl SchemaVersion {
+    /// Returns `true` when the schema is PL_010 or later.
+    pub fn is_pl010(&self) -> bool {
+        matches!(self, Self::PL010)
+    }
+}
+
 /// NF-e emission type (`tpEmis`) — normal or one of the contingency modes.
 ///
 /// Values map directly to the `<tpEmis>` element in the `<ide>` group.
@@ -85,6 +114,12 @@ impl SefazEnvironment {
 pub enum EmissionType {
     /// `1` — Normal online emission via the primary SEFAZ authorizer.
     Normal = 1,
+    /// `2` — FS-IA contingency (Formulário de Segurança — Impressor Autônomo).
+    FsIa = 2,
+    /// `4` — EPEC contingency (Evento Prévio de Emissão em Contingência).
+    Epec = 4,
+    /// `5` — FS-DA contingency (Formulário de Segurança — Documento Auxiliar).
+    FsDa = 5,
     /// `6` — SVC-AN contingency (Sefaz Virtual do Ambiente Nacional).
     SvcAn = 6,
     /// `7` — SVC-RS contingency (Sefaz Virtual do Rio Grande do Sul).
@@ -94,15 +129,41 @@ pub enum EmissionType {
 }
 
 impl EmissionType {
-    /// Returns the numeric string representation (e.g. `"1"`, `"6"`, `"7"`, `"9"`).
+    /// Returns the numeric string representation (e.g. `"1"`, `"4"`, `"6"`, `"7"`, `"9"`).
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Normal => "1",
+            Self::FsIa => "2",
+            Self::Epec => "4",
+            Self::FsDa => "5",
             Self::SvcAn => "6",
             Self::SvcRs => "7",
             Self::Offline => "9",
         }
     }
+}
+
+/// Method used to calculate the automatic NF-e totals (`vNF` and `vItem`).
+///
+/// Mirrors the PHP `sped-nfe` constants `METHOD_CALCULATION_V1` and
+/// `METHOD_CALCULATION_V2`.
+///
+/// - **V1** — calculates from pre-accumulated item values (struct fields).
+/// - **V2** — calculates from the already-built XML tags (re-parsing).
+///
+/// In the current Rust implementation both methods produce the same result
+/// because values are accumulated from the same source.  The enum exists for
+/// API parity with PHP and to allow future divergence.
+///
+/// The default is [`V2`](CalculationMethod::V2), matching PHP's default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum CalculationMethod {
+    /// Calculate totals from accumulated struct values.
+    V1 = 1,
+    /// Calculate totals from built XML tags (default).
+    #[default]
+    V2 = 2,
 }
 
 /// Tax regime code (`CRT`) identifying the issuer's taxation framework.
@@ -131,7 +192,13 @@ pub enum ContingencyType {
     SvcAn,
     /// SVC-RS — Sefaz Virtual do Rio Grande do Sul (southern states fallback).
     SvcRs,
-    /// Offline — document issued without any network access to SEFAZ.
+    /// EPEC — Evento Prévio de Emissão em Contingência (tpEmis=4).
+    Epec,
+    /// FS-DA — Formulário de Segurança — Documento Auxiliar (tpEmis=5).
+    FsDa,
+    /// FS-IA — Formulário de Segurança — Impressor Autônomo (tpEmis=2).
+    FsIa,
+    /// Offline — document issued without any network access to SEFAZ (tpEmis=9).
     Offline,
 }
 
@@ -141,8 +208,85 @@ impl ContingencyType {
         match self {
             Self::SvcAn => "svc-an",
             Self::SvcRs => "svc-rs",
+            Self::Epec => "epec",
+            Self::FsDa => "fs-da",
+            Self::FsIa => "fs-ia",
             Self::Offline => "offline",
         }
+    }
+
+    /// Returns the uppercase type string used in PHP JSON serialization
+    /// (e.g. `"SVCAN"`, `"SVCRS"`, `"EPEC"`, `"FSDA"`, `"FSIA"`).
+    pub fn to_type_str(&self) -> &'static str {
+        match self {
+            Self::SvcAn => "SVCAN",
+            Self::SvcRs => "SVCRS",
+            Self::Epec => "EPEC",
+            Self::FsDa => "FSDA",
+            Self::FsIa => "FSIA",
+            Self::Offline => "OFFLINE",
+        }
+    }
+
+    /// Returns the emission type code (`tpEmis`) for this contingency type.
+    pub fn tp_emis(&self) -> u8 {
+        match self {
+            Self::SvcAn => 6,
+            Self::SvcRs => 7,
+            Self::Epec => 4,
+            Self::FsDa => 5,
+            Self::FsIa => 2,
+            Self::Offline => 9,
+        }
+    }
+
+    /// Parse a contingency type from its uppercase type string.
+    ///
+    /// Accepts all common representations: `SVCAN`, `SVC-AN`, `svc-an`,
+    /// `SVCRS`, `SVC-RS`, `svc-rs`, `EPEC`, `epec`, `FSDA`, `FS-DA`,
+    /// `fs-da`, `FSIA`, `FS-IA`, `fs-ia`, `OFFLINE`, `offline`.
+    ///
+    /// Returns `None` for empty strings (meaning deactivated).
+    pub fn from_type_str(s: &str) -> Option<Self> {
+        match s {
+            "SVCAN" | "SVC-AN" | "svc-an" => Some(Self::SvcAn),
+            "SVCRS" | "SVC-RS" | "svc-rs" => Some(Self::SvcRs),
+            "EPEC" | "epec" => Some(Self::Epec),
+            "FSDA" | "FS-DA" | "fs-da" => Some(Self::FsDa),
+            "FSIA" | "FS-IA" | "fs-ia" => Some(Self::FsIa),
+            "OFFLINE" | "offline" => Some(Self::Offline),
+            "" => None,
+            _ => None,
+        }
+    }
+
+    /// Create a contingency type from its `tpEmis` code.
+    ///
+    /// Returns `None` for `1` (normal emission) or unknown codes.
+    pub fn from_tp_emis(tp_emis: u8) -> Option<Self> {
+        match tp_emis {
+            2 => Some(Self::FsIa),
+            4 => Some(Self::Epec),
+            5 => Some(Self::FsDa),
+            6 => Some(Self::SvcAn),
+            7 => Some(Self::SvcRs),
+            9 => Some(Self::Offline),
+            _ => None,
+        }
+    }
+}
+
+impl core::fmt::Display for ContingencyType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(self.to_type_str())
+    }
+}
+
+impl core::str::FromStr for ContingencyType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_type_str(s).ok_or_else(|| format!("Unrecognized contingency type: {s}"))
     }
 }
 
@@ -1496,6 +1640,37 @@ impl RetTribData {
     }
 }
 
+/// Crédito presumido ICMS data (`<gCred>`) — up to 4 per item inside `<prod>`.
+///
+/// Maps to the PHP `taggCred()` method in sped-nfe.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct GCredData {
+    /// Código de Benefício Fiscal de Crédito Presumido (`cCredPresumido`).
+    pub c_cred_presumido: String,
+    /// Percentual do Crédito Presumido (`pCredPresumido`) — 4 decimal places.
+    pub p_cred_presumido: Rate4,
+    /// Valor do Crédito Presumido (`vCredPresumido`) — 2 decimal places. Optional.
+    pub v_cred_presumido: Option<Cents>,
+}
+
+impl GCredData {
+    /// Create a new `GCredData` with required fields.
+    pub fn new(c_cred_presumido: impl Into<String>, p_cred_presumido: Rate4) -> Self {
+        Self {
+            c_cred_presumido: c_cred_presumido.into(),
+            p_cred_presumido,
+            v_cred_presumido: None,
+        }
+    }
+
+    /// Set the crédito presumido value (`vCredPresumido`).
+    pub fn v_cred_presumido(mut self, v: Cents) -> Self {
+        self.v_cred_presumido = Some(v);
+        self
+    }
+}
+
 /// Batch/lot tracking data (`<rastro>`) for traceability of perishable or regulated goods.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -2325,6 +2500,9 @@ pub struct InvoiceItemData {
     pub description: String,
     /// NCM (Nomenclatura Comum do MERCOSUL) classification code.
     pub ncm: String,
+    /// NVE (Nomenclatura de Valor Aduaneiro e Estatística) codes.
+    /// Up to 8 NVE codes per item (I05a).
+    pub nve: Vec<String>,
     /// CFOP operation code (4 digits).
     pub cfop: String,
     /// Commercial unit of measure (`uCom`), e.g. `"UN"`, `"KG"`.
@@ -2347,6 +2525,8 @@ pub struct InvoiceItemData {
     pub cest_cnpj_fab: Option<String>,
     /// Tax benefit code (`cBenef`). Optional.
     pub c_benef: Option<String>,
+    /// Crédito presumido ICMS entries (`gCred`). Optional — up to 4 per item.
+    pub g_cred: Vec<GCredData>,
     /// TIPI exception code (`EXTIPI`). Optional.
     pub extipi: Option<String>,
     /// Purchase order number (`xPed`). Optional.
@@ -2410,6 +2590,9 @@ pub struct InvoiceItemData {
     pub icms_v_cred_icms_sn: Option<Cents>,
     /// ICMS substitute value (`vICMSSubstituto`). Optional.
     pub icms_v_icms_substituto: Option<Cents>,
+    /// ICMS desoneration deduction indicator (`indDeduzDeson`). Optional.
+    /// When `"1"`, the desonerated value is deducted from vNF.
+    pub icms_ind_deduz_deson: Option<String>,
     // ── PIS ─────────────────────────────────────────────────────────────────
     /// PIS CST code (2 digits).
     pub pis_cst: String,
@@ -2498,6 +2681,10 @@ pub struct InvoiceItemData {
     pub is_data: Option<crate::tax_is::IsData>,
     /// IBS/CBS (Imposto sobre Bens e Servicos / Contribuicao sobre Bens e Servicos) data. Optional.
     pub ibs_cbs: Option<crate::tax_ibs_cbs::IbsCbsData>,
+    /// PIS-ST (substituição tributária) data for this item. Optional.
+    pub pis_st: Option<crate::tax_pis_cofins_ipi::PisStData>,
+    /// COFINS-ST (substituição tributária) data for this item. Optional.
+    pub cofins_st: Option<crate::tax_pis_cofins_ipi::CofinsStData>,
 }
 
 impl InvoiceItemData {
@@ -2525,6 +2712,7 @@ impl InvoiceItemData {
             product_code: product_code.into(),
             description: description.into(),
             ncm: ncm.into(),
+            nve: Vec::new(),
             cfop: cfop.into(),
             unit_of_measure: unit_of_measure.into(),
             quantity,
@@ -2536,6 +2724,7 @@ impl InvoiceItemData {
             cest_ind_escala: None,
             cest_cnpj_fab: None,
             c_benef: None,
+            g_cred: Vec::new(),
             extipi: None,
             x_ped: None,
             n_item_ped: None,
@@ -2567,6 +2756,7 @@ impl InvoiceItemData {
             icms_p_cred_sn: None,
             icms_v_cred_icms_sn: None,
             icms_v_icms_substituto: None,
+            icms_ind_deduz_deson: None,
             pis_cst: pis_cst.into(),
             pis_v_bc: None,
             pis_p_pis: None,
@@ -2607,6 +2797,8 @@ impl InvoiceItemData {
             v_tot_trib: None,
             is_data: None,
             ibs_cbs: None,
+            pis_st: None,
+            cofins_st: None,
         }
     }
 
@@ -2619,6 +2811,12 @@ impl InvoiceItemData {
     /// Set the tributary EAN code.
     pub fn c_ean_trib(mut self, v: impl Into<String>) -> Self {
         self.c_ean_trib = Some(v.into());
+        self
+    }
+    /// Add an NVE code (Nomenclatura de Valor Aduaneiro e Estatística).
+    /// Up to 8 NVE codes can be added per item (I05a).
+    pub fn nve(mut self, v: impl Into<String>) -> Self {
+        self.nve.push(v.into());
         self
     }
     /// Set the CEST code.
@@ -2639,6 +2837,11 @@ impl InvoiceItemData {
     /// Set the tax benefit code (`cBenef`).
     pub fn c_benef(mut self, v: impl Into<String>) -> Self {
         self.c_benef = Some(v.into());
+        self
+    }
+    /// Set crédito presumido ICMS entries (`gCred`). Up to 4 per item.
+    pub fn g_cred(mut self, v: Vec<GCredData>) -> Self {
+        self.g_cred = v;
         self
     }
     /// Set the TIPI exception code (`EXTIPI`).
@@ -2779,6 +2982,12 @@ impl InvoiceItemData {
     /// Set the ICMS substitute value.
     pub fn icms_v_icms_substituto(mut self, v: Cents) -> Self {
         self.icms_v_icms_substituto = Some(v);
+        self
+    }
+    /// Set the ICMS desoneration deduction indicator (`indDeduzDeson`).
+    /// Value `"1"` means the desonerated value is deducted from vNF.
+    pub fn icms_ind_deduz_deson(mut self, v: impl Into<String>) -> Self {
+        self.icms_ind_deduz_deson = Some(v.into());
         self
     }
     /// Set the PIS base value.
@@ -2972,6 +3181,16 @@ impl InvoiceItemData {
         self.ibs_cbs = Some(v);
         self
     }
+    /// Set PIS-ST (substituição tributária) data.
+    pub fn pis_st(mut self, v: crate::tax_pis_cofins_ipi::PisStData) -> Self {
+        self.pis_st = Some(v);
+        self
+    }
+    /// Set COFINS-ST (substituição tributária) data.
+    pub fn cofins_st(mut self, v: crate::tax_pis_cofins_ipi::CofinsStData) -> Self {
+        self.cofins_st = Some(v);
+        self
+    }
 }
 
 /// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
@@ -2979,6 +3198,7 @@ impl InvoiceItemData {
 /// Not part of the public API — callers should use the builder.
 #[derive(Debug, Clone)]
 pub(crate) struct InvoiceBuildData {
+    pub schema_version: SchemaVersion,
     pub model: InvoiceModel,
     pub series: u32,
     pub number: u32,
@@ -3024,6 +3244,9 @@ pub(crate) struct InvoiceBuildData {
     pub pag_antecipado: Option<PagAntecipadoData>,
     pub is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     pub ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
+    // ASCII sanitization
+    pub only_ascii: bool,
+    pub calculation_method: CalculationMethod,
 }
 
 /// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).

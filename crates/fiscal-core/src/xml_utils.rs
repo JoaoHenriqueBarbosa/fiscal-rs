@@ -230,6 +230,97 @@ enum XmlToken {
     Text(String),
 }
 
+/// Replace characters that are valid in XML but rejected by SEFAZ.
+///
+/// This is a **SEFAZ-level** sanitisation function, distinct from [`escape_xml`].
+/// While `escape_xml` performs standard XML entity encoding, this function
+/// mirrors the PHP `Strings::replaceUnacceptableCharacters` from `sped-common`:
+///
+/// 1. Remove `<` and `>`.
+/// 2. Replace `&` with ` & ` (space-padded).
+/// 3. Remove single quotes (`'`) and double quotes (`"`).
+/// 4. Collapse multiple consecutive whitespace characters into a single space.
+/// 5. Encode the remaining `&` as `&amp;`.
+/// 6. Remove carriage return (`\r`), tab (`\t`), and line feed (`\n`).
+/// 7. Collapse multiple whitespace again (from normalize step).
+/// 8. Remove ASCII control characters (`0x00`–`0x1F`, `0x7F`), except space.
+/// 9. Trim leading and trailing whitespace.
+///
+/// The function is designed to be called on user-provided field values
+/// (e.g. `xJust`, `xCorrecao`, `xPag`) before they are placed into the
+/// NF-e XML, so that the SEFAZ web-service will not reject the document
+/// because of forbidden characters.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::replace_unacceptable_characters;
+/// assert_eq!(
+///     replace_unacceptable_characters("Tom & Jerry <cats>"),
+///     "Tom &amp; Jerry cats"
+/// );
+/// assert_eq!(
+///     replace_unacceptable_characters("  hello   world  "),
+///     "hello world"
+/// );
+/// ```
+pub fn replace_unacceptable_characters(input: &str) -> String {
+    if input.is_empty() {
+        return String::new();
+    }
+
+    // Step 1: Remove < and >
+    let s = input.replace(['<', '>'], "");
+
+    // Step 2: Replace & with " & " (space-padded)
+    let s = s.replace('&', " & ");
+
+    // Step 3-4: Remove single quotes and double quotes
+    let s = s.replace(['\'', '"'], "");
+
+    // Step 5: Collapse multiple whitespace into single space
+    let s = collapse_whitespace(&s);
+
+    // Step 6: Encode & as &amp; (the only entity that can remain after steps 1-4)
+    let s = s.replace('&', "&amp;");
+
+    // Step 7: Remove \r, \t, \n (normalize)
+    let s = s.replace(['\r', '\t', '\n'], "");
+
+    // Step 8: Collapse multiple whitespace again (normalize)
+    let s = collapse_whitespace(&s);
+
+    // Step 9: Remove control characters (0x00-0x1F except space 0x20, and 0x7F)
+    let s: String = s
+        .chars()
+        .filter(|&c| !c.is_ascii_control() || c == ' ')
+        .collect();
+
+    // Step 10: Trim
+    s.trim().to_string()
+}
+
+/// Collapse runs of whitespace characters into a single ASCII space.
+///
+/// Equivalent to the PHP `preg_replace('/(?:\s\s+)/', ' ', …)` pattern used
+/// throughout `sped-common`.
+fn collapse_whitespace(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut prev_ws = false;
+    for ch in s.chars() {
+        if ch.is_whitespace() {
+            if !prev_ws {
+                result.push(' ');
+            }
+            prev_ws = true;
+        } else {
+            result.push(ch);
+            prev_ws = false;
+        }
+    }
+    result
+}
+
 /// Validate an NF-e XML string by checking for the presence of required tags.
 ///
 /// This is a lightweight structural validator that checks for mandatory tags
@@ -330,6 +421,153 @@ pub fn validate_xml(xml: &str) -> Result<(), crate::FiscalError> {
     }
 }
 
+/// Remove characters that are invalid in XML 1.0 documents.
+///
+/// Per the XML 1.0 specification (Section 2.2), the only valid characters are:
+///
+/// - `#x9` (tab), `#xA` (line feed), `#xD` (carriage return)
+/// - `#x20`–`#xD7FF`
+/// - `#xE000`–`#xFFFD`
+/// - `#x10000`–`#x10FFFF`
+///
+/// All other characters (control characters `\x00`–`\x08`, `\x0B`–`\x0C`,
+/// `\x0E`–`\x1F`, surrogates `\xD800`–`\xDFFF`, `\xFFFE`–`\xFFFF`) are
+/// stripped from the output.
+///
+/// This mirrors the character-level cleaning portion of the PHP
+/// `Strings::normalize()` function in `sped-common`.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::remove_invalid_xml_chars;
+/// assert_eq!(remove_invalid_xml_chars("hello\x00world"), "helloworld");
+/// assert_eq!(remove_invalid_xml_chars("tab\there"), "tab\there");
+/// assert_eq!(remove_invalid_xml_chars("line\nfeed"), "line\nfeed");
+/// ```
+pub fn remove_invalid_xml_chars(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    for ch in input.chars() {
+        if is_valid_xml_char(ch) {
+            result.push(ch);
+        }
+    }
+    result
+}
+
+/// Check whether a character is valid in XML 1.0 documents.
+///
+/// Valid characters per the XML 1.0 spec:
+/// `#x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]`
+fn is_valid_xml_char(ch: char) -> bool {
+    matches!(ch,
+        '\u{09}' | '\u{0A}' | '\u{0D}' |
+        '\u{20}'..='\u{D7FF}' |
+        '\u{E000}'..='\u{FFFD}' |
+        '\u{10000}'..='\u{10FFFF}'
+    )
+}
+
+/// Clean an XML string by removing namespace artifacts, collapsing inter-tag
+/// whitespace, and optionally stripping the `<?xml … ?>` declaration.
+///
+/// This is a direct port of the PHP `Strings::clearXmlString()` from
+/// `sped-common`. It performs the following transformations:
+///
+/// 1. Removes the `xmlns:default="http://www.w3.org/2000/09/xmldsig#"` attribute.
+/// 2. Removes the `standalone="no"` attribute.
+/// 3. Removes `default:` namespace prefixes and `:default` suffixes.
+/// 4. Strips `\n`, `\r`, and `\t` characters.
+/// 5. Collapses whitespace between adjacent XML tags (`> <` becomes `><`).
+/// 6. If `remove_encoding_tag` is `true`, removes the `<?xml … ?>` declaration.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::clear_xml_string;
+///
+/// let xml = "<root>\n  <child>text</child>\n</root>";
+/// assert_eq!(clear_xml_string(xml, false), "<root><child>text</child></root>");
+///
+/// let xml2 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><root><a>1</a></root>";
+/// assert_eq!(clear_xml_string(xml2, true), "<root><a>1</a></root>");
+/// ```
+pub fn clear_xml_string(input: &str, remove_encoding_tag: bool) -> String {
+    // Remove namespace artifacts and control whitespace (matches PHP $aFind array)
+    let mut result = input.to_string();
+
+    let removals = [
+        "xmlns:default=\"http://www.w3.org/2000/09/xmldsig#\"",
+        " standalone=\"no\"",
+        "default:",
+        ":default",
+        "\n",
+        "\r",
+        "\t",
+    ];
+    for pattern in &removals {
+        result = result.replace(pattern, "");
+    }
+
+    // Collapse whitespace between tags: >   < becomes ><
+    // This replicates: preg_replace('/(\>)\s*(\<)/m', '$1$2', $retXml)
+    let mut collapsed = String::with_capacity(result.len());
+    let mut chars = result.chars().peekable();
+    while let Some(ch) = chars.next() {
+        collapsed.push(ch);
+        if ch == '>' {
+            // Skip whitespace until we hit '<' or a non-whitespace char
+            let mut ws_buf = String::new();
+            while let Some(&next) = chars.peek() {
+                if next.is_ascii_whitespace() {
+                    ws_buf.push(next);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            // If the next char after whitespace is '<', drop the whitespace
+            // Otherwise, keep it
+            if let Some(&next) = chars.peek() {
+                if next != '<' {
+                    collapsed.push_str(&ws_buf);
+                }
+            } else {
+                // End of string; preserve trailing whitespace
+                collapsed.push_str(&ws_buf);
+            }
+        }
+    }
+    result = collapsed;
+
+    // Optionally remove <?xml ... ?> declaration
+    if remove_encoding_tag {
+        result = delete_all_between(&result, "<?xml", "?>");
+    }
+
+    result
+}
+
+/// Remove the first occurrence of text delimited by `beginning` and `end`
+/// (inclusive of the delimiters).
+///
+/// Port of PHP `Strings::deleteAllBetween()`.
+fn delete_all_between(input: &str, beginning: &str, end: &str) -> String {
+    let begin_pos = match input.find(beginning) {
+        Some(p) => p,
+        None => return input.to_string(),
+    };
+    let after_begin = begin_pos + beginning.len();
+    let end_pos = match input[after_begin..].find(end) {
+        Some(p) => after_begin + p + end.len(),
+        None => return input.to_string(),
+    };
+    let mut result = String::with_capacity(input.len() - (end_pos - begin_pos));
+    result.push_str(&input[..begin_pos]);
+    result.push_str(&input[end_pos..]);
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,5 +662,293 @@ mod tests {
         let err = validate_xml(xml).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("Chave de acesso"));
+    }
+
+    // ── remove_invalid_xml_chars tests ──────────────────────────────────
+
+    #[test]
+    fn remove_invalid_xml_chars_preserves_valid_text() {
+        assert_eq!(remove_invalid_xml_chars("Hello, World!"), "Hello, World!");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_preserves_tab_lf_cr() {
+        // \x09 (tab), \x0A (line feed), \x0D (carriage return) are valid
+        assert_eq!(
+            remove_invalid_xml_chars("a\x09b\x0Ac\x0Dd"),
+            "a\x09b\x0Ac\x0Dd"
+        );
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_strips_null_and_low_controls() {
+        // \x00 through \x08 are invalid
+        assert_eq!(
+            remove_invalid_xml_chars("\x00\x01\x02\x03\x04\x05\x06\x07\x08hello"),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_strips_0b_0c() {
+        // \x0B (vertical tab) and \x0C (form feed) are invalid
+        assert_eq!(remove_invalid_xml_chars("a\x0Bb\x0Cc"), "abc");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_strips_0e_to_1f() {
+        // \x0E through \x1F are invalid
+        let mut input = String::from("ok");
+        for byte in 0x0Eu8..=0x1F {
+            input.push(byte as char);
+        }
+        input.push_str("end");
+        assert_eq!(remove_invalid_xml_chars(&input), "okend");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_strips_del() {
+        // DEL (\x7F) is invalid — it falls outside the valid range
+        // (it's > \x1F but not in \x20..=\xD7FF since \x7F is a control char,
+        //  however by codepoint it IS in \x20..=\xD7FF so XML 1.0 actually
+        //  allows it as a valid character).
+        // Wait — XML 1.0 valid range includes #x20-#xD7FF, and \x7F = U+007F
+        // is within that range. So DEL is technically valid in XML 1.0.
+        // Our implementation follows the spec exactly.
+        assert_eq!(remove_invalid_xml_chars("a\x7Fb"), "a\x7Fb");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_strips_fffe_ffff() {
+        // U+FFFE and U+FFFF are invalid
+        let input = format!("a{}b{}c", '\u{FFFE}', '\u{FFFF}');
+        assert_eq!(remove_invalid_xml_chars(&input), "abc");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_preserves_bmp_and_supplementary() {
+        // Valid BMP characters (accented, CJK, etc.)
+        assert_eq!(
+            remove_invalid_xml_chars("café résumé 日本語"),
+            "café résumé 日本語"
+        );
+        // Valid supplementary plane characters (emoji, etc.)
+        let input = "hello \u{1F600} world"; // U+1F600 is valid (in #x10000-#x10FFFF)
+        assert_eq!(remove_invalid_xml_chars(input), input);
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_preserves_private_use_area() {
+        // U+E000-U+FFFD is valid
+        let input = "a\u{E000}b\u{FFFD}c";
+        assert_eq!(remove_invalid_xml_chars(input), input);
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_empty_string() {
+        assert_eq!(remove_invalid_xml_chars(""), "");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_all_invalid() {
+        assert_eq!(remove_invalid_xml_chars("\x00\x01\x02\x03"), "");
+    }
+
+    #[test]
+    fn remove_invalid_xml_chars_mixed_xml_content() {
+        let input = "<tag>val\x00ue with \x0Bcontrol\x1F chars</tag>";
+        assert_eq!(
+            remove_invalid_xml_chars(input),
+            "<tag>value with control chars</tag>"
+        );
+    }
+
+    // ── clear_xml_string tests ──────────────────────────────────────────
+
+    #[test]
+    fn clear_xml_string_removes_whitespace_between_tags() {
+        let xml = "<root>\n  <child>text</child>\n</root>";
+        assert_eq!(
+            clear_xml_string(xml, false),
+            "<root><child>text</child></root>"
+        );
+    }
+
+    #[test]
+    fn clear_xml_string_removes_tabs_cr_lf() {
+        let xml = "<a>\t<b>\r\n<c>val</c>\n</b>\n</a>";
+        assert_eq!(clear_xml_string(xml, false), "<a><b><c>val</c></b></a>");
+    }
+
+    #[test]
+    fn clear_xml_string_removes_default_namespace() {
+        // Note: removing the xmlns attribute leaves a trailing space before '>',
+        // matching PHP str_replace behaviour exactly.
+        let xml = "<Signature xmlns:default=\"http://www.w3.org/2000/09/xmldsig#\"><default:SignedInfo>data</default:SignedInfo></Signature>";
+        assert_eq!(
+            clear_xml_string(xml, false),
+            "<Signature ><SignedInfo>data</SignedInfo></Signature>"
+        );
+    }
+
+    #[test]
+    fn clear_xml_string_removes_standalone_no() {
+        let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><root/>";
+        assert_eq!(
+            clear_xml_string(xml, false),
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><root/>"
+        );
+    }
+
+    #[test]
+    fn clear_xml_string_removes_encoding_tag() {
+        let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><root><a>1</a></root>";
+        assert_eq!(clear_xml_string(xml, true), "<root><a>1</a></root>");
+    }
+
+    #[test]
+    fn clear_xml_string_preserves_without_encoding_tag() {
+        let xml = "<?xml version=\"1.0\"?><root><a>1</a></root>";
+        assert_eq!(
+            clear_xml_string(xml, false),
+            "<?xml version=\"1.0\"?><root><a>1</a></root>"
+        );
+    }
+
+    #[test]
+    fn clear_xml_string_no_encoding_tag_present() {
+        let xml = "<root><a>1</a></root>";
+        assert_eq!(clear_xml_string(xml, true), "<root><a>1</a></root>");
+    }
+
+    #[test]
+    fn clear_xml_string_empty_input() {
+        assert_eq!(clear_xml_string("", false), "");
+        assert_eq!(clear_xml_string("", true), "");
+    }
+
+    #[test]
+    fn clear_xml_string_preserves_text_content_spaces() {
+        // Spaces inside text content (not between tags) should be preserved
+        let xml = "<tag>hello world</tag>";
+        assert_eq!(clear_xml_string(xml, false), "<tag>hello world</tag>");
+    }
+
+    #[test]
+    fn clear_xml_string_collapses_multiple_spaces_between_tags() {
+        let xml = "<a>   <b>text</b>   </a>";
+        assert_eq!(clear_xml_string(xml, false), "<a><b>text</b></a>");
+    }
+
+    #[test]
+    fn clear_xml_string_removes_colon_default_suffix() {
+        let xml = "<Signature:default><data/></Signature:default>";
+        assert_eq!(
+            clear_xml_string(xml, false),
+            "<Signature><data/></Signature>"
+        );
+    }
+
+    // ----- replace_unacceptable_characters tests -----
+
+    #[test]
+    fn replace_unacceptable_empty() {
+        assert_eq!(replace_unacceptable_characters(""), "");
+    }
+
+    #[test]
+    fn replace_unacceptable_plain_text() {
+        assert_eq!(
+            replace_unacceptable_characters("Venda de mercadorias"),
+            "Venda de mercadorias"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_removes_angle_brackets() {
+        assert_eq!(replace_unacceptable_characters("foo<bar>baz"), "foobarbaz");
+    }
+
+    #[test]
+    fn replace_unacceptable_ampersand_encoding() {
+        assert_eq!(replace_unacceptable_characters("A&B"), "A &amp; B");
+    }
+
+    #[test]
+    fn replace_unacceptable_removes_quotes() {
+        assert_eq!(
+            replace_unacceptable_characters(r#"It's a "test""#),
+            "Its a test"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_collapses_whitespace() {
+        assert_eq!(
+            replace_unacceptable_characters("hello    world"),
+            "hello world"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_trims() {
+        assert_eq!(replace_unacceptable_characters("  hello  "), "hello");
+    }
+
+    #[test]
+    fn replace_unacceptable_removes_control_chars() {
+        assert_eq!(
+            replace_unacceptable_characters("abc\x00\x01\x02def"),
+            "abcdef"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_removes_cr_lf_tab() {
+        assert_eq!(
+            replace_unacceptable_characters("line1\r\n\tline2"),
+            "line1 line2"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_combined() {
+        assert_eq!(
+            replace_unacceptable_characters(
+                "  Cancelamento <por>  erro & \"duplicidade\"  na emissão\t\n  "
+            ),
+            "Cancelamento por erro &amp; duplicidade na emissão"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_ampersand_already_spaced() {
+        assert_eq!(replace_unacceptable_characters("A & B"), "A &amp; B");
+    }
+
+    #[test]
+    fn replace_unacceptable_multiple_ampersands() {
+        assert_eq!(
+            replace_unacceptable_characters("A&B&C"),
+            "A &amp; B &amp; C"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_preserves_accented_chars() {
+        assert_eq!(
+            replace_unacceptable_characters("São Paulo — café"),
+            "São Paulo — café"
+        );
+    }
+
+    #[test]
+    fn replace_unacceptable_only_special_chars() {
+        assert_eq!(replace_unacceptable_characters("<>\"'"), "");
+    }
+
+    #[test]
+    fn replace_unacceptable_del_char() {
+        assert_eq!(replace_unacceptable_characters("abc\x7Fdef"), "abcdef");
     }
 }
