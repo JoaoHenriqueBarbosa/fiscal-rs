@@ -225,6 +225,7 @@ fn ide_reference_nfp_with_cpf() {
             state_code: IbgeCode("35".to_string()),
             year_month: "2601".to_string(),
             tax_id: "12345678901".to_string(),
+            ie: "ISENTO".to_string(),
             model: "04".to_string(),
             series: "1".to_string(),
             number: "456".to_string(),
@@ -236,6 +237,35 @@ fn ide_reference_nfp_with_cpf() {
     let xml = built.xml();
     assert!(xml.contains("<refNFP>"));
     assert!(xml.contains("<CPF>"));
+    assert!(xml.contains("<IE>ISENTO</IE>"));
+}
+
+#[test]
+fn ide_reference_nfp_with_cnpj_and_ie() {
+    let built = nfe_builder()
+        .references(vec![ReferenceDoc::Nfp {
+            state_code: IbgeCode("35".to_string()),
+            year_month: "2601".to_string(),
+            tax_id: "00940734000150".to_string(),
+            ie: "123456789012".to_string(),
+            model: "04".to_string(),
+            series: "0".to_string(),
+            number: "5578".to_string(),
+        }])
+        .add_item(common::sample_item())
+        .payments(vec![common::sample_payment()])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+    assert!(xml.contains("<refNFP>"));
+    assert!(xml.contains("<CNPJ>00940734000150</CNPJ>"));
+    assert!(xml.contains("<IE>123456789012</IE>"));
+    // Verify tag order: CNPJ before IE before mod
+    let cnpj_pos = xml.find("<CNPJ>").unwrap();
+    let ie_pos = xml.find("<IE>").unwrap();
+    let mod_pos = xml.find("<mod>04</mod>").unwrap();
+    assert!(cnpj_pos < ie_pos, "CNPJ must come before IE");
+    assert!(ie_pos < mod_pos, "IE must come before mod");
 }
 
 #[test]
