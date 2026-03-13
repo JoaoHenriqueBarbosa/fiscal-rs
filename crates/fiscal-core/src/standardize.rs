@@ -132,6 +132,65 @@ pub fn xml_to_json(xml: &str) -> Result<String, FiscalError> {
         .map_err(|e| FiscalError::XmlParsing(format!("JSON serialization failed: {e}")))
 }
 
+/// Convert an NFe XML string to a navigable [`serde_json::Value`] tree.
+///
+/// This is the Rust equivalent of PHP's `Standardize::toStd()`, which returns
+/// a `stdClass` object. In Rust, [`serde_json::Value`] serves the same role:
+/// it is a dynamically-typed, navigable tree that can be indexed with
+/// `value["fieldName"]`.
+///
+/// First validates that the XML is a recognised NFe document via
+/// [`identify_xml_type`], then converts the XML tree to a [`serde_json::Value`].
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let value = xml_to_value(xml)?;
+/// let cuf = &value["NFe"]["infNFe"]["ide"]["cUF"];
+/// assert_eq!(cuf.as_str(), Some("35"));
+/// ```
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the input is not valid NFe XML.
+pub fn xml_to_value(xml: &str) -> Result<serde_json::Value, FiscalError> {
+    identify_xml_type(xml)?;
+    xml_str_to_json_value(xml.trim())
+}
+
+/// Convert an NFe XML string to a [`serde_json::Map`] (equivalent to an
+/// associative array / hash map).
+///
+/// This is the Rust equivalent of PHP's `Standardize::toArray()`, which returns
+/// an associative array. In Rust, [`serde_json::Map<String, Value>`] is the
+/// natural equivalent: an ordered map of string keys to dynamically-typed values.
+///
+/// First validates that the XML is a recognised NFe document via
+/// [`identify_xml_type`], then converts the XML tree and returns the top-level
+/// map.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let map = xml_to_map(xml)?;
+/// let nfe = map.get("NFe").unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the input is not valid NFe XML,
+/// or if the top-level JSON value is not an object (should not happen for
+/// well-formed NFe documents).
+pub fn xml_to_map(xml: &str) -> Result<serde_json::Map<String, serde_json::Value>, FiscalError> {
+    let value = xml_to_value(xml)?;
+    match value {
+        serde_json::Value::Object(map) => Ok(map),
+        _ => Err(FiscalError::XmlParsing(
+            "Top-level XML value is not an object.".into(),
+        )),
+    }
+}
+
 /// Recursively convert an XML string into a serde_json::Value.
 ///
 /// This is a simplified converter that handles elements, text content,
@@ -453,5 +512,141 @@ mod tests {
             supl.get("urlChave").and_then(|v| v.as_str()),
             Some("http://example.com/nfce/consulta"),
         );
+    }
+
+    // ── xml_to_value (equivalente a toStd) ───────────────────────────
+
+    #[test]
+    fn xml_to_value_navigable_fields() {
+        // Equivalent to PHP: $std = $standardize->toStd($xml); $std->NFe->infNFe->ide->cUF
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00" Id="NFe35..."><ide><cUF>35</cUF><nNF>12345</nNF></ide></infNFe></NFe>"#;
+        let value = xml_to_value(xml).unwrap();
+
+        // Navigate like stdClass in PHP
+        assert_eq!(value["NFe"]["infNFe"]["ide"]["cUF"].as_str(), Some("35"));
+        assert_eq!(value["NFe"]["infNFe"]["ide"]["nNF"].as_str(), Some("12345"));
+        // Inline attributes
+        assert_eq!(value["NFe"]["infNFe"]["versao"].as_str(), Some("4.00"));
+        assert_eq!(value["NFe"]["infNFe"]["Id"].as_str(), Some("NFe35..."));
+    }
+
+    #[test]
+    fn xml_to_value_ret_cons_sit_nfe() {
+        let xml = concat!(
+            r#"<retConsSitNFe versao="4.00">"#,
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado o uso da NF-e</xMotivo>",
+            "<chNFe>35200612345678901234550010000000011000000019</chNFe>",
+            "</retConsSitNFe>"
+        );
+        let value = xml_to_value(xml).unwrap();
+
+        assert_eq!(value["retConsSitNFe"]["cStat"].as_str(), Some("100"));
+        assert_eq!(
+            value["retConsSitNFe"]["xMotivo"].as_str(),
+            Some("Autorizado o uso da NF-e")
+        );
+        assert_eq!(
+            value["retConsSitNFe"]["chNFe"].as_str(),
+            Some("35200612345678901234550010000000011000000019")
+        );
+        assert_eq!(value["retConsSitNFe"]["versao"].as_str(), Some("4.00"));
+    }
+
+    #[test]
+    fn xml_to_value_empty_xml_fails() {
+        assert!(xml_to_value("").is_err());
+    }
+
+    #[test]
+    fn xml_to_value_non_nfe_fails() {
+        assert!(xml_to_value("<other/>").is_err());
+    }
+
+    #[test]
+    fn xml_to_value_cdata_preserved() {
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFeSupl>"#,
+            r#"<qrCode><![CDATA[http://example.com?a=1&b=2]]></qrCode>"#,
+            r#"</infNFeSupl>"#,
+            r#"</NFe>"#,
+        );
+        let value = xml_to_value(xml).unwrap();
+        assert_eq!(
+            value["NFe"]["infNFeSupl"]["qrCode"].as_str(),
+            Some("http://example.com?a=1&b=2")
+        );
+    }
+
+    // ── xml_to_map (equivalente a toArray) ───────────────────────────
+
+    #[test]
+    fn xml_to_map_returns_top_level_keys() {
+        // Equivalent to PHP: $arr = $standardize->toArray($xml); $arr['NFe']['infNFe']['ide']['cUF']
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe><ide><cUF>35</cUF></ide></infNFe></NFe>"#;
+        let map = xml_to_map(xml).unwrap();
+
+        assert!(
+            map.contains_key("NFe"),
+            "top-level map must contain 'NFe' key"
+        );
+        let nfe = map.get("NFe").unwrap();
+        assert_eq!(nfe["infNFe"]["ide"]["cUF"].as_str(), Some("35"));
+    }
+
+    #[test]
+    fn xml_to_map_nfe_proc() {
+        let xml = concat!(
+            r#"<nfeProc versao="4.00">"#,
+            r#"<NFe><infNFe><ide><cUF>31</cUF></ide></infNFe></NFe>"#,
+            r#"<protNFe><infProt><cStat>100</cStat></infProt></protNFe>"#,
+            r#"</nfeProc>"#
+        );
+        let map = xml_to_map(xml).unwrap();
+
+        assert!(map.contains_key("nfeProc"));
+        let proc = map.get("nfeProc").unwrap();
+        assert_eq!(proc["versao"].as_str(), Some("4.00"));
+        assert_eq!(proc["NFe"]["infNFe"]["ide"]["cUF"].as_str(), Some("31"));
+        assert_eq!(proc["protNFe"]["infProt"]["cStat"].as_str(), Some("100"));
+    }
+
+    #[test]
+    fn xml_to_map_empty_xml_fails() {
+        assert!(xml_to_map("").is_err());
+    }
+
+    #[test]
+    fn xml_to_map_non_nfe_fails() {
+        assert!(xml_to_map("<garbage/>").is_err());
+    }
+
+    #[test]
+    fn xml_to_map_repeated_elements() {
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<det nItem="1"><prod><cProd>001</cProd></prod></det>"#,
+            r#"<det nItem="2"><prod><cProd>002</cProd></prod></det>"#,
+            r#"</NFe>"#
+        );
+        let map = xml_to_map(xml).unwrap();
+        let nfe = map.get("NFe").unwrap();
+        let det = nfe.get("det").unwrap();
+        assert!(det.is_array(), "repeated elements must become an array");
+        let arr = det.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["prod"]["cProd"].as_str(), Some("001"));
+        assert_eq!(arr[1]["prod"]["cProd"].as_str(), Some("002"));
+    }
+
+    #[test]
+    fn xml_to_value_and_json_produce_equivalent_output() {
+        // Ensure xml_to_value and xml_to_json produce the same data
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00"><ide><cUF>35</cUF></ide></infNFe></NFe>"#;
+        let value = xml_to_value(xml).unwrap();
+        let json_str = xml_to_json(xml).unwrap();
+        let from_json: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(value, from_json);
     }
 }
