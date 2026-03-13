@@ -373,7 +373,8 @@ mod tests {
 
     #[test]
     fn xml_to_json_repeated_elements_become_array() {
-        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><det>a</det><det>b</det></NFe>"#;
+        let xml =
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><det>a</det><det>b</det></NFe>"#;
         let json = xml_to_json(xml).unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let nfe = v.get("NFe").unwrap();
@@ -384,7 +385,8 @@ mod tests {
 
     #[test]
     fn xml_to_json_element_with_only_attrs_no_text() {
-        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><item a="1" b="2"></item></NFe>"#;
+        let xml =
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><item a="1" b="2"></item></NFe>"#;
         let json = xml_to_json(xml).unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v.get("NFe").is_some());

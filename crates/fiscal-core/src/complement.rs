@@ -1031,11 +1031,8 @@ mod tests {
 
     #[test]
     fn attach_inutilizacao_missing_ret_tag() {
-        let err = attach_inutilizacao(
-            r#"<inutNFe versao="4.00"><data/></inutNFe>"#,
-            "<other/>",
-        )
-        .unwrap_err();
+        let err = attach_inutilizacao(r#"<inutNFe versao="4.00"><data/></inutNFe>"#, "<other/>")
+            .unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
@@ -1077,17 +1074,19 @@ mod tests {
 
     #[test]
     fn attach_event_protocol_missing_evento() {
-        let err = attach_event_protocol("<other/>", "<retEvento><infEvento><cStat>135</cStat></infEvento></retEvento>").unwrap_err();
+        let err = attach_event_protocol(
+            "<other/>",
+            "<retEvento><infEvento><cStat>135</cStat></infEvento></retEvento>",
+        )
+        .unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
     #[test]
     fn attach_event_protocol_missing_ret_evento() {
-        let err = attach_event_protocol(
-            r#"<evento versao="1.00"><infEvento/></evento>"#,
-            "<other/>",
-        )
-        .unwrap_err();
+        let err =
+            attach_event_protocol(r#"<evento versao="1.00"><infEvento/></evento>"#, "<other/>")
+                .unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
@@ -1123,24 +1122,14 @@ mod tests {
 
     #[test]
     fn attach_b2b_no_b2b_tag() {
-        let err = attach_b2b(
-            "<nfeProc><NFe/></nfeProc>",
-            "<other>data</other>",
-            None,
-        )
-        .unwrap_err();
+        let err = attach_b2b("<nfeProc><NFe/></nfeProc>", "<other>data</other>", None).unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
     #[test]
     fn attach_b2b_extract_failure() {
         // nfeProc without closing tag won't extract
-        let err = attach_b2b(
-            "<nfeProc><NFe/>",
-            "<NFeB2BFin>data</NFeB2BFin>",
-            None,
-        )
-        .unwrap_err();
+        let err = attach_b2b("<nfeProc><NFe/>", "<NFeB2BFin>data</NFeB2BFin>", None).unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
@@ -1320,7 +1309,10 @@ mod tests {
         let err = attach_inutilizacao(request, response).unwrap_err();
         match err {
             FiscalError::XmlParsing(msg) => {
-                assert!(msg.contains("versao"), "Expected version mismatch error, got: {msg}");
+                assert!(
+                    msg.contains("versao"),
+                    "Expected version mismatch error, got: {msg}"
+                );
             }
             other => panic!("Expected XmlParsing, got {:?}", other),
         }
@@ -1348,7 +1340,10 @@ mod tests {
         let err = attach_inutilizacao(request, response).unwrap_err();
         match err {
             FiscalError::XmlParsing(msg) => {
-                assert!(msg.contains("serie"), "Expected serie mismatch error, got: {msg}");
+                assert!(
+                    msg.contains("serie"),
+                    "Expected serie mismatch error, got: {msg}"
+                );
             }
             other => panic!("Expected XmlParsing, got {:?}", other),
         }

@@ -73,11 +73,13 @@ fn builder_change_amount() {
 #[test]
 fn builder_payment_card_details() {
     let built = common::sample_invoice_builder()
-        .payment_card_details(vec![PaymentCardDetail::new()
-            .integ_type("1")
-            .card_tax_id("12345678000199")
-            .card_brand("01")
-            .auth_code("ABC123")])
+        .payment_card_details(vec![
+            PaymentCardDetail::new()
+                .integ_type("1")
+                .card_tax_id("12345678000199")
+                .card_brand("01")
+                .auth_code("ABC123"),
+        ])
         .build()
         .unwrap();
     let xml = built.xml();
@@ -323,11 +325,13 @@ fn pag_with_all_optional_fields() {
 
     let built = nfe_builder()
         .payments(vec![payment])
-        .payment_card_details(vec![PaymentCardDetail::new()
-            .integ_type("1")
-            .card_tax_id("99887766000155")
-            .card_brand("02")
-            .auth_code("XYZ789")])
+        .payment_card_details(vec![
+            PaymentCardDetail::new()
+                .integ_type("1")
+                .card_tax_id("99887766000155")
+                .card_brand("02")
+                .auth_code("XYZ789"),
+        ])
         .change_amount(Cents(1000))
         .add_item(common::sample_item())
         .build()
@@ -355,9 +359,7 @@ fn transp_carrier_with_all_fields() {
                 .state_code("SP"),
         )
         .vehicle(VehicleData::new("ABC1234", "SP").rntc("RNTC001"))
-        .trailers(vec![
-            VehicleData::new("XYZ9876", "RJ").rntc("RNTC002"),
-        ])
+        .trailers(vec![VehicleData::new("XYZ9876", "RJ").rntc("RNTC002")])
         .volumes(vec![
             VolumeData::new()
                 .quantity(10)
@@ -397,15 +399,14 @@ fn transp_carrier_with_all_fields() {
 
 #[test]
 fn transp_retained_icms() {
-    let transport = TransportData::new("1")
-        .retained_icms(RetainedIcmsTransp::new(
-            Cents(10000),
-            Cents(10000),
-            Rate(1200),
-            Cents(1200),
-            "5353",
-            IbgeCode("3550308".to_string()),
-        ));
+    let transport = TransportData::new("1").retained_icms(RetainedIcmsTransp::new(
+        Cents(10000),
+        Cents(10000),
+        Rate(1200),
+        Cents(1200),
+        "5353",
+        IbgeCode("3550308".to_string()),
+    ));
 
     let built = nfe_builder()
         .transport(transport)
@@ -488,8 +489,7 @@ fn emit_with_iest_im_cnae() {
 fn optional_billing_with_installments() {
     let billing = BillingData::new()
         .invoice(
-            BillingInvoice::new("FAT001", Cents(10000), Cents(9000))
-                .discount_value(Cents(1000)),
+            BillingInvoice::new("FAT001", Cents(10000), Cents(9000)).discount_value(Cents(1000)),
         )
         .installments(vec![
             Installment::new("001", "2026-02-15", Cents(4500)),
@@ -613,16 +613,26 @@ fn optional_ret_trib() {
 #[test]
 fn optional_withdrawal_delivery() {
     let withdrawal = LocationData::new(
-        "12345678000199", "Rua A", "100", "Centro",
-        IbgeCode("3550308".to_string()), "Sao Paulo", "SP",
+        "12345678000199",
+        "Rua A",
+        "100",
+        "Centro",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "SP",
     )
     .name("Local Retirada")
     .complement("Bloco A")
     .zip_code("01001000");
 
     let delivery = LocationData::new(
-        "98765432000111", "Rua B", "200", "Bela Vista",
-        IbgeCode("3550308".to_string()), "Sao Paulo", "SP",
+        "98765432000111",
+        "Rua B",
+        "200",
+        "Bela Vista",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "SP",
     );
 
     let built = nfe_builder()
@@ -673,7 +683,10 @@ fn builder_cana() {
     let cana = CanaData::new(
         "2025/2026",
         "03/2026",
-        vec![ForDiaData::new(1, Cents(1000)), ForDiaData::new(2, Cents(2000))],
+        vec![
+            ForDiaData::new(1, Cents(1000)),
+            ForDiaData::new(2, Cents(2000)),
+        ],
         Cents(3000),
         Cents(10000),
         Cents(13000),
@@ -698,9 +711,9 @@ fn builder_cana() {
 fn builder_agropecuario_guia() {
     let built = nfe_builder()
         .schema_version(SchemaVersion::PL010)
-        .agropecuario(AgropecuarioData::Guia(
-            AgropecuarioGuiaData::new("1", "GTA001"),
-        ))
+        .agropecuario(AgropecuarioData::Guia(AgropecuarioGuiaData::new(
+            "1", "GTA001",
+        )))
         .add_item(common::sample_item())
         .payments(vec![common::sample_payment()])
         .build()

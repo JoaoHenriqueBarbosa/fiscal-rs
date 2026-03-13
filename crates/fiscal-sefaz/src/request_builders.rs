@@ -3939,21 +3939,66 @@ mod tests {
 
     #[test]
     fn event_description_rtc_events() {
-        assert_eq!(event_description(event_types::RTC_CANCELA_EVENTO), "Cancelamento de Evento");
-        assert_eq!(event_description(event_types::RTC_INFO_PAGTO_INTEGRAL), "Informação de efetivo pagamento integral para liberar crédito presumido do adquirente");
-        assert_eq!(event_description(event_types::RTC_IMPORTACAO_ZFM), "Importação em ALC/ZFM não convertida em isenção");
-        assert_eq!(event_description(event_types::RTC_ROUBO_PERDA_FORNECEDOR), "Perecimento, perda, roubo ou furto durante o transporte contratado pelo fornecedor");
-        assert_eq!(event_description(event_types::RTC_FORNECIMENTO_NAO_REALIZADO), "Fornecimento não realizado com pagamento antecipado");
-        assert_eq!(event_description(event_types::RTC_ATUALIZACAO_DATA_ENTREGA), "Atualização da Data de Previsão de Entrega");
-        assert_eq!(event_description(event_types::RTC_SOL_APROP_CRED_PRESUMIDO), "Solicitação de Apropriação de crédito presumido");
-        assert_eq!(event_description(event_types::RTC_DESTINO_CONSUMO_PESSOAL), "Destinação de item para consumo pessoal");
-        assert_eq!(event_description(event_types::RTC_ROUBO_PERDA_ADQUIRENTE), "Perecimento, perda, roubo ou furto durante o transporte contratado pelo adquirente");
-        assert_eq!(event_description(event_types::RTC_ACEITE_DEBITO), "Aceite de débito na apuração por emissão de nota de crédito");
-        assert_eq!(event_description(event_types::RTC_IMOBILIZACAO_ITEM), "Imobilização de Item");
-        assert_eq!(event_description(event_types::RTC_APROPRIACAO_CREDITO_COMB), "Solicitação de Apropriação de Crédito de Combustível");
-        assert_eq!(event_description(event_types::RTC_APROPRIACAO_CREDITO_BENS), "Solicitação de Apropriação de Crédito para bens e serviços que dependem de atividade do adquirente");
-        assert_eq!(event_description(event_types::RTC_MANIF_TRANSF_CRED_IBS), "Manifestação sobre Pedido de Transferência de Crédito de IBS em Operação de Sucessão");
-        assert_eq!(event_description(event_types::RTC_MANIF_TRANSF_CRED_CBS), "Manifestação sobre Pedido de Transferência de Crédito de CBS em Operação de Sucessão");
+        assert_eq!(
+            event_description(event_types::RTC_CANCELA_EVENTO),
+            "Cancelamento de Evento"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_INFO_PAGTO_INTEGRAL),
+            "Informação de efetivo pagamento integral para liberar crédito presumido do adquirente"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_IMPORTACAO_ZFM),
+            "Importação em ALC/ZFM não convertida em isenção"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_ROUBO_PERDA_FORNECEDOR),
+            "Perecimento, perda, roubo ou furto durante o transporte contratado pelo fornecedor"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_FORNECIMENTO_NAO_REALIZADO),
+            "Fornecimento não realizado com pagamento antecipado"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_ATUALIZACAO_DATA_ENTREGA),
+            "Atualização da Data de Previsão de Entrega"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_SOL_APROP_CRED_PRESUMIDO),
+            "Solicitação de Apropriação de crédito presumido"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_DESTINO_CONSUMO_PESSOAL),
+            "Destinação de item para consumo pessoal"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_ROUBO_PERDA_ADQUIRENTE),
+            "Perecimento, perda, roubo ou furto durante o transporte contratado pelo adquirente"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_ACEITE_DEBITO),
+            "Aceite de débito na apuração por emissão de nota de crédito"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_IMOBILIZACAO_ITEM),
+            "Imobilização de Item"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_APROPRIACAO_CREDITO_COMB),
+            "Solicitação de Apropriação de Crédito de Combustível"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_APROPRIACAO_CREDITO_BENS),
+            "Solicitação de Apropriação de Crédito para bens e serviços que dependem de atividade do adquirente"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_MANIF_TRANSF_CRED_IBS),
+            "Manifestação sobre Pedido de Transferência de Crédito de IBS em Operação de Sucessão"
+        );
+        assert_eq!(
+            event_description(event_types::RTC_MANIF_TRANSF_CRED_CBS),
+            "Manifestação sobre Pedido de Transferência de Crédito de CBS em Operação de Sucessão"
+        );
     }
 
     #[test]
@@ -4173,7 +4218,10 @@ mod tests {
             key = TEST_KEY,
         );
         let data = extract_epec_nfce_data(&xml, None).unwrap();
-        assert_eq!(data.dest_id_tag.as_deref(), Some("<CNPJ>98765432000188</CNPJ>"));
+        assert_eq!(
+            data.dest_id_tag.as_deref(),
+            Some("<CNPJ>98765432000188</CNPJ>")
+        );
         assert_eq!(data.dest_ie.as_deref(), Some("987654321"));
     }
 
@@ -4194,7 +4242,10 @@ mod tests {
             key = TEST_KEY,
         );
         let data = extract_epec_nfce_data(&xml, None).unwrap();
-        assert_eq!(data.dest_id_tag.as_deref(), Some("<idEstrangeiro>PASS123</idEstrangeiro>"));
+        assert_eq!(
+            data.dest_id_tag.as_deref(),
+            Some("<idEstrangeiro>PASS123</idEstrangeiro>")
+        );
         assert_eq!(data.dest_uf.as_deref(), Some("EX"));
     }
 
@@ -4218,20 +4269,17 @@ mod tests {
         };
         let request = build_epec_nfce_request(&data, SefazEnvironment::Homologation);
         assert!(request.contains("<IE>987654321</IE>"));
-        assert!(request.contains("<dest><UF>RJ</UF><CNPJ>98765432000188</CNPJ><IE>987654321</IE></dest>"));
+        assert!(
+            request
+                .contains("<dest><UF>RJ</UF><CNPJ>98765432000188</CNPJ><IE>987654321</IE></dest>")
+        );
     }
 
     // ── CSC request with short CNPJ (line 1502) ─────────────────────
 
     #[test]
     fn csc_request_with_short_cnpj() {
-        let xml = build_csc_request(
-            SefazEnvironment::Homologation,
-            1,
-            "12345",
-            None,
-            None,
-        );
+        let xml = build_csc_request(SefazEnvironment::Homologation, 1, "12345", None, None);
         // When CNPJ < 8 digits, raizCNPJ = entire string
         assert!(xml.contains("<raizCNPJ>12345</raizCNPJ>"));
     }
@@ -4268,7 +4316,10 @@ mod tests {
         let xml = "<emitter>data</emitter>";
         // Looking for <emit> should NOT match <emitter>
         let result = extract_section(xml, "emit");
-        assert!(result.is_none(), "extract_section should not match <emitter> when looking for <emit>");
+        assert!(
+            result.is_none(),
+            "extract_section should not match <emitter> when looking for <emit>"
+        );
     }
 
     #[test]
@@ -4282,7 +4333,10 @@ mod tests {
     fn extract_section_matches_tag_with_attributes() {
         let xml = r#"<emit versao="4.00">data</emit>"#;
         let result = extract_section(xml, "emit");
-        assert_eq!(result.as_deref(), Some(r#"<emit versao="4.00">data</emit>"#));
+        assert_eq!(
+            result.as_deref(),
+            Some(r#"<emit versao="4.00">data</emit>"#)
+        );
     }
 
     // ── strip_xml_declaration (lines 2508-2510) ─────────────────────
@@ -4335,7 +4389,10 @@ mod tests {
             .n_item(2);
         assert_eq!(item.quantidade, Some(3.5));
         assert_eq!(item.unidade.as_deref(), Some("UN"));
-        assert_eq!(item.chave.as_deref(), Some("35240112345678000195550010000000011000000019"));
+        assert_eq!(
+            item.chave.as_deref(),
+            Some("35240112345678000195550010000000011000000019")
+        );
         assert_eq!(item.n_item, Some(2));
     }
 
@@ -4389,7 +4446,11 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>211110</tpEvento>"));
-        assert!(xml.contains("<descEvento>Solicitação de Apropriação de crédito presumido</descEvento>"));
+        assert!(
+            xml.contains(
+                "<descEvento>Solicitação de Apropriação de crédito presumido</descEvento>"
+            )
+        );
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>2</tpAutor>"));
         assert!(xml.contains("<verAplic>APP-1.0</verAplic>"));
@@ -4451,7 +4512,9 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>211128</tpEvento>"));
-        assert!(xml.contains("<descEvento>Aceite de débito na apuração por emissão de nota de crédito</descEvento>"));
+        assert!(xml.contains(
+            "<descEvento>Aceite de débito na apuração por emissão de nota de crédito</descEvento>"
+        ));
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>2</tpAutor>"));
         assert!(xml.contains("<verAplic>APP-1.0</verAplic>"));
@@ -4462,11 +4525,7 @@ mod tests {
 
     #[test]
     fn rtc_imobilizacao_item_structure() {
-        let itens = vec![
-            RtcItem::new(1, 20.00, 10.00)
-                .quantidade(5.0)
-                .unidade("PC"),
-        ];
+        let itens = vec![RtcItem::new(1, 20.00, 10.00).quantidade(5.0).unidade("PC")];
         let xml = build_rtc_imobilizacao_item(
             TEST_KEY,
             1,
@@ -4509,7 +4568,9 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>211140</tpEvento>"));
-        assert!(xml.contains("<descEvento>Solicitação de Apropriação de Crédito de Combustível</descEvento>"));
+        assert!(xml.contains(
+            "<descEvento>Solicitação de Apropriação de Crédito de Combustível</descEvento>"
+        ));
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>2</tpAutor>"));
         assert!(xml.contains("<gConsumoComb nItem=\"1\">"));
@@ -4637,11 +4698,7 @@ mod tests {
 
     #[test]
     fn rtc_importacao_zfm_structure() {
-        let itens = vec![
-            RtcItem::new(1, 12.00, 6.00)
-                .quantidade(10.0)
-                .unidade("KG"),
-        ];
+        let itens = vec![RtcItem::new(1, 12.00, 6.00).quantidade(10.0).unidade("KG")];
         let xml = build_rtc_importacao_zfm(
             TEST_KEY,
             1,
@@ -4653,7 +4710,11 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>112120</tpEvento>"));
-        assert!(xml.contains("<descEvento>Importação em ALC/ZFM não convertida em isenção</descEvento>"));
+        assert!(
+            xml.contains(
+                "<descEvento>Importação em ALC/ZFM não convertida em isenção</descEvento>"
+            )
+        );
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>1</tpAutor>"));
         assert!(xml.contains("<gConsumo nItem=\"1\">"));
@@ -4668,11 +4729,7 @@ mod tests {
 
     #[test]
     fn rtc_roubo_perda_adquirente_structure() {
-        let itens = vec![
-            RtcItem::new(1, 8.00, 4.00)
-                .quantidade(3.0)
-                .unidade("CX"),
-        ];
+        let itens = vec![RtcItem::new(1, 8.00, 4.00).quantidade(3.0).unidade("CX")];
         let xml = build_rtc_roubo_perda_adquirente(
             TEST_KEY,
             1,
@@ -4699,9 +4756,7 @@ mod tests {
 
     #[test]
     fn rtc_roubo_perda_fornecedor_structure() {
-        let mut item = RtcItem::new(1, 16.00, 8.00)
-            .quantidade(7.0)
-            .unidade("UN");
+        let mut item = RtcItem::new(1, 16.00, 8.00).quantidade(7.0).unidade("UN");
         item.g_controle_estoque_v_ibs = Some(14.00);
         item.g_controle_estoque_v_cbs = Some(7.00);
         let itens = vec![item];
@@ -4734,11 +4789,7 @@ mod tests {
 
     #[test]
     fn rtc_fornecimento_nao_realizado_structure() {
-        let itens = vec![
-            RtcItem::new(1, 22.00, 11.00)
-                .quantidade(4.0)
-                .unidade("MT"),
-        ];
+        let itens = vec![RtcItem::new(1, 22.00, 11.00).quantidade(4.0).unidade("MT")];
         let xml = build_rtc_fornecimento_nao_realizado(
             TEST_KEY,
             1,
@@ -4750,7 +4801,9 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>112140</tpEvento>"));
-        assert!(xml.contains("<descEvento>Fornecimento não realizado com pagamento antecipado</descEvento>"));
+        assert!(xml.contains(
+            "<descEvento>Fornecimento não realizado com pagamento antecipado</descEvento>"
+        ));
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>1</tpAutor>"));
         assert!(xml.contains("<gItemNaoFornecido nItem=\"1\">"));
@@ -4776,7 +4829,9 @@ mod tests {
             None,
         );
         assert!(xml.contains("<tpEvento>112150</tpEvento>"));
-        assert!(xml.contains("<descEvento>Atualização da Data de Previsão de Entrega</descEvento>"));
+        assert!(
+            xml.contains("<descEvento>Atualização da Data de Previsão de Entrega</descEvento>")
+        );
         assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
         assert!(xml.contains("<tpAutor>1</tpAutor>"));
         assert!(xml.contains("<verAplic>APP-1.0</verAplic>"));

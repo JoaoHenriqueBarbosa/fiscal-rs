@@ -164,8 +164,7 @@ fn volume_data_all_builders() {
 
 #[test]
 fn billing_invoice_discount_value() {
-    let inv = BillingInvoice::new("001", Cents(10000), Cents(9000))
-        .discount_value(Cents(1000));
+    let inv = BillingInvoice::new("001", Cents(10000), Cents(9000)).discount_value(Cents(1000));
     assert_eq!(inv.discount_value, Some(Cents(1000)));
 }
 
@@ -243,8 +242,7 @@ fn purchase_data_builders() {
 
 #[test]
 fn export_data_dispatch_location_builder() {
-    let export = ExportData::new("SP", "Santos")
-        .dispatch_location("Guarulhos");
+    let export = ExportData::new("SP", "Santos").dispatch_location("Guarulhos");
     assert_eq!(export.dispatch_location.as_deref(), Some("Guarulhos"));
 }
 
@@ -319,7 +317,10 @@ fn nfce_qr_code_params_builders() {
 
     assert_eq!(params.csc_token.as_deref(), Some("000001"));
     assert_eq!(params.csc_id.as_deref(), Some("CSC01"));
-    assert_eq!(params.issued_at.as_deref(), Some("2026-01-15T10:30:00-03:00"));
+    assert_eq!(
+        params.issued_at.as_deref(),
+        Some("2026-01-15T10:30:00-03:00")
+    );
     assert_eq!(params.total_value.as_deref(), Some("20.00"));
     assert_eq!(params.total_icms.as_deref(), Some("0.00"));
     assert_eq!(params.digest_value.as_deref(), Some("abc123"));
@@ -367,7 +368,10 @@ fn invoice_item_data_tipi_and_order_builders() {
     assert_eq!(item.extipi.as_deref(), Some("01"));
     assert_eq!(item.x_ped.as_deref(), Some("PED001"));
     assert_eq!(item.n_item_ped.as_deref(), Some("1"));
-    assert_eq!(item.n_fci.as_deref(), Some("12345678-1234-1234-1234-123456789012"));
+    assert_eq!(
+        item.n_fci.as_deref(),
+        Some("12345678-1234-1234-1234-123456789012")
+    );
 }
 
 #[test]
@@ -495,12 +499,37 @@ fn invoice_item_data_ii_builders() {
 #[test]
 fn invoice_item_data_product_detail_builders() {
     let item = common::sample_item()
-        .rastro(vec![RastroData::new("LOT001", 100.0, "2025-01-01", "2026-01-01")])
+        .rastro(vec![RastroData::new(
+            "LOT001",
+            100.0,
+            "2025-01-01",
+            "2026-01-01",
+        )])
         .veic_prod(VeicProdData::new(
-            "1", "9BWHE21JX24060960", "1", "BRANCA", "100", "1000",
-            "1500", "1800", "AAA111", "1", "MTR001", "1500", "2600",
-            "2026", "2026", "M", "6", "1", "R", "1", "999999",
-            "01", "5", "0",
+            "1",
+            "9BWHE21JX24060960",
+            "1",
+            "BRANCA",
+            "100",
+            "1000",
+            "1500",
+            "1800",
+            "AAA111",
+            "1",
+            "MTR001",
+            "1500",
+            "2600",
+            "2026",
+            "2026",
+            "M",
+            "6",
+            "1",
+            "R",
+            "1",
+            "999999",
+            "01",
+            "5",
+            "0",
         ))
         .med(MedData::new(Cents(1000)))
         .arma(vec![ArmaData::new("0", "AAA111", "BBB222", "Pistola")])
@@ -527,7 +556,10 @@ fn invoice_item_data_service_and_misc_builders() {
         .v_tot_trib(Cents(350));
 
     assert!(item.issqn.is_some());
-    assert_eq!(item.inf_ad_prod.as_deref(), Some("Info adicional do produto"));
+    assert_eq!(
+        item.inf_ad_prod.as_deref(),
+        Some("Info adicional do produto")
+    );
     assert_eq!(item.g_cred.len(), 1);
     assert_eq!(item.ind_tot, Some(0));
     assert_eq!(item.v_tot_trib, Some(Cents(350)));
@@ -556,13 +588,9 @@ fn invoice_item_data_pis_st_cofins_st_builders() {
 #[test]
 fn invoice_item_data_obs_item_and_dfe_ref_builders() {
     let item = common::sample_item()
-        .obs_item(
-            ObsItemData::new()
-                .obs_cont(ObsField::new("campo", "valor"))
-        )
+        .obs_item(ObsItemData::new().obs_cont(ObsField::new("campo", "valor")))
         .dfe_referenciado(
-            DFeReferenciadoData::new("12345678901234567890123456789012345678901234")
-                .n_item("1")
+            DFeReferenciadoData::new("12345678901234567890123456789012345678901234").n_item("1"),
         )
         .di(vec![])
         .det_export(vec![])
@@ -579,8 +607,7 @@ fn invoice_item_data_obs_item_and_dfe_ref_builders() {
 
 #[test]
 fn carrier_data_municipality_builder() {
-    let carrier = CarrierData::new()
-        .municipality("Sao Paulo");
+    let carrier = CarrierData::new().municipality("Sao Paulo");
     assert_eq!(carrier.municipality.as_deref(), Some("Sao Paulo"));
 }
 
@@ -621,7 +648,6 @@ fn invoice_item_data_taxable_fields_builders() {
 
 #[test]
 fn invoice_item_data_ind_bem_movel_usado_builder() {
-    let item = common::sample_item()
-        .ind_bem_movel_usado(true);
+    let item = common::sample_item().ind_bem_movel_usado(true);
     assert_eq!(item.ind_bem_movel_usado, Some(true));
 }

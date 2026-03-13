@@ -2094,8 +2094,20 @@ mod tests {
     #[test]
     fn csosn_101_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "101", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_p_cred_sn(Rate(500))
         .icms_v_cred_icms_sn(Cents(50));
@@ -2111,8 +2123,20 @@ mod tests {
     #[test]
     fn csosn_101_missing_p_cred_sn_returns_error() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "101", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_cred_icms_sn(Cents(50));
         let data = sample_build_data();
@@ -2123,8 +2147,20 @@ mod tests {
     #[test]
     fn csosn_101_missing_v_cred_icms_sn_returns_error() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "101", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_p_cred_sn(Rate(500));
         let data = sample_build_data();
@@ -2136,8 +2172,20 @@ mod tests {
     fn csosn_empty_defaults_to_102() {
         // When icms_cst is empty for Simples, it should default to "102"
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2149,8 +2197,20 @@ mod tests {
     #[test]
     fn csosn_103_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "103", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "103",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2162,8 +2222,20 @@ mod tests {
     #[test]
     fn csosn_300_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "300", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "300",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2174,8 +2246,20 @@ mod tests {
     #[test]
     fn csosn_400_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "400", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "400",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2186,8 +2270,20 @@ mod tests {
     #[test]
     fn csosn_201_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "201", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "201",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc_st(4)
         .icms_v_bc_st(Cents(1200))
@@ -2216,8 +2312,20 @@ mod tests {
     #[test]
     fn csosn_202_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "202", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "202",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_mod_bc_st(4)
         .icms_v_bc_st(Cents(1200))
@@ -2239,8 +2347,20 @@ mod tests {
     #[test]
     fn csosn_203_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "203", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "203",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_mod_bc_st(4)
         .icms_v_bc_st(Cents(1200))
@@ -2263,8 +2383,20 @@ mod tests {
     #[test]
     fn csosn_500_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "500", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "500",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_substituto(Cents(200));
         let data = sample_build_data();
@@ -2278,8 +2410,20 @@ mod tests {
     #[test]
     fn csosn_900_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "900", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "900",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc(3)
         .icms_red_bc(Rate(1000))
@@ -2305,8 +2449,20 @@ mod tests {
     #[test]
     fn csosn_unsupported_returns_error() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "999", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "999",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = sample_build_data();
         let result = build_det(&item, &data);
@@ -2314,7 +2470,8 @@ mod tests {
         let err = result.unwrap_err();
         assert!(
             matches!(err, FiscalError::UnsupportedIcmsCsosn(ref c) if c == "999"),
-            "expected UnsupportedIcmsCsosn, got {:?}", err
+            "expected UnsupportedIcmsCsosn, got {:?}",
+            err
         );
     }
 
@@ -2323,8 +2480,20 @@ mod tests {
     #[test]
     fn cst_10_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "10", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "10",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc_st(4)
         .icms_v_bc_st(Cents(1200))
@@ -2352,8 +2521,20 @@ mod tests {
     #[test]
     fn cst_20_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "20", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "20",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc(3)
         .icms_red_bc(Rate(2000))
@@ -2378,8 +2559,20 @@ mod tests {
     #[test]
     fn cst_30_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "30", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "30",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_mod_bc_st(4)
         .icms_v_bc_st(Cents(1200))
@@ -2406,8 +2599,20 @@ mod tests {
     #[test]
     fn cst_40_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "40", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "40",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_deson(Cents(100))
         .icms_mot_des_icms(1)
@@ -2424,8 +2629,20 @@ mod tests {
     #[test]
     fn cst_41_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "41", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "41",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_deson(Cents(100))
         .icms_mot_des_icms(1)
@@ -2442,8 +2659,20 @@ mod tests {
     #[test]
     fn cst_50_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "50", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "50",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_deson(Cents(100))
         .icms_mot_des_icms(1)
@@ -2460,8 +2689,20 @@ mod tests {
     #[test]
     fn cst_51_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "51", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "51",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc(3)
         .icms_red_bc(Rate(1000))
@@ -2481,8 +2722,20 @@ mod tests {
     #[test]
     fn cst_60_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "60", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "60",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_substituto(Cents(200));
         let data = normal_build_data();
@@ -2496,8 +2749,20 @@ mod tests {
     #[test]
     fn cst_70_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "70", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "70",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc(3)
         .icms_red_bc(Rate(2000))
@@ -2529,8 +2794,20 @@ mod tests {
     #[test]
     fn cst_90_produces_correct_xml() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "90", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "90",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .icms_mod_bc(3)
         .icms_red_bc(Rate(1000))
@@ -2562,8 +2839,20 @@ mod tests {
     #[test]
     fn cst_unsupported_returns_error() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "99", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "99",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         );
         let data = normal_build_data();
         let result = build_det(&item, &data);
@@ -2571,7 +2860,8 @@ mod tests {
         let err = result.unwrap_err();
         assert!(
             matches!(err, FiscalError::UnsupportedIcmsCst(ref c) if c == "99"),
-            "expected UnsupportedIcmsCst, got {:?}", err
+            "expected UnsupportedIcmsCst, got {:?}",
+            err
         );
     }
 
@@ -2811,7 +3101,11 @@ mod tests {
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
 
-        assert!(result.xml.contains("<nFCI>B01F70AF-10BF-4B1F-848C-65FF57F616FE</nFCI>"));
+        assert!(
+            result
+                .xml
+                .contains("<nFCI>B01F70AF-10BF-4B1F-848C-65FF57F616FE</nFCI>")
+        );
     }
 
     // ── Veículo (veicProd) ──────────────────────────────────────────────
@@ -2819,10 +3113,30 @@ mod tests {
     #[test]
     fn veic_prod_produces_correct_xml() {
         let veic = VeicProdData::new(
-            "1", "9BWZZZ377VT004251", "1", "PRATA", "100", "1600",
-            "1050", "1250", "ABC123", "1", "MOT123", "1500", "2600",
-            "2025", "2025", "M", "06", "1", "R", "1", "MOD001",
-            "02", "5", "0",
+            "1",
+            "9BWZZZ377VT004251",
+            "1",
+            "PRATA",
+            "100",
+            "1600",
+            "1050",
+            "1250",
+            "ABC123",
+            "1",
+            "MOT123",
+            "1500",
+            "2600",
+            "2025",
+            "2025",
+            "M",
+            "06",
+            "1",
+            "R",
+            "1",
+            "MOD001",
+            "02",
+            "5",
+            "0",
         );
         let item = sample_item().veic_prod(veic);
         let data = sample_build_data();
@@ -2866,7 +3180,11 @@ mod tests {
         let result = build_det(&item, &data).expect("build_det should succeed");
 
         assert!(result.xml.contains("<med>"));
-        assert!(result.xml.contains("<cProdANVISA>1234567890123</cProdANVISA>"));
+        assert!(
+            result
+                .xml
+                .contains("<cProdANVISA>1234567890123</cProdANVISA>")
+        );
         assert!(result.xml.contains("<vPMC>50.00</vPMC>"));
         assert!(result.xml.contains("</med>"));
     }
@@ -2879,7 +3197,11 @@ mod tests {
         let result = build_det(&item, &data).expect("build_det should succeed");
 
         assert!(result.xml.contains("<med>"));
-        assert!(result.xml.contains("<xMotivoIsencao>Medicamento isento de registro</xMotivoIsencao>"));
+        assert!(
+            result
+                .xml
+                .contains("<xMotivoIsencao>Medicamento isento de registro</xMotivoIsencao>")
+        );
         assert!(result.xml.contains("<vPMC>30.00</vPMC>"));
         assert!(!result.xml.contains("<cProdANVISA>"));
     }
@@ -2922,7 +3244,11 @@ mod tests {
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
 
-        assert!(result.xml.contains("<nRECOPI>20250000001234567890</nRECOPI>"));
+        assert!(
+            result
+                .xml
+                .contains("<nRECOPI>20250000001234567890</nRECOPI>")
+        );
     }
 
     #[test]
@@ -2953,8 +3279,7 @@ mod tests {
 
     #[test]
     fn rastro_with_c_agreg() {
-        let r = RastroData::new("LOTE002", 5.0, "2025-06-01", "2026-06-01")
-            .c_agreg("AGREG001");
+        let r = RastroData::new("LOTE002", 5.0, "2025-06-01", "2026-06-01").c_agreg("AGREG001");
         let item = sample_item().rastro(vec![r]);
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2967,8 +3292,7 @@ mod tests {
     #[test]
     fn obs_item_with_obs_cont_only() {
         use crate::types::{ObsField, ObsItemData};
-        let obs = ObsItemData::new()
-            .obs_cont(ObsField::new("campo1", "texto1"));
+        let obs = ObsItemData::new().obs_cont(ObsField::new("campo1", "texto1"));
         let item = sample_item().obs_item(obs);
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -2982,8 +3306,7 @@ mod tests {
     #[test]
     fn obs_item_with_obs_fisco() {
         use crate::types::{ObsField, ObsItemData};
-        let obs = ObsItemData::new()
-            .obs_fisco(ObsField::new("campo_fisco", "texto_fisco"));
+        let obs = ObsItemData::new().obs_fisco(ObsField::new("campo_fisco", "texto_fisco"));
         let item = sample_item().obs_item(obs);
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -3018,15 +3341,19 @@ mod tests {
         let result = build_det(&item, &data).expect("build_det should succeed");
 
         assert!(result.xml.contains("<DFeReferenciado>"));
-        assert!(result.xml.contains("<chaveAcesso>12345678901234567890123456789012345678901234</chaveAcesso>"));
+        assert!(
+            result.xml.contains(
+                "<chaveAcesso>12345678901234567890123456789012345678901234</chaveAcesso>"
+            )
+        );
         assert!(!result.xml.contains("<nItem>"));
     }
 
     #[test]
     fn dfe_referenciado_with_n_item() {
         use crate::types::DFeReferenciadoData;
-        let dfe = DFeReferenciadoData::new("12345678901234567890123456789012345678901234")
-            .n_item("3");
+        let dfe =
+            DFeReferenciadoData::new("12345678901234567890123456789012345678901234").n_item("3");
         let item = sample_item().dfe_referenciado(dfe);
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
@@ -3125,7 +3452,11 @@ mod tests {
         let data = sample_build_data();
         let result = build_det(&item, &data).expect("build_det should succeed");
 
-        assert!(result.xml.contains("<infAdProd>informacao adicional do produto</infAdProd>"));
+        assert!(
+            result
+                .xml
+                .contains("<infAdProd>informacao adicional do produto</infAdProd>")
+        );
     }
 
     // ── ind_deduz_deson ─────────────────────────────────────────────────
@@ -3133,8 +3464,20 @@ mod tests {
     #[test]
     fn ind_deduz_deson_true_when_set_to_1() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "40", Rate(0), Cents(0), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "40",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
         )
         .icms_v_icms_deson(Cents(100))
         .icms_mot_des_icms(1)
@@ -3157,8 +3500,20 @@ mod tests {
     #[test]
     fn custom_orig_used_in_icms() {
         let item = InvoiceItemData::new(
-            1, "001", "Produto", "27101259", "5102", "UN", 1.0,
-            Cents(1000), Cents(1000), "00", Rate(1800), Cents(180), "99", "99",
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "00",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
         )
         .orig("1");
         let data = normal_build_data();

@@ -1654,8 +1654,12 @@ mod tests {
     #[test]
     fn g_ibs_cbs_mono_data_all_setters() {
         let mono = GIbsCbsMonoData::new("15.00", "10.00")
-            .g_mono_reten(GMonoRetenData::new("200.00", "0.20", "40.00", "0.10", "20.00"))
-            .g_mono_ret(GMonoRetData::new("150.00", "0.15", "22.50", "0.08", "12.00"))
+            .g_mono_reten(GMonoRetenData::new(
+                "200.00", "0.20", "40.00", "0.10", "20.00",
+            ))
+            .g_mono_ret(GMonoRetData::new(
+                "150.00", "0.15", "22.50", "0.08", "12.00",
+            ))
             .g_mono_dif(GMonoDifData::new("10.00", "1.50", "5.00", "0.50"));
         assert!(mono.g_mono_reten.is_some());
         assert!(mono.g_mono_ret.is_some());
@@ -1684,7 +1688,9 @@ mod tests {
         // gIBSUF: dev_trib and red
         assert!(xml.contains("<gIBSUF>"));
         assert!(xml.contains("<gDevTrib><vDevTrib>3.00</vDevTrib></gDevTrib>"));
-        assert!(xml.contains("<gRed><pRedAliq>20.0000</pRedAliq><pAliqEfet>14.4000</pAliqEfet></gRed>"));
+        assert!(
+            xml.contains("<gRed><pRedAliq>20.0000</pRedAliq><pAliqEfet>14.4000</pAliqEfet></gRed>")
+        );
 
         // gIBSMun: dif, dev_trib and red
         assert!(xml.contains("<gIBSMun>"));
@@ -1693,13 +1699,17 @@ mod tests {
             "gIBSMun should contain gDif"
         );
         assert!(xml.contains("<gDevTrib><vDevTrib>2.00</vDevTrib></gDevTrib>"));
-        assert!(xml.contains("<gRed><pRedAliq>15.0000</pRedAliq><pAliqEfet>4.2500</pAliqEfet></gRed>"));
+        assert!(
+            xml.contains("<gRed><pRedAliq>15.0000</pRedAliq><pAliqEfet>4.2500</pAliqEfet></gRed>")
+        );
 
         // gCBS: dif, dev_trib and red
         assert!(xml.contains("<gCBS>"));
         assert!(xml.contains("<gDif><pDif>5.0000</pDif><vDif>4.50</vDif></gDif>"));
         assert!(xml.contains("<gDevTrib><vDevTrib>1.50</vDevTrib></gDevTrib>"));
-        assert!(xml.contains("<gRed><pRedAliq>10.0000</pRedAliq><pAliqEfet>8.1000</pAliqEfet></gRed>"));
+        assert!(
+            xml.contains("<gRed><pRedAliq>10.0000</pRedAliq><pAliqEfet>8.1000</pAliqEfet></gRed>")
+        );
     }
 
     // ── Coverage: Monofasico XML with reten, ret and dif sub-groups ─────

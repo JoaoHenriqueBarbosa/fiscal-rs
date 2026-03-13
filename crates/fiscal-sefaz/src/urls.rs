@@ -1447,8 +1447,7 @@ mod tests {
     #[test]
     fn nfe_consulta_cadastro_production() {
         // SP has NfeConsultaCadastro (model 55)
-        let url =
-            get_sefaz_url("SP", SefazEnvironment::Production, "NfeConsultaCadastro").unwrap();
+        let url = get_sefaz_url("SP", SefazEnvironment::Production, "NfeConsultaCadastro").unwrap();
         assert!(
             !url.is_empty(),
             "NfeConsultaCadastro production URL should not be empty"
@@ -1569,12 +1568,8 @@ mod tests {
             "AC", "AL", "AP", "BA", "CE", "DF", "ES", "MA", "PA", "PB", "PE", "PI", "RJ", "RN",
             "RO", "RR", "SC", "SE", "TO",
         ] {
-            let result = get_sefaz_url_for_model(
-                uf,
-                SefazEnvironment::Production,
-                "NfeStatusServico",
-                65,
-            );
+            let result =
+                get_sefaz_url_for_model(uf, SefazEnvironment::Production, "NfeStatusServico", 65);
             assert!(
                 result.is_ok(),
                 "NFC-e SVRS fallthrough state {uf} should resolve"
@@ -1584,12 +1579,8 @@ mod tests {
 
     #[test]
     fn nfce_unknown_state_returns_error() {
-        let result = get_sefaz_url_for_model(
-            "XX",
-            SefazEnvironment::Production,
-            "NfeStatusServico",
-            65,
-        );
+        let result =
+            get_sefaz_url_for_model("XX", SefazEnvironment::Production, "NfeStatusServico", 65);
         assert!(result.is_err());
     }
 
@@ -1628,55 +1619,37 @@ mod tests {
     #[test]
     fn get_sefaz_contingency_url_svcan_production() {
         // SP maps to SVCAN
-        let url = get_sefaz_contingency_url(
-            "SP",
-            SefazEnvironment::Production,
-            "NfeAutorizacao",
-        )
-        .unwrap();
+        let url = get_sefaz_contingency_url("SP", SefazEnvironment::Production, "NfeAutorizacao")
+            .unwrap();
         assert!(url.contains("sefazvirtual.fazenda.gov.br"));
     }
 
     #[test]
     fn get_sefaz_contingency_url_svcrs_production() {
         // AM maps to SVCRS
-        let url = get_sefaz_contingency_url(
-            "AM",
-            SefazEnvironment::Production,
-            "NfeAutorizacao",
-        )
-        .unwrap();
+        let url = get_sefaz_contingency_url("AM", SefazEnvironment::Production, "NfeAutorizacao")
+            .unwrap();
         assert!(url.contains("svrs.rs.gov.br") || url.contains("svc.rs.gov.br") || !url.is_empty());
     }
 
     #[test]
     fn get_sefaz_contingency_url_unknown_state() {
-        let result = get_sefaz_contingency_url(
-            "XX",
-            SefazEnvironment::Production,
-            "NfeAutorizacao",
-        );
+        let result =
+            get_sefaz_contingency_url("XX", SefazEnvironment::Production, "NfeAutorizacao");
         assert!(result.is_err());
     }
 
     #[test]
     fn get_sefaz_contingency_url_unknown_service() {
-        let result = get_sefaz_contingency_url(
-            "SP",
-            SefazEnvironment::Production,
-            "Nonexistent",
-        );
+        let result = get_sefaz_contingency_url("SP", SefazEnvironment::Production, "Nonexistent");
         assert!(result.is_err());
     }
 
     #[test]
     fn get_sefaz_contingency_url_homologation() {
-        let url = get_sefaz_contingency_url(
-            "SP",
-            SefazEnvironment::Homologation,
-            "NfeStatusServico",
-        )
-        .unwrap();
+        let url =
+            get_sefaz_contingency_url("SP", SefazEnvironment::Homologation, "NfeStatusServico")
+                .unwrap();
         assert!(!url.is_empty());
     }
 
@@ -1759,13 +1732,19 @@ mod tests {
     #[test]
     fn nfce_qr_url_production() {
         let url = get_nfce_qr_url("MG", SefazEnvironment::Production).unwrap();
-        assert_eq!(url, "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml");
+        assert_eq!(
+            url,
+            "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml"
+        );
     }
 
     #[test]
     fn nfce_qr_url_homologation() {
         let url = get_nfce_qr_url("MG", SefazEnvironment::Homologation).unwrap();
-        assert_eq!(url, "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml");
+        assert_eq!(
+            url,
+            "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml"
+        );
     }
 
     #[test]

@@ -807,8 +807,8 @@ mod tests {
             "<ide><cUF>41</cUF></ide>",
             "</infNFe></NFe>"
         );
-        let signed = sign_xml(xml, &cert_data.private_key, &cert_data.certificate)
-            .expect("should sign");
+        let signed =
+            sign_xml(xml, &cert_data.private_key, &cert_data.certificate).expect("should sign");
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("<SignatureValue>"));
         assert!(signed.contains("<X509Certificate>"));
@@ -845,9 +845,8 @@ mod tests {
             "<cOrgao>41</cOrgao>",
             "</infEvento></evento>"
         );
-        let signed =
-            sign_event_xml(xml, &cert_data.private_key, &cert_data.certificate)
-                .expect("should sign");
+        let signed = sign_event_xml(xml, &cert_data.private_key, &cert_data.certificate)
+            .expect("should sign");
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("<SignatureValue>"));
     }
@@ -857,8 +856,7 @@ mod tests {
         let pfx = test_pfx_cnpj();
         let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
         let xml = "<evento><other/></evento>";
-        let result =
-            sign_event_xml(xml, &cert_data.private_key, &cert_data.certificate);
+        let result = sign_event_xml(xml, &cert_data.private_key, &cert_data.certificate);
         assert!(result.is_err());
     }
 
@@ -951,7 +949,8 @@ mod tests {
     #[test]
     fn ensure_inherited_namespace_inherits_from_parent() {
         let element = r#"<infNFe Id="X">data</infNFe>"#;
-        let full_xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="X">data</infNFe></NFe>"#;
+        let full_xml =
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="X">data</infNFe></NFe>"#;
         let result = ensure_inherited_namespace(element, full_xml, "infNFe");
         assert!(result.contains("xmlns=\"http://www.portalfiscal.inf.br/nfe\""));
     }
@@ -991,9 +990,8 @@ mod tests {
             "<tpAmb>2</tpAmb>",
             "</infInut></inutNFe>"
         );
-        let signed =
-            sign_inutilizacao_xml(xml, &cert_data.private_key, &cert_data.certificate)
-                .expect("should sign inutilizacao");
+        let signed = sign_inutilizacao_xml(xml, &cert_data.private_key, &cert_data.certificate)
+            .expect("should sign inutilizacao");
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("<SignatureValue>"));
         assert!(signed.contains("<X509Certificate>"));
@@ -1004,8 +1002,7 @@ mod tests {
         let pfx = test_pfx_cnpj();
         let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
         let xml = "<inutNFe><other/></inutNFe>";
-        let result =
-            sign_inutilizacao_xml(xml, &cert_data.private_key, &cert_data.certificate);
+        let result = sign_inutilizacao_xml(xml, &cert_data.private_key, &cert_data.certificate);
         assert!(result.is_err());
     }
 
@@ -1016,11 +1013,15 @@ mod tests {
         let pfx = test_pfx_cnpj();
         let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
         // XML has infNFe with Id but the parent NFe is never closed
-        let xml = r#"<NFe><infNFe Id="NFe41260304123456000190550010000001231123456780"><data/></infNFe>"#;
+        let xml =
+            r#"<NFe><infNFe Id="NFe41260304123456000190550010000001231123456780"><data/></infNFe>"#;
         let result = sign_xml(xml, &cert_data.private_key, &cert_data.certificate);
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("closing tag not found"), "Expected 'closing tag not found' error, got: {err_msg}");
+        assert!(
+            err_msg.contains("closing tag not found"),
+            "Expected 'closing tag not found' error, got: {err_msg}"
+        );
     }
 
     // ── extract_element_id: malformed Id attribute (line 388) ───────
@@ -1032,7 +1033,10 @@ mod tests {
         let result = extract_element_id(xml, "infNFe");
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("Malformed Id"), "Expected 'Malformed Id' error, got: {err_msg}");
+        assert!(
+            err_msg.contains("Malformed Id"),
+            "Expected 'Malformed Id' error, got: {err_msg}"
+        );
     }
 
     // ── ensure_inherited_namespace: no xmlns anywhere (line 429) ────
@@ -1070,5 +1074,4 @@ mod tests {
         // Attributes sorted, self-closing expanded
         assert!(canonical.contains(r#"<item a="1" b="2"></item>"#));
     }
-
 }

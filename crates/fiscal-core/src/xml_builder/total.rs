@@ -725,10 +725,7 @@ mod tests {
             fcp_uf_start > deson_end,
             "vFCPUFDest must come after vICMSDeson"
         );
-        assert!(
-            fcp_start > fcp_uf_start,
-            "vFCP must come after vFCPUFDest"
-        );
+        assert!(fcp_start > fcp_uf_start, "vFCP must come after vFCPUFDest");
     }
 
     #[test]
