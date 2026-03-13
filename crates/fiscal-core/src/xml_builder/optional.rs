@@ -1,7 +1,6 @@
 //! Build optional XML groups: cobr, infAdic, infIntermed, exporta, compra,
 //! infRespTec, retirada, entrega, autXML.
 
-use super::emit::build_address_fields;
 use super::tax_id::TaxId;
 use crate::format_utils::format_cents;
 use crate::types::*;
@@ -206,49 +205,68 @@ pub fn build_export(exp: &ExportData) -> String {
 }
 
 /// Build `<retirada>` (withdrawal) element.
+///
+/// Ordem das tags conforme PHP sped-nfe `tagretirada()`:
+/// CPF|CNPJ, xNome, xLgr, nro, xCpl, xBairro, cMun, xMun, UF, CEP,
+/// cPais, xPais, fone, email, IE.
 pub fn build_withdrawal(w: &LocationData) -> String {
-    let tid = TaxId::new(&w.tax_id);
-    let padded = tid.padded();
-    let mut children = vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))];
-    if let Some(ref name) = w.name {
-        children.push(tag("xNome", &[], TagContent::Text(name)));
-    }
-    children.extend(build_address_fields(
-        &w.street,
-        &w.number,
-        w.complement.as_deref(),
-        &w.district,
-        &w.city_code.0,
-        &w.city_name,
-        &w.state_code,
-        w.zip_code.as_deref(),
-        false,
-        None,
-    ));
-    tag("retirada", &[], TagContent::Children(children))
+    tag(
+        "retirada",
+        &[],
+        TagContent::Children(build_location_children(w)),
+    )
 }
 
 /// Build `<entrega>` (delivery) element.
+///
+/// Ordem das tags conforme PHP sped-nfe `tagentrega()`:
+/// CPF|CNPJ, xNome, xLgr, nro, xCpl, xBairro, cMun, xMun, UF, CEP,
+/// cPais, xPais, fone, email, IE.
 pub fn build_delivery(d: &LocationData) -> String {
-    let tid = TaxId::new(&d.tax_id);
+    tag(
+        "entrega",
+        &[],
+        TagContent::Children(build_location_children(d)),
+    )
+}
+
+/// Constrói a lista de tags-filhas comuns a `<retirada>` e `<entrega>`,
+/// respeitando a ordem do schema NFe / PHP sped-nfe.
+fn build_location_children(loc: &LocationData) -> Vec<String> {
+    let tid = TaxId::new(&loc.tax_id);
     let padded = tid.padded();
     let mut children = vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))];
-    if let Some(ref name) = d.name {
+    if let Some(ref name) = loc.name {
         children.push(tag("xNome", &[], TagContent::Text(name)));
     }
-    children.extend(build_address_fields(
-        &d.street,
-        &d.number,
-        d.complement.as_deref(),
-        &d.district,
-        &d.city_code.0,
-        &d.city_name,
-        &d.state_code,
-        d.zip_code.as_deref(),
-        false,
-        None,
-    ));
-    tag("entrega", &[], TagContent::Children(children))
+    children.push(tag("xLgr", &[], TagContent::Text(&loc.street)));
+    children.push(tag("nro", &[], TagContent::Text(&loc.number)));
+    if let Some(ref cpl) = loc.complement {
+        children.push(tag("xCpl", &[], TagContent::Text(cpl)));
+    }
+    children.push(tag("xBairro", &[], TagContent::Text(&loc.district)));
+    children.push(tag("cMun", &[], TagContent::Text(&loc.city_code.0)));
+    children.push(tag("xMun", &[], TagContent::Text(&loc.city_name)));
+    children.push(tag("UF", &[], TagContent::Text(&loc.state_code)));
+    if let Some(ref cep) = loc.zip_code {
+        children.push(tag("CEP", &[], TagContent::Text(cep)));
+    }
+    if let Some(ref c_pais) = loc.c_pais {
+        children.push(tag("cPais", &[], TagContent::Text(c_pais)));
+    }
+    if let Some(ref x_pais) = loc.x_pais {
+        children.push(tag("xPais", &[], TagContent::Text(x_pais)));
+    }
+    if let Some(ref fone) = loc.fone {
+        children.push(tag("fone", &[], TagContent::Text(fone)));
+    }
+    if let Some(ref email) = loc.email {
+        children.push(tag("email", &[], TagContent::Text(email)));
+    }
+    if let Some(ref ie) = loc.ie {
+        children.push(tag("IE", &[], TagContent::Text(ie)));
+    }
+    children
 }
 
 /// Build `<cana>` (sugarcane supply) element.
@@ -669,5 +687,210 @@ mod tests {
 
         assert!(xml.contains("<gPagAntecipado>"));
         assert_eq!(xml.matches("<refNFe>").count(), 2);
+    }
+
+    // ── Retirada / Entrega tests ──────────────────────────────────────
+
+    #[test]
+    fn build_withdrawal_all_fields_cnpj() {
+        let loc = LocationData::new(
+            "12345678000199",
+            "Rua das Flores",
+            "100",
+            "Centro",
+            IbgeCode("3550308".to_string()),
+            "São Paulo",
+            "SP",
+        )
+        .name("Empresa Teste")
+        .complement("Sala 5")
+        .zip_code("01001000")
+        .c_pais("1058")
+        .x_pais("Brasil")
+        .fone("1155551234")
+        .email("teste@empresa.com")
+        .ie("123456789");
+
+        let xml = build_withdrawal(&loc);
+
+        assert_eq!(
+            xml,
+            "<retirada>\
+                <CNPJ>12345678000199</CNPJ>\
+                <xNome>Empresa Teste</xNome>\
+                <xLgr>Rua das Flores</xLgr>\
+                <nro>100</nro>\
+                <xCpl>Sala 5</xCpl>\
+                <xBairro>Centro</xBairro>\
+                <cMun>3550308</cMun>\
+                <xMun>São Paulo</xMun>\
+                <UF>SP</UF>\
+                <CEP>01001000</CEP>\
+                <cPais>1058</cPais>\
+                <xPais>Brasil</xPais>\
+                <fone>1155551234</fone>\
+                <email>teste@empresa.com</email>\
+                <IE>123456789</IE>\
+            </retirada>"
+        );
+    }
+
+    #[test]
+    fn build_delivery_all_fields_cpf() {
+        let loc = LocationData::new(
+            "12345678901",
+            "Av. Brasil",
+            "200",
+            "Bela Vista",
+            IbgeCode("3304557".to_string()),
+            "Rio de Janeiro",
+            "RJ",
+        )
+        .name("João da Silva")
+        .complement("Apto 301")
+        .zip_code("20040020")
+        .c_pais("1058")
+        .x_pais("Brasil")
+        .fone("2199998888")
+        .email("joao@email.com")
+        .ie("ISENTO");
+
+        let xml = build_delivery(&loc);
+
+        assert_eq!(
+            xml,
+            "<entrega>\
+                <CPF>12345678901</CPF>\
+                <xNome>João da Silva</xNome>\
+                <xLgr>Av. Brasil</xLgr>\
+                <nro>200</nro>\
+                <xCpl>Apto 301</xCpl>\
+                <xBairro>Bela Vista</xBairro>\
+                <cMun>3304557</cMun>\
+                <xMun>Rio de Janeiro</xMun>\
+                <UF>RJ</UF>\
+                <CEP>20040020</CEP>\
+                <cPais>1058</cPais>\
+                <xPais>Brasil</xPais>\
+                <fone>2199998888</fone>\
+                <email>joao@email.com</email>\
+                <IE>ISENTO</IE>\
+            </entrega>"
+        );
+    }
+
+    #[test]
+    fn build_withdrawal_minimal_only_required() {
+        let loc = LocationData::new(
+            "12345678000199",
+            "Rua A",
+            "1",
+            "Centro",
+            IbgeCode("3550308".to_string()),
+            "São Paulo",
+            "SP",
+        );
+
+        let xml = build_withdrawal(&loc);
+
+        assert_eq!(
+            xml,
+            "<retirada>\
+                <CNPJ>12345678000199</CNPJ>\
+                <xLgr>Rua A</xLgr>\
+                <nro>1</nro>\
+                <xBairro>Centro</xBairro>\
+                <cMun>3550308</cMun>\
+                <xMun>São Paulo</xMun>\
+                <UF>SP</UF>\
+            </retirada>"
+        );
+    }
+
+    #[test]
+    fn build_delivery_partial_new_fields() {
+        let loc = LocationData::new(
+            "98765432000111",
+            "Rua B",
+            "50",
+            "Jardim",
+            IbgeCode("4106902".to_string()),
+            "Curitiba",
+            "PR",
+        )
+        .fone("4133334444")
+        .email("contato@loja.com");
+
+        let xml = build_delivery(&loc);
+
+        // Verifica que fone e email aparecem mas cPais, xPais e IE não
+        assert_eq!(
+            xml,
+            "<entrega>\
+                <CNPJ>98765432000111</CNPJ>\
+                <xLgr>Rua B</xLgr>\
+                <nro>50</nro>\
+                <xBairro>Jardim</xBairro>\
+                <cMun>4106902</cMun>\
+                <xMun>Curitiba</xMun>\
+                <UF>PR</UF>\
+                <fone>4133334444</fone>\
+                <email>contato@loja.com</email>\
+            </entrega>"
+        );
+    }
+
+    #[test]
+    fn build_withdrawal_tag_order_matches_php() {
+        // Verifica que a ordem das tags confere com o PHP sped-nfe
+        let loc = LocationData::new(
+            "12345678000199",
+            "Rua X",
+            "10",
+            "Bairro Y",
+            IbgeCode("1100015".to_string()),
+            "Porto Velho",
+            "RO",
+        )
+        .name("Empresa")
+        .complement("Loja 1")
+        .zip_code("76801000")
+        .c_pais("1058")
+        .x_pais("Brasil")
+        .fone("6932221111")
+        .email("a@b.com")
+        .ie("1234");
+
+        let xml = build_withdrawal(&loc);
+
+        // Ordem PHP: CNPJ, xNome, xLgr, nro, xCpl, xBairro, cMun, xMun, UF, CEP, cPais, xPais, fone, email, IE
+        let tags_in_order = [
+            "<CNPJ>",
+            "<xNome>",
+            "<xLgr>",
+            "<nro>",
+            "<xCpl>",
+            "<xBairro>",
+            "<cMun>",
+            "<xMun>",
+            "<UF>",
+            "<CEP>",
+            "<cPais>",
+            "<xPais>",
+            "<fone>",
+            "<email>",
+            "<IE>",
+        ];
+        let mut last_pos = 0;
+        for tag_name in &tags_in_order {
+            let pos = xml
+                .find(tag_name)
+                .unwrap_or_else(|| panic!("tag {tag_name} não encontrada no XML"));
+            assert!(
+                pos >= last_pos,
+                "tag {tag_name} está fora de ordem (pos {pos} < {last_pos})"
+            );
+            last_pos = pos;
+        }
     }
 }
