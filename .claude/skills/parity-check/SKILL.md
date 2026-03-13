@@ -58,11 +58,28 @@ Exemplos reais encontrados:
 - PHP normaliza espaços duplos em infCpl → C14N preserva whitespace → Rust está certo
 - PHP não gera `<card>` para tpIntegra=0 (bug do `empty("0")`) → XSD não tem valor 0 → resultado do PHP está certo, mas pelo motivo errado — Rust deve validar corretamente
 
-## Método: Teste Cego Reverso em 6 Fases
+## Método: Teste Cego Reverso em 8 Fases
 
 **SEMPRE usar o método cego reverso.** Nunca começar pelo Rust e verificar se "parece ok". Começar pelo PHP, mapear tudo que existe, e depois cruzar com o Rust.
 
-### Fase 0 — Segmentação do PHP (1 agente único)
+### REGRA OBRIGATÓRIA: Criar tasks ANTES de executar
+
+**ANTES de executar qualquer fase**, criar tasks com `TaskCreate` para TODAS as 8 fases do pipeline:
+
+1. `Fase 1 — Segmentação do PHP em 4 partes macro`
+2. `Fase 2 — Cruzamento lógico (4 agentes)`
+3. `Fase 3 — Cruzamento por execução real`
+4. `Fase 4 — Filtrar falsos positivos conhecidos`
+5. `Fase 5 — Verificação legislativa`
+6. `Fase 6 — Implementação`
+7. `Fase 7 — Merge e verificação`
+8. `Fase 8 — Commit e atualização de memória`
+
+Conforme cada fase for iniciada, atualizar a task para `in_progress`. Ao concluir, `completed`.
+
+**NÃO avançar para a próxima fase sem marcar a anterior como `completed`.** As fases existem por um motivo — cada uma depende da anterior. Pular a Fase 5 (legislação) e ir direto para implementação é um erro grave que pode resultar em copiar bugs do PHP para o Rust.
+
+### Fase 1 — Segmentação do PHP (1 agente único)
 
 **NÃO lançar múltiplos agentes de cara.** Primeiro, lançar UM ÚNICO agente Opus (`model: "opus"`, `subagent_type: "Explore"`) para segmentar o PHP em 4 partes macro:
 
@@ -77,7 +94,7 @@ O agente deve:
 
 O resultado é o **mapa de segmentação** que guia as fases seguintes.
 
-### Fase 1 — Cruzamento lógico (4 agentes em paralelo)
+### Fase 2 — Cruzamento lógico (4 agentes em paralelo)
 
 Com o mapa de segmentação, lançar **4 agentes Opus** (`model: "opus"`, `subagent_type: "Explore"`) em paralelo, um para cada parte macro. Cada agente:
 
@@ -88,7 +105,7 @@ Com o mapa de segmentação, lançar **4 agentes Opus** (`model: "opus"`, `subag
    - **Tabela de disparidades** (PARCIAL e FALTA): # | PHP | Status | Detalhes
    - NÃO listar os OK um a um, só contar
 
-### Fase 1.5 — Cruzamento por execução real (4 agentes em worktrees)
+### Fase 3 — Cruzamento por execução real (4 agentes em worktrees)
 
 Em paralelo com a Fase 1 (ou logo depois), lançar **4 agentes Opus** em **worktrees isoladas** (`model: "opus"`, `isolation: "worktree"`, `run_in_background: true`), um para cada parte macro. Cada agente:
 
@@ -107,9 +124,28 @@ Em paralelo com a Fase 1 (ou logo depois), lançar **4 agentes Opus** em **workt
 
 Se o PHP não executar (sem composer), o agente deve ao menos analisar XMLs de teste existentes no Rust e comparar com o que o PHP geraria baseado na leitura do código.
 
-### Fase 2 — Verificação legislativa (antes de corrigir!)
+### Fase 4 — Filtrar falsos positivos conhecidos
 
-**ANTES de implementar qualquer fix**, cruzar cada disparidade com a legislação:
+**Esta fase é OBRIGATÓRIA e vem ANTES da verificação legislativa.**
+
+Ler a memória `project_php_legislation_divergences.md` e o inventário `project_pending_features.md` (seção DESCARTADAS). Qualquer disparidade que já foi analisada em rounds anteriores e classificada como:
+- **Rust correto, PHP errado** (ex: GTIN-14 com zero, espaços duplos)
+- **Ambos aceitáveis** (ex: declaração XML, vTotTrib zero)
+- **Diferença idiomática** (ex: enum flat vs hierarquia de exceções)
+- **Facilidade de biblioteca** (ex: parseDump, simpleXml, __toString)
+- **Diferença arquitetural** (ex: loadSoapClass, setVerAplic, canonicalOptions)
+
+...deve ser **IGNORADA automaticamente** — não gastar tempo re-analisando nem re-verificando legislação.
+
+Ao consolidar a lista de disparidades das Fases 1 e 1.5, cruzar contra essas listas de falsos positivos ANTES de lançar os agentes de legislação. Só enviar para verificação legislativa disparidades **novas** que não constam nas listas.
+
+**Output desta fase**: tabela com duas colunas: "Descartadas (já conhecidas)" e "Novas (enviar para legislação)". Marcar a task como `completed` antes de avançar.
+
+### Fase 5 — Verificação legislativa (OBRIGATÓRIA)
+
+**NÃO PULAR ESTA FASE.** Mesmo que as disparidades "pareçam óbvias", a verificação legislativa é obrigatória. O Round 10 quase pulou esta fase — isso é inaceitável.
+
+Para CADA disparidade nova (que passou pelo filtro da Fase 2.5), cruzar com a legislação:
 
 Lançar **2-3 agentes Opus** (`model: "opus"`) em paralelo, cada um cobrindo um grupo de disparidades. Cada agente:
 
@@ -126,22 +162,9 @@ Lançar **2-3 agentes Opus** (`model: "opus"`) em paralelo, cada um cobrindo um 
 
 **Se a legislação discorda do PHP**: anotar na memória (`project_php_legislation_divergences.md`) e NÃO corrigir no Rust.
 
-### Fase 2.5 — Filtrar falsos positivos conhecidos
-
-**ANTES de implementar**, ler a memória `project_php_legislation_divergences.md` e o inventário `project_pending_features.md` (seção DESCARTADAS). Qualquer disparidade que já foi analisada em rounds anteriores e classificada como:
-- **Rust correto, PHP errado** (ex: GTIN-14 com zero, espaços duplos)
-- **Ambos aceitáveis** (ex: declaração XML, vTotTrib zero)
-- **Diferença idiomática** (ex: enum flat vs hierarquia de exceções)
-- **Facilidade de biblioteca** (ex: parseDump, simpleXml, __toString)
-- **Diferença arquitetural** (ex: loadSoapClass, setVerAplic, canonicalOptions)
-
-...deve ser **IGNORADA automaticamente** — não gastar tempo re-analisando nem re-verificando legislação.
-
-Ao consolidar a lista de disparidades das Fases 1 e 1.5, cruzar contra essas listas de falsos positivos ANTES de lançar os agentes de legislação. Só enviar para verificação legislativa disparidades **novas** que não constam nas listas.
-
 Ao final de cada round, **atualizar as listas na memória** com os novos falsos positivos descobertos para que o próximo round os ignore.
 
-### Fase 3 — Implementação das disparidades
+### Fase 6 — Implementação das disparidades
 
 Para CADA disparidade confirmada (veredicto CORRIGIR), lançar um agente Opus (`model: "opus"`) em **worktree isolada** (`isolation: "worktree"`, `run_in_background: true`), todos em paralelo.
 
@@ -152,7 +175,7 @@ Cada agente de implementação recebe:
 4. As regras de qualidade (abaixo)
 5. Instrução para rodar `cargo fmt && cargo test` ao final
 
-### Fase 4 — Merge e verificação
+### Fase 7 — Merge e verificação
 
 Após todos os agentes terminarem:
 1. Verificar diffs de cada worktree (`git -C .claude/worktrees/agent-XXX diff`)
@@ -165,7 +188,7 @@ Após todos os agentes terminarem:
 5. Limpar worktrees (`rm -rf .claude/worktrees/agent-* && git worktree prune`)
 6. Atualizar memória (`project_pending_features.md`)
 
-### Fase 5 — Commit
+### Fase 8 — Commit
 
 Commit único com mensagem semântica listando todos os fixes:
 ```
@@ -217,15 +240,18 @@ fix(parity): round N — X fixes from blind audit with real execution
 ## Pipeline resumido
 
 ```
-0.   1 agente segmenta PHP em 4 partes macro
-1.   4 agentes cruzam lógicamente cada parte contra Rust (tabelas de disparidades)
-1.5. 4 agentes em worktrees geram outputs reais PHP vs Rust e comparam byte a byte
-2.   Filtrar falsos positivos já conhecidos (ler memória: divergences + DESCARTADAS)
-2.1. 2-3 agentes verificam legislação/XSD/NT apenas para disparidades NOVAS
-     → DESCARTAR se legislação discorda do PHP (anotar em memória para próximos rounds)
-3.   N agentes em worktrees implementam cada disparidade confirmada
-4.   Aplicar diffs no master, cargo test, limpar worktrees
-5.   Commit único semântico, atualizar memória (pendentes + falsos positivos)
+INÍCIO: Criar tasks para TODAS as 8 fases (TaskCreate) — NÃO pular nenhuma
+
+1.  Segmentar PHP em 4 partes macro (1 agente)
+2.  Cruzar lógicamente cada parte contra Rust (4 agentes)
+3.  Cruzar por execução real PHP vs Rust (4 agentes em worktrees)
+4.  Filtrar falsos positivos conhecidos (ler memória)
+5.  Verificar legislação para disparidades NOVAS (2-3 agentes) — NÃO PULAR
+6.  Implementar disparidades confirmadas (N agentes em worktrees)
+7.  Merge no master, cargo test, limpar worktrees
+8.  Commit semântico, atualizar memória
+
+FIM: Marcar TODAS as tasks como completed
 ```
 
 ## Regras
