@@ -1308,6 +1308,16 @@ pub struct LocationData {
     pub state_code: String,
     /// Postal code (`CEP`). Optional.
     pub zip_code: Option<String>,
+    /// Código do país (`cPais`). Optional.
+    pub c_pais: Option<String>,
+    /// Nome do país (`xPais`). Optional.
+    pub x_pais: Option<String>,
+    /// Telefone (`fone`). Optional.
+    pub fone: Option<String>,
+    /// E-mail (`email`). Optional.
+    pub email: Option<String>,
+    /// Inscrição Estadual (`IE`). Optional.
+    pub ie: Option<String>,
 }
 
 impl LocationData {
@@ -1333,6 +1343,11 @@ impl LocationData {
             city_name: city_name.into(),
             state_code: state_code.into(),
             zip_code: None,
+            c_pais: None,
+            x_pais: None,
+            fone: None,
+            email: None,
+            ie: None,
         }
     }
 
@@ -1349,6 +1364,31 @@ impl LocationData {
     /// Set the zip code.
     pub fn zip_code(mut self, v: impl Into<String>) -> Self {
         self.zip_code = Some(v.into());
+        self
+    }
+    /// Set o código do país (`cPais`).
+    pub fn c_pais(mut self, v: impl Into<String>) -> Self {
+        self.c_pais = Some(v.into());
+        self
+    }
+    /// Set o nome do país (`xPais`).
+    pub fn x_pais(mut self, v: impl Into<String>) -> Self {
+        self.x_pais = Some(v.into());
+        self
+    }
+    /// Set o telefone (`fone`).
+    pub fn fone(mut self, v: impl Into<String>) -> Self {
+        self.fone = Some(v.into());
+        self
+    }
+    /// Set o e-mail (`email`).
+    pub fn email(mut self, v: impl Into<String>) -> Self {
+        self.email = Some(v.into());
+        self
+    }
+    /// Set a inscrição estadual (`IE`).
+    pub fn ie(mut self, v: impl Into<String>) -> Self {
+        self.ie = Some(v.into());
         self
     }
 }
