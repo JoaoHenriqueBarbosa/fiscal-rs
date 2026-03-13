@@ -362,7 +362,15 @@ mod tests {
             .v_bc(Cents(50000))
             .v_iss(Cents(2500));
 
-        let xml = build_total(0, &zero_icms(), &zero_other(), None, Some(&data), None, None);
+        let xml = build_total(
+            0,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            Some(&data),
+            None,
+            None,
+        );
 
         // ISSQNtot should appear after ICMSTot
         let icms_end = xml.find("</ICMSTot>").expect("</ICMSTot> must exist");
