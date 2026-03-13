@@ -92,6 +92,7 @@ fn calculate_v_nf_v2(
 /// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, and IBSCBSTot.
 ///
 /// `schema_version` controls whether PL_010-exclusive totals (ISTot, IBSCBSTot) are emitted.
+#[allow(clippy::too_many_arguments)]
 pub fn build_total(
     total_products: i64,
     icms: &IcmsTotals,

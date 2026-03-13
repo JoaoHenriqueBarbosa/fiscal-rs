@@ -225,13 +225,13 @@ impl Contingency {
             None => return Ok(()),
         };
 
-        if model == InvoiceModel::Nfce {
-            if matches!(ct, ContingencyType::SvcAn | ContingencyType::SvcRs) {
-                return Err(FiscalError::Contingency(
-                    "Não existe serviço para contingência SVCRS ou SVCAN para NFCe (modelo 65)."
-                        .to_string(),
-                ));
-            }
+        if model == InvoiceModel::Nfce
+            && matches!(ct, ContingencyType::SvcAn | ContingencyType::SvcRs)
+        {
+            return Err(FiscalError::Contingency(
+                "Não existe serviço para contingência SVCRS ou SVCAN para NFCe (modelo 65)."
+                    .to_string(),
+            ));
         }
 
         if !matches!(ct, ContingencyType::SvcAn | ContingencyType::SvcRs) {

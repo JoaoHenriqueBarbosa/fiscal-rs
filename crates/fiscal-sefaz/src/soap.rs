@@ -110,7 +110,8 @@ pub(crate) fn build_envelope_with_header(
     s.push_str(&namespace);
     s.push_str("\">");
     s.push_str("<cUF>");
-    s.push_str(&cuf.to_string());
+    let cuf_str = cuf.to_string();
+    s.push_str(&cuf_str);
     s.push_str("</cUF>");
     s.push_str("<versaoDados>");
     s.push_str(meta.version);

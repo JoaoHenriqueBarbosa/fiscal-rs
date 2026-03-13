@@ -1267,10 +1267,9 @@ pub fn extract_epec_nfce_data(
             Some(format!("<CNPJ>{cnpj}</CNPJ>"))
         } else if let Some(cpf) = extract_xml_tag_value(dest, "CPF") {
             Some(format!("<CPF>{cpf}</CPF>"))
-        } else if let Some(id_est) = extract_xml_tag_value(dest, "idEstrangeiro") {
-            Some(format!("<idEstrangeiro>{id_est}</idEstrangeiro>"))
         } else {
-            None
+            extract_xml_tag_value(dest, "idEstrangeiro")
+                .map(|id_est| format!("<idEstrangeiro>{id_est}</idEstrangeiro>"))
         };
 
         let ie = extract_xml_tag_value(dest, "IE").filter(|v| !v.is_empty());
