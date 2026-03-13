@@ -379,7 +379,7 @@ fn pad_decimal(value: &str, places: usize) -> String {
             format!("{integer}.{padded}")
         }
     } else {
-        let zeros: String = std::iter::repeat('0').take(places).collect();
+        let zeros = "0".repeat(places);
         format!("{value}.{zeros}")
     }
 }
