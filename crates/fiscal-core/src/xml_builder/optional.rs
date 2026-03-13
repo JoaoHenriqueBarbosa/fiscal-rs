@@ -428,6 +428,7 @@ pub fn build_aut_xml(entry: &AuthorizedXml) -> String {
 mod tests {
     use super::*;
     use crate::newtypes::Cents;
+    use crate::xml_builder::IbgeCode;
 
     #[test]
     fn build_cana_minimal_without_deducoes() {
