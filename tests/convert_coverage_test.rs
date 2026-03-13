@@ -88,30 +88,27 @@ fn validate_txt_cr_tabs() {
 }
 #[test]
 fn validate_txt_no_a_marker() {
-    match fiscal::convert::validate_txt(
+    if let Ok(v) = fiscal::convert::validate_txt(
         "NOTAFISCAL|1|\nB|35|00000501|V|55|1|502|2018-08-13T17:28:10-03:00||1|1|3|1|1|8|1|1|0|3||0|3.2.1.1|||\n",
         "local_v12",
     ) {
-        Ok(v) => assert!(!v),
-        Err(_) => {}
+        assert!(!v);
     }
 }
 #[test]
 fn validate_txt_forbidden_chars() {
-    match fiscal::convert::validate_txt(
+    if let Ok(v) = fiscal::convert::validate_txt(
         "NOTAFISCAL|1|\nA|4.00|||\nB|35|<bad>|V|55|1|502|2018-08-13||1|1|3|1|1|8|1|1|0|3||0|3.2.1.1|||\n",
         "local_v12",
     ) {
-        Ok(v) => assert!(!v),
-        Err(_) => {}
+        assert!(!v);
     }
 }
 #[test]
 fn validate_txt_erroneous() {
     let b = std::fs::read(format!("{FIXTURES_PATH}txt/nfe_errado.txt")).unwrap();
-    match fiscal::convert::validate_txt(&String::from_utf8_lossy(&b), "local_v12") {
-        Ok(v) => assert!(!v),
-        Err(_) => {}
+    if let Ok(v) = fiscal::convert::validate_txt(&String::from_utf8_lossy(&b), "local_v12") {
+        assert!(!v);
     }
 }
 
