@@ -223,6 +223,7 @@ mod tests {
             pag_antecipado: None,
             is_tot: None,
             ibs_cbs_tot: None,
+            v_nf_tot_override: None,
             exit_at: None,
             destination_indicator: None,
             ver_proc: None,

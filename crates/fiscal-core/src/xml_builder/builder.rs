@@ -99,6 +99,7 @@ pub struct InvoiceBuilder<State = Draft> {
     pag_antecipado: Option<PagAntecipadoData>,
     is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
+    v_nf_tot_override: Option<Cents>,
 
     // ASCII sanitization
     only_ascii: bool,
@@ -170,6 +171,7 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: None,
             is_tot: None,
             ibs_cbs_tot: None,
+            v_nf_tot_override: None,
             only_ascii: false,
             calculation_method: crate::types::CalculationMethod::V2,
             result_xml: None,
@@ -463,6 +465,18 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Override the `vNFTot` value (PL_010 only).
+    ///
+    /// When set, this value is used instead of the auto-calculated
+    /// `vNF + vIBS + vCBS + vIS`.  Matches the PHP `tagTotal(vNFTot)` API.
+    ///
+    /// Only emitted when schema is [`PL010`](SchemaVersion::PL010) and
+    /// `IBSCBSTot` is present.
+    pub fn v_nf_tot_override(mut self, v: Cents) -> Self {
+        self.v_nf_tot_override = Some(v);
+        self
+    }
+
     /// Validate and build the XML, transitioning to [`Built`].
     ///
     /// # Errors
@@ -516,6 +530,7 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
+            v_nf_tot_override: self.v_nf_tot_override,
             only_ascii: self.only_ascii,
             calculation_method: self.calculation_method,
         };
@@ -567,6 +582,7 @@ impl InvoiceBuilder<Draft> {
             pag_antecipado: data.pag_antecipado,
             is_tot: data.is_tot,
             ibs_cbs_tot: data.ibs_cbs_tot,
+            v_nf_tot_override: data.v_nf_tot_override,
             only_ascii: data.only_ascii,
             calculation_method: data.calculation_method,
             result_xml: Some(result.xml),
@@ -675,6 +691,7 @@ impl InvoiceBuilder<Built> {
             pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
+            v_nf_tot_override: self.v_nf_tot_override,
             only_ascii: self.only_ascii,
             calculation_method: self.calculation_method,
             result_xml: self.result_xml,

@@ -754,6 +754,7 @@ fn bench_build_total(bencher: divan::Bencher) {
             divan::black_box(None),
             divan::black_box(SchemaVersion::PL009),
             divan::black_box(CalculationMethod::V2),
+            divan::black_box(None),
         )
     });
 }
