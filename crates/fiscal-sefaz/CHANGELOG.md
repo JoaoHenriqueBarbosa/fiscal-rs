@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.0...fiscal-sefaz-v0.4.1) - 2026-03-13
+
+### Other
+
+- updated the following local packages: fiscal-core, fiscal-crypto
+
 ## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.3.0...fiscal-sefaz-v0.4.0) - 2026-03-13
 
 ### Added

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.4.0...fiscal-core-v0.5.0) - 2026-03-13
+
+### Fixed
+
+- *(tests)* add missing IbgeCode import in optional.rs tests
+- *(parity)* event protocol validates cStat before idLote like PHP
+
+### Other
+
+- Merge branch 'worktree-agent-aa24343d'
+- Merge branch 'worktree-agent-ade87118'
+- Merge branch 'worktree-agent-a420714f'
+- Merge branch 'worktree-agent-ab761285'
+- Merge branch 'worktree-agent-aa9448fb'
+- Merge branch 'worktree-agent-abad2254'
+- Merge branch 'worktree-agent-aaf91fd4'
+- Merge branch 'worktree-agent-a5c85689'
+- Merge branch 'worktree-agent-ad27b720'
+- Merge branch 'worktree-agent-a55204ff'
+- Merge branch 'worktree-agent-a0aade6b'
+- Merge branch 'worktree-agent-afbe5f78'
+
 ## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.3.0...fiscal-core-v0.4.0) - 2026-03-13
 
 ### Added
