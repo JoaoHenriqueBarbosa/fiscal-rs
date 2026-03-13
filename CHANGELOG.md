@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.3...fiscal-v0.4.4) - 2026-03-13
+
+### Fixed
+
+- *(skills)* make commit step mandatory in split-module to prevent work loss
+
+### Other
+
+- *(skills)* allow model invocation for split-module
+- *(memory)* move memory files to repo scope for portability
+- *(skills)* add split-module skill for AST-based file refactoring
+
 ## [0.4.3](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.2...fiscal-v0.4.3) - 2026-03-13
 
 ### Other

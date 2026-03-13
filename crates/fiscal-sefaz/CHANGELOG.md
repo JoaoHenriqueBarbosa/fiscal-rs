@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.3...fiscal-sefaz-v0.4.4) - 2026-03-13
+
+### Other
+
+- *(sefaz)* split request_builders.rs into 10 modules (4981 lines)
+- *(sefaz)* split client.rs into 5 modules (1961 lines)
+- *(sefaz)* split response_parsers.rs into 9 modules (1430 lines)
+- *(sefaz)* split urls.rs into 5 modules (1801 lines)
+
 ## [0.4.3](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.2...fiscal-sefaz-v0.4.3) - 2026-03-13
 
 ### Other

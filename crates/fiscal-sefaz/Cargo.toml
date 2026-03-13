@@ -1,6 +1,6 @@
 [package]
 name = "fiscal-sefaz"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2024"
 rust-version = "1.85"
 description = "SEFAZ URLs, request builders, response parsers, and async client for Brazilian fiscal documents"
@@ -14,8 +14,8 @@ default = ["client"]
 client = ["dep:reqwest"]
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core", version = "0.6.0" }
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.2.3" }
+fiscal-core = { path = "../fiscal-core", version = "0.6.1" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.2.4" }
 chrono = { version = "0.4", features = ["serde"] }
 quick-xml = "0.39"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls"], optional = true }
