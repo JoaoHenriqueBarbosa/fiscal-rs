@@ -70,18 +70,22 @@ pub(crate) fn build_ide(
             &[],
             TagContent::Text(data.buyer_presence.as_deref().unwrap_or("0")),
         ),
-        tag(
-            "indIntermed",
-            &[],
-            TagContent::Text(data.intermediary_indicator.as_deref().unwrap_or("0")),
-        ),
+    ];
+
+    // indIntermed: only emit when explicitly set (PHP uses false for required,
+    // meaning null/empty values are omitted)
+    if let Some(ref ind) = data.intermediary_indicator {
+        children.push(tag("indIntermed", &[], TagContent::Text(ind)));
+    }
+
+    children.extend([
         tag(
             "procEmi",
             &[],
             TagContent::Text(data.emission_process.as_deref().unwrap_or("0")),
         ),
         tag("verProc", &[], TagContent::Text("FinOpenPOS 1.0")),
-    ];
+    ]);
 
     children.extend(ref_elements);
     tag("ide", &[], TagContent::Children(children))

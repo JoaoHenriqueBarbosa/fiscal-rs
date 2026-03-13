@@ -71,16 +71,29 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     let mut total_pis: i64 = 0;
     let mut total_cofins: i64 = 0;
     let mut total_ii: i64 = 0;
+    let mut total_frete: i64 = 0;
+    let mut total_seg: i64 = 0;
+    let mut total_desc: i64 = 0;
+    let mut total_outro: i64 = 0;
+    let mut total_tot_trib: i64 = 0;
 
     let mut det_elements = Vec::with_capacity(data.items.len());
     for item in &data.items {
-        total_products += item.total_price.0;
         let det_result = det::build_det(item, data)?;
-        merge_icms_totals(&mut icms_totals, &det_result.icms_totals);
-        total_ipi += det_result.v_ipi;
-        total_pis += det_result.v_pis;
-        total_cofins += det_result.v_cofins;
-        total_ii += det_result.v_ii;
+        // Only accumulate into totals when indTot == 1 (the default)
+        if det_result.ind_tot == 1 {
+            total_products += item.total_price.0;
+            total_ipi += det_result.v_ipi;
+            total_pis += det_result.v_pis;
+            total_cofins += det_result.v_cofins;
+            total_ii += det_result.v_ii;
+            total_frete += det_result.v_frete;
+            total_seg += det_result.v_seg;
+            total_desc += det_result.v_desc;
+            total_outro += det_result.v_outro;
+            total_tot_trib += det_result.v_tot_trib;
+            merge_icms_totals(&mut icms_totals, &det_result.icms_totals);
+        }
         det_elements.push(det_result.xml);
     }
 
@@ -116,6 +129,11 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             v_pis: total_pis,
             v_cofins: total_cofins,
             v_ii: total_ii,
+            v_frete: total_frete,
+            v_seg: total_seg,
+            v_desc: total_desc,
+            v_outro: total_outro,
+            v_tot_trib: total_tot_trib,
         },
         data.ret_trib.as_ref(),
     ));

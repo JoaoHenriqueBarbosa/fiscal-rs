@@ -52,6 +52,9 @@ pub static STATE_IBGE_CODES: LazyLock<HashMap<&'static str, &'static str>> = Laz
         ("SP", "35"),
         ("SE", "28"),
         ("TO", "17"),
+        // Special codes (Ambiente Nacional, SEFAZ Virtual)
+        ("AN", "91"),
+        ("SVRS", "92"),
     ])
 });
 

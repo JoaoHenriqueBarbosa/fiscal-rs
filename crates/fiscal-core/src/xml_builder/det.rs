@@ -5,8 +5,12 @@ use crate::format_utils::{format_cents, format_decimal};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_icms::{self, IcmsCsosn, IcmsCst, IcmsTotals, IcmsVariant};
 use crate::tax_pis_cofins_ipi::{self, CofinsData, IiData, IpiData, PisData};
-use crate::types::{InvoiceBuildData, InvoiceItemData, TaxRegime};
+use crate::types::{InvoiceBuildData, InvoiceItemData, InvoiceModel, SefazEnvironment, TaxRegime};
 use crate::xml_utils::{TagContent, tag};
+
+/// Constant used when emitting NFC-e in homologation environment (first item only).
+const HOMOLOGATION_XPROD: &str =
+    "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
 /// Result from building a single `<det>` element.
 #[derive(Debug, Clone)]
@@ -23,6 +27,18 @@ pub struct DetResult {
     pub v_cofins: i64,
     /// II (import tax) value in cents contributed by this item.
     pub v_ii: i64,
+    /// Freight value in cents for this item.
+    pub v_frete: i64,
+    /// Insurance value in cents for this item.
+    pub v_seg: i64,
+    /// Discount value in cents for this item.
+    pub v_desc: i64,
+    /// Other expenses value in cents for this item.
+    pub v_outro: i64,
+    /// Whether this item counts towards the invoice total (indTot).
+    pub ind_tot: u8,
+    /// Approximate total tax for this item (`vTotTrib`). Optional.
+    pub v_tot_trib: i64,
 }
 
 /// Map an invoice item's ICMS fields to the correct typed [`IcmsVariant`].
@@ -485,11 +501,37 @@ pub(crate) fn build_det(
             &[],
             TagContent::Text(item.c_ean.as_deref().unwrap_or("SEM GTIN")),
         ),
-        tag("xProd", &[], TagContent::Text(&item.description)),
+        tag(
+            "xProd",
+            &[],
+            TagContent::Text(
+                // PHP substitutes xProd for item 1 of NFC-e in homologation
+                if item.item_number == 1
+                    && data.environment == SefazEnvironment::Homologation
+                    && data.model == InvoiceModel::Nfce
+                {
+                    HOMOLOGATION_XPROD
+                } else {
+                    &item.description
+                },
+            ),
+        ),
         tag("NCM", &[], TagContent::Text(&item.ncm)),
     ];
     if let Some(ref cest) = item.cest {
         prod_children.push(tag("CEST", &[], TagContent::Text(cest)));
+        if let Some(ref ind) = item.cest_ind_escala {
+            prod_children.push(tag("indEscala", &[], TagContent::Text(ind)));
+        }
+        if let Some(ref fab) = item.cest_cnpj_fab {
+            prod_children.push(tag("CNPJFab", &[], TagContent::Text(fab)));
+        }
+    }
+    if let Some(ref cb) = item.c_benef {
+        prod_children.push(tag("cBenef", &[], TagContent::Text(cb)));
+    }
+    if let Some(ref ex) = item.extipi {
+        prod_children.push(tag("EXTIPI", &[], TagContent::Text(ex)));
     }
     prod_children.extend([
         tag("CFOP", &[], TagContent::Text(&item.cfop)),
@@ -518,7 +560,20 @@ pub(crate) fn build_det(
     if let Some(v) = item.v_outro {
         prod_children.push(tag("vOutro", &[], TagContent::Text(&fc2(v.0))));
     }
-    prod_children.push(tag("indTot", &[], TagContent::Text("1")));
+    let ind_tot_str = match item.ind_tot {
+        Some(v) => v.to_string(),
+        None => "1".to_string(),
+    };
+    prod_children.push(tag("indTot", &[], TagContent::Text(&ind_tot_str)));
+    if let Some(ref xped) = item.x_ped {
+        prod_children.push(tag("xPed", &[], TagContent::Text(xped)));
+    }
+    if let Some(ref nip) = item.n_item_ped {
+        prod_children.push(tag("nItemPed", &[], TagContent::Text(nip)));
+    }
+    if let Some(ref nfci) = item.n_fci {
+        prod_children.push(tag("nFCI", &[], TagContent::Text(nfci)));
+    }
     prod_children.extend(prod_options);
 
     // Assemble det
@@ -542,6 +597,12 @@ pub(crate) fn build_det(
         v_pis: item.pis_v_pis.map(|c| c.0).unwrap_or(0),
         v_cofins: item.cofins_v_cofins.map(|c| c.0).unwrap_or(0),
         v_ii,
+        v_frete: item.v_frete.map(|c| c.0).unwrap_or(0),
+        v_seg: item.v_seg.map(|c| c.0).unwrap_or(0),
+        v_desc: item.v_desc.map(|c| c.0).unwrap_or(0),
+        v_outro: item.v_outro.map(|c| c.0).unwrap_or(0),
+        ind_tot: item.ind_tot.unwrap_or(1),
+        v_tot_trib: item.v_tot_trib.map(|c| c.0).unwrap_or(0),
     })
 }
 

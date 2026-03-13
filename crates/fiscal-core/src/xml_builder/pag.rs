@@ -32,12 +32,36 @@ pub fn build_pag(
         .iter()
         .enumerate()
         .map(|(i, p)| {
-            let mut det_children = vec![
-                tag("tPag", &[], TagContent::Text(&p.method)),
-                tag("vPag", &[], TagContent::Text(&fc2(p.amount.0))),
-            ];
+            let mut det_children = Vec::new();
 
-            // Add card details if present for this payment index
+            // indPag (before tPag per PHP schema)
+            if let Some(ref ind) = p.ind_pag {
+                det_children.push(tag("indPag", &[], TagContent::Text(ind)));
+            }
+
+            det_children.push(tag("tPag", &[], TagContent::Text(&p.method)));
+
+            // xPag
+            if let Some(ref xpag) = p.x_pag {
+                det_children.push(tag("xPag", &[], TagContent::Text(xpag)));
+            }
+
+            det_children.push(tag("vPag", &[], TagContent::Text(&fc2(p.amount.0))));
+
+            // dPag
+            if let Some(ref dpag) = p.d_pag {
+                det_children.push(tag("dPag", &[], TagContent::Text(dpag)));
+            }
+
+            // CNPJPag / UFPag (NT 2023.004)
+            if let Some(ref cnpj) = p.cnpj_pag {
+                det_children.push(tag("CNPJPag", &[], TagContent::Text(cnpj)));
+            }
+            if let Some(ref uf) = p.uf_pag {
+                det_children.push(tag("UFPag", &[], TagContent::Text(uf)));
+            }
+
+            // Card details
             if let Some(cards) = card_details {
                 if let Some(card) = cards.get(i) {
                     if let Some(ref integ) = card.integ_type {

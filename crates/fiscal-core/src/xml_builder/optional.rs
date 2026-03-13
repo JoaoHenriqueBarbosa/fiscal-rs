@@ -225,6 +225,7 @@ pub fn build_withdrawal(w: &LocationData) -> String {
         &w.state_code,
         w.zip_code.as_deref(),
         false,
+        None,
     ));
     tag("retirada", &[], TagContent::Children(children))
 }
@@ -247,6 +248,7 @@ pub fn build_delivery(d: &LocationData) -> String {
         &d.state_code,
         d.zip_code.as_deref(),
         false,
+        None,
     ));
     tag("entrega", &[], TagContent::Children(children))
 }

@@ -17,7 +17,35 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
 
     let mut children = vec![tag("modFrete", &[], TagContent::Text(&t.freight_mode))];
 
-    // retTransp (before transporta per schema)
+    // transporta (carrier) — must come BEFORE retTransp per XSD schema order:
+    // modFrete, transporta, retTransp, veicTransp, reboque, vol
+    if let Some(ref c) = t.carrier {
+        let mut carrier_children = Vec::new();
+        if let Some(ref tid) = c.tax_id {
+            let t = TaxId::new(tid);
+            let padded = t.padded();
+            carrier_children.push(tag(t.tag_name(), &[], TagContent::Text(&padded)));
+        }
+        if let Some(ref name) = c.name {
+            carrier_children.push(tag("xNome", &[], TagContent::Text(name)));
+        }
+        if let Some(ref ie) = c.state_tax_id {
+            carrier_children.push(tag("IE", &[], TagContent::Text(ie)));
+        }
+        if let Some(ref addr) = c.address {
+            carrier_children.push(tag("xEnder", &[], TagContent::Text(addr)));
+        }
+        if let Some(ref uf) = c.state_code {
+            carrier_children.push(tag("UF", &[], TagContent::Text(uf)));
+        }
+        children.push(tag(
+            "transporta",
+            &[],
+            TagContent::Children(carrier_children),
+        ));
+    }
+
+    // retTransp (retained ICMS on transport service)
     if let Some(ref r) = t.retained_icms {
         children.push(tag(
             "retTransp",
@@ -46,33 +74,6 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
                 tag("CFOP", &[], TagContent::Text(&r.cfop)),
                 tag("cMunFG", &[], TagContent::Text(&r.city_code.0)),
             ]),
-        ));
-    }
-
-    // transporta (carrier)
-    if let Some(ref c) = t.carrier {
-        let mut carrier_children = Vec::new();
-        if let Some(ref tid) = c.tax_id {
-            let t = TaxId::new(tid);
-            let padded = t.padded();
-            carrier_children.push(tag(t.tag_name(), &[], TagContent::Text(&padded)));
-        }
-        if let Some(ref name) = c.name {
-            carrier_children.push(tag("xNome", &[], TagContent::Text(name)));
-        }
-        if let Some(ref ie) = c.state_tax_id {
-            carrier_children.push(tag("IE", &[], TagContent::Text(ie)));
-        }
-        if let Some(ref addr) = c.address {
-            carrier_children.push(tag("xEnder", &[], TagContent::Text(addr)));
-        }
-        if let Some(ref uf) = c.state_code {
-            carrier_children.push(tag("UF", &[], TagContent::Text(uf)));
-        }
-        children.push(tag(
-            "transporta",
-            &[],
-            TagContent::Children(carrier_children),
         ));
     }
 

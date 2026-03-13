@@ -15,6 +15,8 @@ struct AuthorizerServices {
     nfe_consulta_protocolo: ServiceUrls,
     nfe_inutilizacao: ServiceUrls,
     recepcao_evento: ServiceUrls,
+    nfe_consulta_cadastro: Option<ServiceUrls>,
+    nfe_distribuicao_dfe: Option<ServiceUrls>,
 }
 
 impl AuthorizerServices {
@@ -27,17 +29,37 @@ impl AuthorizerServices {
             "NfeConsultaProtocolo" => &self.nfe_consulta_protocolo,
             "NfeInutilizacao" => &self.nfe_inutilizacao,
             "RecepcaoEvento" => &self.recepcao_evento,
+            "NfeConsultaCadastro" => {
+                return self.nfe_consulta_cadastro.as_ref().and_then(|u| {
+                    let url = match env {
+                        SefazEnvironment::Production => u.production,
+                        SefazEnvironment::Homologation => u.homologation,
+                        _ => return None,
+                    };
+                    if url.is_empty() { None } else { Some(url) }
+                });
+            }
+            "NfeDistribuicaoDFe" => {
+                return self.nfe_distribuicao_dfe.as_ref().and_then(|u| {
+                    let url = match env {
+                        SefazEnvironment::Production => u.production,
+                        SefazEnvironment::Homologation => u.homologation,
+                        _ => return None,
+                    };
+                    if url.is_empty() { None } else { Some(url) }
+                });
+            }
             _ => return None,
         };
         Some(match env {
             SefazEnvironment::Production => urls.production,
             SefazEnvironment::Homologation => urls.homologation,
-            _ => unreachable!(),
+            _ => return None,
         })
     }
 }
 
-// ── Own authorizers ─────────────────────────────────────────────────────────
+// ── Own authorizers (NF-e model 55) ─────────────────────────────────────────
 
 static AM: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
@@ -64,6 +86,9 @@ static AM: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefaz.am.gov.br/services2/services/RecepcaoEvento4",
         homologation: "https://homnfe.sefaz.am.gov.br/services2/services/RecepcaoEvento4",
     },
+    // PHP has empty NfeConsultaCadastro for AM
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
 };
 
 static BA: AuthorizerServices = AuthorizerServices {
@@ -91,6 +116,11 @@ static BA: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefaz.ba.gov.br/webservices/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
         homologation: "https://hnfe.sefaz.ba.gov.br/webservices/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefaz.ba.gov.br/webservices/CadConsultaCadastro4/CadConsultaCadastro4.asmx",
+        homologation: "https://hnfe.sefaz.ba.gov.br/webservices/CadConsultaCadastro4/CadConsultaCadastro4.asmx",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static GO: AuthorizerServices = AuthorizerServices {
@@ -118,6 +148,11 @@ static GO: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeRecepcaoEvento4",
         homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/CadConsultaCadastro4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static MG: AuthorizerServices = AuthorizerServices {
@@ -145,35 +180,47 @@ static MG: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.fazenda.mg.gov.br/nfe2/services/NFeRecepcaoEvento4",
         homologation: "https://hnfe.fazenda.mg.gov.br/nfe2/services/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.fazenda.mg.gov.br/nfe2/services/CadConsultaCadastro4",
+        homologation: "https://hnfe.fazenda.mg.gov.br/nfe2/services/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
+// Fix #1: MS homologation domain corrected from homologacao.nfe.ms.gov.br to hom.nfe.sefaz.ms.gov.br
 static MS: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeStatusServico4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeStatusServico4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeStatusServico4",
     },
     nfe_autorizacao: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeAutorizacao4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeAutorizacao4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeAutorizacao4",
     },
     nfe_ret_autorizacao: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeRetAutorizacao4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
     },
     nfe_consulta_protocolo: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeConsultaProtocolo4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
     },
     nfe_inutilizacao: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeInutilizacao4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeInutilizacao4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeInutilizacao4",
     },
     recepcao_evento: ServiceUrls {
         production: "https://nfe.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
-        homologation: "https://homologacao.nfe.ms.gov.br/ws/NFeRecepcaoEvento4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefaz.ms.gov.br/ws/CadConsultaCadastro4",
+        homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
+// Fix #2: MT RecepcaoEvento path corrected from NfeRecepcaoEvento4 to RecepcaoEvento4
 static MT: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
         production: "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeStatusServico4",
@@ -196,9 +243,14 @@ static MT: AuthorizerServices = AuthorizerServices {
         homologation: "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/NfeInutilizacao4",
     },
     recepcao_evento: ServiceUrls {
-        production: "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeRecepcaoEvento4",
-        homologation: "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/NfeRecepcaoEvento4",
+        production: "https://nfe.sefaz.mt.gov.br/nfews/v2/services/RecepcaoEvento4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/RecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefaz.mt.gov.br/nfews/v2/services/CadConsultaCadastro4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static PE: AuthorizerServices = AuthorizerServices {
@@ -226,6 +278,11 @@ static PE: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefaz.pe.gov.br/nfe-service/services/NFeRecepcaoEvento4",
         homologation: "https://nfehomolog.sefaz.pe.gov.br/nfe-service/services/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefaz.pe.gov.br/nfe-service/services/CadConsultaCadastro4",
+        homologation: "https://nfehomolog.sefaz.pe.gov.br/nfe-service/services/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static PR: AuthorizerServices = AuthorizerServices {
@@ -253,6 +310,11 @@ static PR: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4",
         homologation: "https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.sefa.pr.gov.br/nfe/CadConsultaCadastro4",
+        homologation: "https://homologacao.nfe.sefa.pr.gov.br/nfe/CadConsultaCadastro4",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static RS: AuthorizerServices = AuthorizerServices {
@@ -280,6 +342,11 @@ static RS: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         homologation: "https://nfe-homologacao.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+        homologation: "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 static SP: AuthorizerServices = AuthorizerServices {
@@ -307,9 +374,16 @@ static SP: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
         homologation: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx",
+        homologation: "https://homologacao.nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 // ── SVRS (Sefaz Virtual do RS) ──────────────────────────────────────────────
+// Fix #4: SVRS NFC-e URLs corrected to match PHP (lowercase paths for inutilizacao/recepcaoevento,
+// NfeConsulta casing)
 
 static SVRS: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
@@ -336,6 +410,11 @@ static SVRS: AuthorizerServices = AuthorizerServices {
         production: "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
     },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+        homologation: "https://cad-homologacao.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 // ── SVAN (Sefaz Virtual do Ambiente Nacional) — MA ──────────────────────────
@@ -365,9 +444,319 @@ static SVAN: AuthorizerServices = AuthorizerServices {
         production: "https://www.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
         homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
     },
+    // SVAN has no NfeConsultaCadastro (empty in PHP)
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+// ── Fix #5: AN (Ambiente Nacional) ──────────────────────────────────────────
+
+static AN: AuthorizerServices = AuthorizerServices {
+    // AN does not have these standard services, but we need to fill the struct.
+    // Using empty strings that will never be matched since AN is only used for
+    // RecepcaoEvento and NfeDistribuicaoDFe lookups.
+    nfe_status_servico: ServiceUrls {
+        production: "",
+        homologation: "",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "",
+        homologation: "",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "",
+        homologation: "",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "",
+        homologation: "",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "",
+        homologation: "",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
+        homologation: "https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: Some(ServiceUrls {
+        production: "https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
+        homologation: "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
+    }),
+};
+
+// ── Fix #6: SVCAN (SVC-AN) — same URLs as SVAN ─────────────────────────────
+
+static SVCAN: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeStatusServico4/NFeStatusServico4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeStatusServico4/NFeStatusServico4.asmx",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeInutilizacao4/NFeInutilizacao4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeInutilizacao4/NFeInutilizacao4.asmx",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://www.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
+        homologation: "https://hom.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+// ── Fix #6: SVCRS (SVC-RS) — same URLs as SVRS ─────────────────────────────
+
+static SVCRS: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        homologation: "https://nfe-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+    },
+    nfe_consulta_cadastro: Some(ServiceUrls {
+        production: "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+        homologation: "",
+    }),
+    nfe_distribuicao_dfe: None,
 };
 
 // ── NFC-e authorizers (model 65) ──────────────────────────────────────────
+
+// Fix #3: Add dedicated NFC-e endpoints for AM, GO, MG, MS, MT, RS, SP
+
+static AM_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/NfeStatusServico4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/NfeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/NfeAutorizacao4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/NfeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/NfeRetAutorizacao4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/NfeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/NfeConsulta4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/NfeConsulta4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/NfeInutilizacao4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/NfeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/RecepcaoEvento4",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/RecepcaoEvento4",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static GO_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeStatusServico4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeAutorizacao4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeRetAutorizacao4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeConsultaProtocolo4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeConsultaProtocolo4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeInutilizacao4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/NFeRecepcaoEvento4",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/NFeRecepcaoEvento4",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static MG_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeStatusServico4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeAutorizacao4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeRetAutorizacao4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeConsultaProtocolo4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeConsultaProtocolo4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeInutilizacao4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeRecepcaoEvento4",
+        homologation: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeRecepcaoEvento4",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static MS_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeStatusServico4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeAutorizacao4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeInutilizacao4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
+        homologation: "https://hom.nfce.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static MT_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeStatusServico4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeStatusServico4",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeAutorizacao4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeAutorizacao4",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeRetAutorizacao4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeRetAutorizacao4",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeConsulta4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeConsulta4",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeInutilizacao4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeInutilizacao4",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.sefaz.mt.gov.br/nfcews/services/RecepcaoEvento4",
+        homologation: "https://homologacao.sefaz.mt.gov.br/nfcews/services/RecepcaoEvento4",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static RS_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        homologation: "https://nfce-homologacao.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
+
+static SP_NFCE: AuthorizerServices = AuthorizerServices {
+    nfe_status_servico: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeStatusServico4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeStatusServico4.asmx",
+    },
+    nfe_autorizacao: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeAutorizacao4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeAutorizacao4.asmx",
+    },
+    nfe_ret_autorizacao: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeRetAutorizacao4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeRetAutorizacao4.asmx",
+    },
+    nfe_consulta_protocolo: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeConsultaProtocolo4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeConsultaProtocolo4.asmx",
+    },
+    nfe_inutilizacao: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeInutilizacao4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeInutilizacao4.asmx",
+    },
+    recepcao_evento: ServiceUrls {
+        production: "https://nfce.fazenda.sp.gov.br/ws/NFeRecepcaoEvento4.asmx",
+        homologation: "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeRecepcaoEvento4.asmx",
+    },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
+};
 
 static PR_NFCE: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
@@ -394,8 +783,11 @@ static PR_NFCE: AuthorizerServices = AuthorizerServices {
         production: "https://nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
         homologation: "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
     },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
 };
 
+// Fix #4: SVRS NFC-e URLs corrected to match PHP exactly
 static SVRS_NFCE: AuthorizerServices = AuthorizerServices {
     nfe_status_servico: ServiceUrls {
         production: "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
@@ -410,17 +802,19 @@ static SVRS_NFCE: AuthorizerServices = AuthorizerServices {
         homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
     },
     nfe_consulta_protocolo: ServiceUrls {
-        production: "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NFeConsulta4.asmx",
-        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsulta4.asmx",
+        production: "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
     },
     nfe_inutilizacao: ServiceUrls {
-        production: "https://nfce.svrs.rs.gov.br/ws/NfeInutilizacao/NFeInutilizacao4.asmx",
-        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeInutilizacao/NFeInutilizacao4.asmx",
+        production: "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
     },
     recepcao_evento: ServiceUrls {
-        production: "https://nfce.svrs.rs.gov.br/ws/NfeRecepcaoEvento/NFeRecepcaoEvento4.asmx",
-        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRecepcaoEvento/NFeRecepcaoEvento4.asmx",
+        production: "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        homologation: "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
     },
+    nfe_consulta_cadastro: None,
+    nfe_distribuicao_dfe: None,
 };
 
 /// Get the authorizer for a given state (NF-e model 55).
@@ -450,7 +844,8 @@ fn get_state_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
 ///
 /// The `service` parameter must be one of:
 /// `"NfeStatusServico"`, `"NfeAutorizacao"`, `"NfeRetAutorizacao"`,
-/// `"NfeConsultaProtocolo"`, `"NfeInutilizacao"`, `"RecepcaoEvento"`.
+/// `"NfeConsultaProtocolo"`, `"NfeInutilizacao"`, `"RecepcaoEvento"`,
+/// `"NfeConsultaCadastro"`, `"NfeDistribuicaoDFe"`.
 ///
 /// # Errors
 ///
@@ -468,7 +863,7 @@ pub fn get_sefaz_url(
 /// Get the SEFAZ service URL for a specific invoice model.
 ///
 /// Use model `55` for NF-e and `65` for NFC-e. NFC-e uses dedicated endpoints
-/// (PR has its own, other states use SVRS NFC-e).
+/// for AM, GO, MG, MS, MT, PR, RS, SP; other states use SVRS NFC-e.
 pub fn get_sefaz_url_for_model(
     uf: &str,
     environment: SefazEnvironment,
@@ -490,17 +885,80 @@ pub fn get_sefaz_url_for_model(
         })
 }
 
+/// Get the Ambiente Nacional (AN) service URL.
+///
+/// AN provides RecepcaoEvento and NfeDistribuicaoDFe services.
+pub fn get_an_url(environment: SefazEnvironment, service: &str) -> Result<String, FiscalError> {
+    AN.get_url(service, environment)
+        .map(|s| s.to_string())
+        .ok_or_else(|| FiscalError::XmlGeneration(format!("Service '{service}' not found for AN")))
+}
+
 /// Get the NFC-e authorizer for a given state (model 65).
-/// PR has its own NFC-e endpoints; all others use SVRS NFC-e.
+/// AM, GO, MG, MS, MT, PR, RS, SP have their own NFC-e endpoints;
+/// all others use SVRS NFC-e.
 fn get_state_nfce_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
     match uf {
+        "AM" => Some(&AM_NFCE),
+        "GO" => Some(&GO_NFCE),
+        "MG" => Some(&MG_NFCE),
+        "MS" => Some(&MS_NFCE),
+        "MT" => Some(&MT_NFCE),
         "PR" => Some(&PR_NFCE),
+        "RS" => Some(&RS_NFCE),
+        "SP" => Some(&SP_NFCE),
         // All other states use SVRS NFC-e
-        "AC" | "AL" | "AM" | "AP" | "BA" | "CE" | "DF" | "ES" | "GO" | "MA" | "MG" | "MS"
-        | "MT" | "PA" | "PB" | "PE" | "PI" | "RJ" | "RN" | "RO" | "RR" | "RS" | "SC" | "SE"
-        | "SP" | "TO" => Some(&SVRS_NFCE),
+        "AC" | "AL" | "AP" | "BA" | "CE" | "DF" | "ES" | "MA" | "PA" | "PB" | "PE" | "PI"
+        | "RJ" | "RN" | "RO" | "RR" | "SC" | "SE" | "TO" => Some(&SVRS_NFCE),
         _ => None,
     }
+}
+
+/// Get the contingency authorizer for a given state (SVC-AN or SVC-RS).
+///
+/// Mapping follows the PHP sped-nfe Contingency.php:
+/// - SVC-AN (SVCAN): AC, AL, AP, CE, DF, ES, MG, PA, PB, PI, RJ, RN, RO, RR, RS, SC, SE, SP, TO
+/// - SVC-RS (SVCRS): AM, BA, GO, MA, MS, MT, PE, PR
+pub fn get_state_contingency_authorizer(uf: &str) -> Option<&'static str> {
+    match uf {
+        "AC" | "AL" | "AP" | "CE" | "DF" | "ES" | "MG" | "PA" | "PB" | "PI" | "RJ" | "RN"
+        | "RO" | "RR" | "RS" | "SC" | "SE" | "SP" | "TO" => Some("SVCAN"),
+        "AM" | "BA" | "GO" | "MA" | "MS" | "MT" | "PE" | "PR" => Some("SVCRS"),
+        _ => None,
+    }
+}
+
+/// Get the SEFAZ contingency service URL for a given state and environment.
+///
+/// Resolves the contingency authorizer (SVCAN or SVCRS) for the state and
+/// returns the appropriate service URL.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::InvalidStateCode`] if `uf` is not a valid Brazilian
+/// state abbreviation or has no contingency mapping.
+pub fn get_sefaz_contingency_url(
+    uf: &str,
+    environment: SefazEnvironment,
+    service: &str,
+) -> Result<String, FiscalError> {
+    let contingency_type = get_state_contingency_authorizer(uf)
+        .ok_or_else(|| FiscalError::InvalidStateCode(uf.to_string()))?;
+
+    let authorizer = match contingency_type {
+        "SVCAN" => &SVCAN,
+        "SVCRS" => &SVCRS,
+        _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
+    };
+
+    authorizer
+        .get_url(service, environment)
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            FiscalError::XmlGeneration(format!(
+                "Service '{service}' not found for contingency {contingency_type}"
+            ))
+        })
 }
 
 // ── NFC-e consultation URIs (urlChave) ──────────────────────────────────────
@@ -578,7 +1036,7 @@ pub fn get_nfce_consult_url(
             "TO" => "http://homologacao.sefaz.to.gov.br/nfce/consulta.jsf",
             _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
         },
-        _ => unreachable!(),
+        _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
     };
     Ok(url.to_string())
 }

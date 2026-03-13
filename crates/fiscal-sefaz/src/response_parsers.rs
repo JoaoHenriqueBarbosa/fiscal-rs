@@ -41,6 +41,34 @@ pub struct CancellationResponse {
     pub protocol_number: Option<String>,
 }
 
+/// Parsed result of a SEFAZ DistDFe (`retDistDFeInt`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DistDFeResponse {
+    /// SEFAZ status code (`cStat`).
+    pub status_code: String,
+    /// Human-readable status message (`xMotivo`).
+    pub status_message: String,
+    /// Last NSU returned (`ultNSU`).
+    pub ult_nsu: Option<String>,
+    /// Maximum NSU available (`maxNSU`).
+    pub max_nsu: Option<String>,
+    /// Raw XML of individual `<docZip>` or `<loteDistDFeInt>` entries.
+    pub raw_xml: String,
+}
+
+/// Parsed result of a SEFAZ Cadastro (`retConsCad`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CadastroResponse {
+    /// SEFAZ status code (`cStat`).
+    pub status_code: String,
+    /// Human-readable status message (`xMotivo`).
+    pub status_message: String,
+    /// Raw inner XML of `<infCons>` for detailed parsing.
+    pub raw_xml: String,
+}
+
 /// Parse a SEFAZ authorization response (`retEnviNFe` / `nfeAutorizacaoLoteResult`).
 ///
 /// The response may be wrapped in a SOAP envelope. The parser strips SOAP
@@ -142,6 +170,62 @@ pub fn parse_cancellation_response(xml: &str) -> Result<CancellationResponse, Fi
         status_code,
         status_message,
         protocol_number,
+    })
+}
+
+/// Parse a SEFAZ DistDFe response (`retDistDFeInt`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts `cStat`, `xMotivo`,
+/// `ultNSU`, and `maxNSU`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_dist_dfe_response(xml: &str) -> Result<DistDFeResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    let status_code = extract_xml_tag_value(&body, "cStat")
+        .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in DistDFe response".into()))?;
+    let status_message =
+        extract_xml_tag_value(&body, "xMotivo").unwrap_or_else(|| "Unknown".into());
+    let ult_nsu = extract_xml_tag_value(&body, "ultNSU");
+    let max_nsu = extract_xml_tag_value(&body, "maxNSU");
+
+    Ok(DistDFeResponse {
+        status_code,
+        status_message,
+        ult_nsu,
+        max_nsu,
+        raw_xml: body,
+    })
+}
+
+/// Parse a SEFAZ Cadastro response (`retConsCad`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts `cStat` and `xMotivo`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_cadastro_response(xml: &str) -> Result<CadastroResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    // Try to narrow into <infCons> first
+    let scope = extract_inner_content(&body, "infCons").unwrap_or(&body);
+
+    let status_code = extract_xml_tag_value(scope, "cStat")
+        .ok_or_else(|| FiscalError::XmlParsing("missing <cStat> in Cadastro response".into()))?;
+    let status_message =
+        extract_xml_tag_value(scope, "xMotivo").unwrap_or_else(|| "Unknown".into());
+
+    Ok(CadastroResponse {
+        status_code,
+        status_message,
+        raw_xml: body,
     })
 }
 
@@ -461,5 +545,50 @@ mod tests {
         let resp = parse_cancellation_response(xml).unwrap();
         assert_eq!(resp.status_code, "135");
         assert_eq!(resp.protocol_number.as_deref(), Some("141240000099999"));
+    }
+
+    // ── parse_dist_dfe_response ───────────────────────────────────────
+
+    #[test]
+    fn parses_dist_dfe_response() {
+        let xml = concat!(
+            "<retDistDFeInt><cStat>137</cStat>",
+            "<xMotivo>Nenhum documento localizado</xMotivo>",
+            "<ultNSU>000000000000000</ultNSU>",
+            "<maxNSU>000000000012345</maxNSU>",
+            "</retDistDFeInt>"
+        );
+        let resp = parse_dist_dfe_response(xml).unwrap();
+        assert_eq!(resp.status_code, "137");
+        assert_eq!(resp.status_message, "Nenhum documento localizado");
+        assert_eq!(resp.ult_nsu.as_deref(), Some("000000000000000"));
+        assert_eq!(resp.max_nsu.as_deref(), Some("000000000012345"));
+    }
+
+    #[test]
+    fn dist_dfe_response_rejects_malformed_xml() {
+        let err = parse_dist_dfe_response("<garbage>nothing</garbage>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    // ── parse_cadastro_response ───────────────────────────────────────
+
+    #[test]
+    fn parses_cadastro_response() {
+        let xml = concat!(
+            "<retConsCad><infCons>",
+            "<cStat>111</cStat>",
+            "<xMotivo>Consulta cadastro com uma ocorrencia</xMotivo>",
+            "</infCons></retConsCad>"
+        );
+        let resp = parse_cadastro_response(xml).unwrap();
+        assert_eq!(resp.status_code, "111");
+        assert_eq!(resp.status_message, "Consulta cadastro com uma ocorrencia");
+    }
+
+    #[test]
+    fn cadastro_response_rejects_malformed_xml() {
+        let err = parse_cadastro_response("<garbage>nothing</garbage>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 }

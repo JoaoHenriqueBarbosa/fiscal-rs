@@ -192,12 +192,23 @@ pub fn build_inutilizacao_request(
 ) -> String {
     let cuf = get_state_code(uf).expect("Invalid state code");
     let tp_amb = environment.as_str();
+    let digits: String = tax_id.chars().filter(|c| c.is_ascii_digit()).collect();
 
-    let id =
-        format!("ID{cuf}{year:02}{tax_id}{model:0>2}{series:03}{start_number:09}{end_number:09}");
+    // PHP: str_pad($cnpj, 14, '0', STR_PAD_LEFT) — always pad to 14 for the ID
+    let padded_id_tax = format!("{digits:0>14}");
+    let id = format!(
+        "ID{cuf}{year:02}{padded_id_tax}{model:0>2}{series:03}{start_number:09}{end_number:09}"
+    );
+
+    // PHP: if siglaUF == 'MT' && strlen($cnpj) == 11 => use <CPF>, else <CNPJ>
+    let tax_tag = if digits.len() == 11 {
+        format!("<CPF>{digits}</CPF>")
+    } else {
+        format!("<CNPJ>{digits}</CNPJ>")
+    };
 
     format!(
-        "<inutNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><infInut Id=\"{id}\"><tpAmb>{tp_amb}</tpAmb><xServ>INUTILIZAR</xServ><cUF>{cuf}</cUF><ano>{year:02}</ano><CNPJ>{tax_id}</CNPJ><mod>{model}</mod><serie>{series}</serie><nNFIni>{start_number}</nNFIni><nNFFin>{end_number}</nNFFin><xJust>{justification}</xJust></infInut></inutNFe>"
+        "<inutNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><infInut Id=\"{id}\"><tpAmb>{tp_amb}</tpAmb><xServ>INUTILIZAR</xServ><cUF>{cuf}</cUF><ano>{year:02}</ano>{tax_tag}<mod>{model}</mod><serie>{series}</serie><nNFIni>{start_number}</nNFIni><nNFFin>{end_number}</nNFFin><xJust>{justification}</xJust></infInut></inutNFe>"
     )
 }
 
@@ -346,7 +357,17 @@ pub fn build_manifesta_request(
         String::new()
     };
 
-    build_event_xml(access_key, tp_evento, seq, tax_id, environment, &additional)
+    // Manifestacao do destinatario always uses cOrgao=91 (Ambiente Nacional)
+    // PHP: $this->sefazEvento('AN', ...) where UFList::getCodeByUF('AN') = 91
+    build_event_xml_with_org(
+        access_key,
+        tp_evento,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
 }
 
 /// Build a SEFAZ DistDFe (distribution) request XML (`<distDFeInt>`).
@@ -440,6 +461,10 @@ pub fn build_cadastro_request(uf: &str, search_type: &str, search_value: &str) -
 ///
 /// This is the core event builder used by cancellation, CCe, manifestation,
 /// and other event-type request builders.
+///
+/// When `org_code_override` is `Some`, the provided value is used as `cOrgao`
+/// instead of deriving it from the access key. This is needed for manifestation
+/// events which must use code 91 (Ambiente Nacional).
 fn build_event_xml(
     access_key: &str,
     event_type: u32,
@@ -448,13 +473,41 @@ fn build_event_xml(
     environment: SefazEnvironment,
     additional_tags: &str,
 ) -> String {
+    build_event_xml_with_org(
+        access_key,
+        event_type,
+        seq,
+        tax_id,
+        environment,
+        additional_tags,
+        None,
+    )
+}
+
+/// Build a generic SEFAZ event XML with an optional `cOrgao` override.
+fn build_event_xml_with_org(
+    access_key: &str,
+    event_type: u32,
+    seq: u32,
+    tax_id: &str,
+    environment: SefazEnvironment,
+    additional_tags: &str,
+    org_code_override: Option<&str>,
+) -> String {
     let event_id = build_event_id(event_type, access_key, seq);
     let desc_evento = event_description(event_type);
     let tax_id_tag = tax_id_xml_tag(tax_id);
     let tp_amb = environment.as_str();
-    // cOrgao = IBGE state code from the first 2 digits of the access key
-    // Matches PHP: $cOrgao = UFList::getCodeByUF($uf) or substr($chave, 0, 2)
-    let org_code = &access_key[..2];
+    // cOrgao: use override when provided (e.g. "91" for manifestacao),
+    // otherwise derive from the first 2 digits of the access key.
+    let org_code_owned;
+    let org_code = match org_code_override {
+        Some(code) => code,
+        None => {
+            org_code_owned = access_key[..2].to_string();
+            &org_code_owned
+        }
+    };
     // Use current timestamp as lot ID (milliseconds)
     let lot_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -494,4 +547,243 @@ fn strip_xml_declaration(xml: &str) -> &str {
         }
     }
     xml
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Synthetic 44-digit access key for tests (all zeros is fine for XML structure tests).
+    const TEST_KEY: &str = "35240112345678000195550010000000011000000019";
+    const TEST_CNPJ: &str = "12345678000195";
+    const TEST_CPF: &str = "12345678901";
+
+    // ── Fix #1: cOrgao = 91 for manifestacao ────────────────────────
+
+    #[test]
+    fn manifesta_request_uses_c_orgao_91() {
+        let xml = build_manifesta_request(
+            TEST_KEY,
+            "210210",
+            None,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(
+            xml.contains("<cOrgao>91</cOrgao>"),
+            "Manifestacao must use cOrgao=91 (Ambiente Nacional), got: {xml}"
+        );
+    }
+
+    #[test]
+    fn manifesta_request_confirmation_has_correct_desc() {
+        let xml = build_manifesta_request(
+            TEST_KEY,
+            "210200",
+            None,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(xml.contains("<descEvento>Confirmacao da Operacao</descEvento>"));
+        assert!(xml.contains("<tpEvento>210200</tpEvento>"));
+    }
+
+    #[test]
+    fn manifesta_request_operation_not_performed_includes_justification() {
+        let xml = build_manifesta_request(
+            TEST_KEY,
+            "210240",
+            Some("Motivo teste da operacao nao realizada"),
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(xml.contains("<xJust>Motivo teste da operacao nao realizada</xJust>"));
+        assert!(xml.contains("<tpEvento>210240</tpEvento>"));
+    }
+
+    #[test]
+    fn cancela_request_uses_c_orgao_from_access_key() {
+        let xml = build_cancela_request(
+            TEST_KEY,
+            "135220000009921",
+            "Erro na emissao da NF-e",
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        // First 2 digits of TEST_KEY = "35" (SP)
+        assert!(
+            xml.contains("<cOrgao>35</cOrgao>"),
+            "Cancellation must use cOrgao from access key (35), got: {xml}"
+        );
+    }
+
+    // ── Fix #3: CPF in inutilizacao ─────────────────────────────────
+
+    #[test]
+    fn inutilizacao_with_cnpj_uses_cnpj_tag() {
+        let xml = build_inutilizacao_request(
+            24,
+            TEST_CNPJ,
+            "55",
+            1,
+            1,
+            10,
+            "Pulo de numeracao",
+            SefazEnvironment::Homologation,
+            "SP",
+        );
+        assert!(
+            xml.contains(&format!("<CNPJ>{TEST_CNPJ}</CNPJ>")),
+            "Should use <CNPJ> tag for 14-digit tax ID"
+        );
+        assert!(!xml.contains("<CPF>"), "Should not contain <CPF> tag");
+    }
+
+    #[test]
+    fn inutilizacao_with_cpf_uses_cpf_tag() {
+        let xml = build_inutilizacao_request(
+            24,
+            TEST_CPF,
+            "55",
+            1,
+            1,
+            10,
+            "Pulo de numeracao",
+            SefazEnvironment::Homologation,
+            "MT",
+        );
+        assert!(
+            xml.contains(&format!("<CPF>{TEST_CPF}</CPF>")),
+            "Should use <CPF> tag for 11-digit tax ID"
+        );
+        assert!(!xml.contains("<CNPJ>"), "Should not contain <CNPJ> tag");
+    }
+
+    // ── Fix #4: CNPJ/CPF padding in inutilizacao ID ────────────────
+
+    #[test]
+    fn inutilizacao_id_pads_cnpj_to_14_digits() {
+        let xml = build_inutilizacao_request(
+            24,
+            TEST_CNPJ,
+            "55",
+            1,
+            1,
+            10,
+            "Pulo de numeracao",
+            SefazEnvironment::Homologation,
+            "SP",
+        );
+        // Expected ID: ID + cUF(35) + year(24) + padded_cnpj(14 digits) + model(55) + serie(001) + ini(000000001) + fin(000000010)
+        // CNPJ "12345678000195" is already 14 digits, no padding needed
+        let expected_id = format!("ID3524{TEST_CNPJ}55001000000001000000010");
+        assert!(
+            xml.contains(&format!("Id=\"{expected_id}\"")),
+            "ID should contain padded CNPJ (14 digits), expected {expected_id}, got:\n{xml}"
+        );
+    }
+
+    #[test]
+    fn inutilizacao_id_pads_cpf_to_14_digits() {
+        let xml = build_inutilizacao_request(
+            24,
+            TEST_CPF,
+            "55",
+            1,
+            1,
+            10,
+            "Pulo de numeracao",
+            SefazEnvironment::Homologation,
+            "MT",
+        );
+        // CPF "12345678901" padded to 14 = "00012345678901"
+        let padded = format!("{:0>14}", TEST_CPF);
+        let expected_id = format!("ID5124{padded}55001000000001000000010");
+        assert!(
+            xml.contains(&format!("Id=\"{expected_id}\"")),
+            "ID should pad CPF to 14 digits, expected {expected_id}, got:\n{xml}"
+        );
+    }
+
+    // ── DistDFe request ─────────────────────────────────────────────
+
+    #[test]
+    fn dist_dfe_request_with_ult_nsu() {
+        let xml =
+            build_dist_dfe_request("SP", TEST_CNPJ, None, None, SefazEnvironment::Homologation);
+        assert!(xml.contains("<distNSU><ultNSU>000000000000000</ultNSU></distNSU>"));
+        assert!(xml.contains(&format!("<CNPJ>{TEST_CNPJ}</CNPJ>")));
+        assert!(xml.contains("<cUFAutor>35</cUFAutor>"));
+    }
+
+    #[test]
+    fn dist_dfe_request_with_access_key() {
+        let xml = build_dist_dfe_request(
+            "SP",
+            TEST_CNPJ,
+            None,
+            Some(TEST_KEY),
+            SefazEnvironment::Homologation,
+        );
+        assert!(xml.contains(&format!("<consChNFe><chNFe>{TEST_KEY}</chNFe></consChNFe>")));
+    }
+
+    #[test]
+    fn dist_dfe_request_with_cpf() {
+        let xml =
+            build_dist_dfe_request("SP", TEST_CPF, None, None, SefazEnvironment::Homologation);
+        assert!(xml.contains(&format!("<CPF>{TEST_CPF}</CPF>")));
+    }
+
+    // ── Cadastro request ────────────────────────────────────────────
+
+    #[test]
+    fn cadastro_request_with_cnpj() {
+        let xml = build_cadastro_request("SP", "CNPJ", TEST_CNPJ);
+        assert!(xml.contains(&format!("<CNPJ>{TEST_CNPJ}</CNPJ>")));
+        assert!(xml.contains("<UF>SP</UF>"));
+        assert!(xml.contains("<xServ>CONS-CAD</xServ>"));
+    }
+
+    #[test]
+    fn cadastro_request_with_cpf() {
+        let xml = build_cadastro_request("MT", "CPF", TEST_CPF);
+        assert!(xml.contains(&format!("<CPF>{TEST_CPF}</CPF>")));
+        assert!(xml.contains("<UF>MT</UF>"));
+    }
+
+    #[test]
+    fn cadastro_request_with_ie() {
+        let xml = build_cadastro_request("SP", "IE", "123456789");
+        assert!(xml.contains("<IE>123456789</IE>"));
+    }
+
+    // ── tax_id_xml_tag helper ───────────────────────────────────────
+
+    #[test]
+    fn tax_id_xml_tag_detects_cpf_and_cnpj() {
+        assert_eq!(tax_id_xml_tag("12345678901"), "<CPF>12345678901</CPF>");
+        assert_eq!(
+            tax_id_xml_tag("12345678000195"),
+            "<CNPJ>12345678000195</CNPJ>"
+        );
+    }
+
+    // ── Event ID format ─────────────────────────────────────────────
+
+    #[test]
+    fn event_id_format() {
+        let id = build_event_id(210210, TEST_KEY, 1);
+        assert_eq!(id, format!("ID210210{TEST_KEY}01"));
+    }
+
+    #[test]
+    fn event_id_seq_padding() {
+        let id = build_event_id(110111, TEST_KEY, 3);
+        assert_eq!(id, format!("ID110111{TEST_KEY}03"));
+    }
 }

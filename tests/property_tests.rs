@@ -359,9 +359,16 @@ const ALL_UFS: [&str; 27] = [
     "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
+/// All codes including special ones (AN=Ambiente Nacional, SVRS=SEFAZ Virtual RS).
+const ALL_CODES: [&str; 29] = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR",
+    "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO", "AN", "SVRS",
+];
+
 #[test]
 fn state_ibge_codes_has_all_27_ufs() {
-    assert_eq!(STATE_IBGE_CODES.len(), 27);
+    // 27 real states + 2 special codes (AN, SVRS) = 29
+    assert_eq!(STATE_IBGE_CODES.len(), 29);
     for uf in &ALL_UFS {
         assert!(
             STATE_IBGE_CODES.contains_key(uf),
@@ -369,6 +376,9 @@ fn state_ibge_codes_has_all_27_ufs() {
             uf,
         );
     }
+    // Also verify special codes
+    assert!(STATE_IBGE_CODES.contains_key("AN"), "Missing AN");
+    assert!(STATE_IBGE_CODES.contains_key("SVRS"), "Missing SVRS");
 }
 
 #[test]
@@ -388,13 +398,14 @@ fn get_state_code_and_get_state_by_code_are_inverses() {
 
 #[test]
 fn ibge_to_uf_has_all_27_codes() {
-    assert_eq!(IBGE_TO_UF.len(), 27);
+    // 27 real states + 2 special codes (AN, SVRS) = 29
+    assert_eq!(IBGE_TO_UF.len(), 29);
 }
 
 proptest! {
     #[test]
     fn unknown_uf_returns_err(uf in "[A-Z]{2}") {
-        if !ALL_UFS.contains(&uf.as_str()) {
+        if !ALL_CODES.contains(&uf.as_str()) {
             prop_assert!(get_state_code(&uf).is_err());
         }
     }

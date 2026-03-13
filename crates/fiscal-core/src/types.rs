@@ -341,11 +341,19 @@ pub struct IssuerData {
     pub zip_code: String,
     /// Address complement such as suite or floor (`xCpl`). Optional.
     pub address_complement: Option<String>,
+    /// Phone number (`fone`). Optional.
+    pub phone: Option<String>,
+    /// Substitute ST state tax registration (`IEST`). Optional.
+    pub iest: Option<String>,
+    /// Municipal registration (`IM`). Optional — required for service providers.
+    pub im: Option<String>,
+    /// CNAE fiscal code (`CNAE`). Optional — required when `im` is present.
+    pub cnae: Option<String>,
 }
 
 impl IssuerData {
     /// Create a new `IssuerData` with all required fields.
-    /// Optional fields (`trade_name`, `address_complement`) default to `None`.
+    /// Optional fields default to `None`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         tax_id: impl Into<String>,
@@ -374,6 +382,10 @@ impl IssuerData {
             district: district.into(),
             zip_code: zip_code.into(),
             address_complement: None,
+            phone: None,
+            iest: None,
+            im: None,
+            cnae: None,
         }
     }
 
@@ -386,6 +398,30 @@ impl IssuerData {
     /// Set the address complement.
     pub fn address_complement(mut self, complement: impl Into<String>) -> Self {
         self.address_complement = Some(complement.into());
+        self
+    }
+
+    /// Set the phone number.
+    pub fn phone(mut self, phone: impl Into<String>) -> Self {
+        self.phone = Some(phone.into());
+        self
+    }
+
+    /// Set the substitute ST state tax registration (IEST).
+    pub fn iest(mut self, iest: impl Into<String>) -> Self {
+        self.iest = Some(iest.into());
+        self
+    }
+
+    /// Set the municipal registration (IM).
+    pub fn im(mut self, im: impl Into<String>) -> Self {
+        self.im = Some(im.into());
+        self
+    }
+
+    /// Set the CNAE fiscal code.
+    pub fn cnae(mut self, cnae: impl Into<String>) -> Self {
+        self.cnae = Some(cnae.into());
         self
     }
 }
@@ -421,6 +457,20 @@ pub struct RecipientData {
     pub zip_code: Option<String>,
     /// Address complement (`xCpl`).
     pub complement: Option<String>,
+    /// Phone number (`fone`). Optional.
+    pub phone: Option<String>,
+    /// Email address (`email`). Optional.
+    pub email: Option<String>,
+    /// SUFRAMA registration (`ISUF`). Optional — for Zona Franca de Manaus.
+    pub isuf: Option<String>,
+    /// Municipal registration (`IM`). Optional.
+    pub im: Option<String>,
+    /// IE indicator (`indIEDest`). Optional override — "1" contribuinte, "2" isento, "9" não contribuinte.
+    pub ind_ie_dest: Option<String>,
+    /// Country code (`cPais`). Optional — defaults to "1058" (Brazil).
+    pub country_code: Option<String>,
+    /// Country name (`xPais`). Optional — defaults to "Brasil".
+    pub country_name: Option<String>,
 }
 
 impl RecipientData {
@@ -487,6 +537,48 @@ impl RecipientData {
         self.complement = Some(complement.into());
         self
     }
+
+    /// Set the phone number.
+    pub fn phone(mut self, phone: impl Into<String>) -> Self {
+        self.phone = Some(phone.into());
+        self
+    }
+
+    /// Set the email address.
+    pub fn email(mut self, email: impl Into<String>) -> Self {
+        self.email = Some(email.into());
+        self
+    }
+
+    /// Set the SUFRAMA registration (ISUF).
+    pub fn isuf(mut self, isuf: impl Into<String>) -> Self {
+        self.isuf = Some(isuf.into());
+        self
+    }
+
+    /// Set the municipal registration (IM).
+    pub fn im(mut self, im: impl Into<String>) -> Self {
+        self.im = Some(im.into());
+        self
+    }
+
+    /// Override the IE indicator (indIEDest).
+    pub fn ind_ie_dest(mut self, ind: impl Into<String>) -> Self {
+        self.ind_ie_dest = Some(ind.into());
+        self
+    }
+
+    /// Set the country code (cPais) for foreign recipients.
+    pub fn country_code(mut self, code: impl Into<String>) -> Self {
+        self.country_code = Some(code.into());
+        self
+    }
+
+    /// Set the country name (xPais) for foreign recipients.
+    pub fn country_name(mut self, name: impl Into<String>) -> Self {
+        self.country_name = Some(name.into());
+        self
+    }
 }
 
 /// Contingency activation data embedded in an NF-e when the primary SEFAZ
@@ -530,6 +622,16 @@ pub struct PaymentData {
     pub method: String,
     /// Amount paid in this payment entry.
     pub amount: Cents,
+    /// Payment indicator (`indPag`). Optional — "0" à vista, "1" a prazo.
+    pub ind_pag: Option<String>,
+    /// Payment description (`xPag`). Optional.
+    pub x_pag: Option<String>,
+    /// Payment date (`dPag`). Optional — format YYYY-MM-DD.
+    pub d_pag: Option<String>,
+    /// CNPJ of the payer (`CNPJPag`). Optional — NT 2023.004.
+    pub cnpj_pag: Option<String>,
+    /// UF of the payer (`UFPag`). Optional — NT 2023.004.
+    pub uf_pag: Option<String>,
 }
 
 impl PaymentData {
@@ -538,7 +640,42 @@ impl PaymentData {
         Self {
             method: method.into(),
             amount,
+            ind_pag: None,
+            x_pag: None,
+            d_pag: None,
+            cnpj_pag: None,
+            uf_pag: None,
         }
+    }
+
+    /// Set the payment indicator.
+    pub fn ind_pag(mut self, v: impl Into<String>) -> Self {
+        self.ind_pag = Some(v.into());
+        self
+    }
+
+    /// Set the payment description.
+    pub fn x_pag(mut self, v: impl Into<String>) -> Self {
+        self.x_pag = Some(v.into());
+        self
+    }
+
+    /// Set the payment date.
+    pub fn d_pag(mut self, v: impl Into<String>) -> Self {
+        self.d_pag = Some(v.into());
+        self
+    }
+
+    /// Set the payer CNPJ.
+    pub fn cnpj_pag(mut self, v: impl Into<String>) -> Self {
+        self.cnpj_pag = Some(v.into());
+        self
+    }
+
+    /// Set the payer UF.
+    pub fn uf_pag(mut self, v: impl Into<String>) -> Self {
+        self.uf_pag = Some(v.into());
+        self
     }
 }
 
@@ -1669,6 +1806,20 @@ pub struct InvoiceItemData {
     pub c_ean_trib: Option<String>,
     /// CEST code for ST-subject products (`CEST`). Optional.
     pub cest: Option<String>,
+    /// CEST scale indicator (`indEscala`). Optional — "S" or "N".
+    pub cest_ind_escala: Option<String>,
+    /// CEST manufacturer CNPJ (`CNPJFab`). Optional.
+    pub cest_cnpj_fab: Option<String>,
+    /// Tax benefit code (`cBenef`). Optional.
+    pub c_benef: Option<String>,
+    /// TIPI exception code (`EXTIPI`). Optional.
+    pub extipi: Option<String>,
+    /// Purchase order number (`xPed`). Optional.
+    pub x_ped: Option<String>,
+    /// Purchase order item number (`nItemPed`). Optional.
+    pub n_item_ped: Option<String>,
+    /// FCI number — Ficha de Conteúdo de Importação (`nFCI`). Optional.
+    pub n_fci: Option<String>,
     /// Freight value allocated to this item (`vFrete`). Optional.
     pub v_frete: Option<Cents>,
     /// Insurance value allocated to this item (`vSeg`). Optional.
@@ -1791,6 +1942,11 @@ pub struct InvoiceItemData {
     pub obs_item: Option<ObsItemData>,
     /// Referenced digital fiscal document for this item (`DFeRef`). Optional.
     pub dfe_referenciado: Option<DFeReferenciadoData>,
+    /// Whether this item counts towards the invoice total (`indTot`).
+    /// `1` (default) = included in total, `0` = not included.
+    pub ind_tot: Option<u8>,
+    /// Approximate total tax for this item (`vTotTrib`). Optional.
+    pub v_tot_trib: Option<Cents>,
 }
 
 impl InvoiceItemData {
@@ -1826,6 +1982,13 @@ impl InvoiceItemData {
             c_ean: None,
             c_ean_trib: None,
             cest: None,
+            cest_ind_escala: None,
+            cest_cnpj_fab: None,
+            c_benef: None,
+            extipi: None,
+            x_ped: None,
+            n_item_ped: None,
+            n_fci: None,
             v_frete: None,
             v_seg: None,
             v_desc: None,
@@ -1884,6 +2047,8 @@ impl InvoiceItemData {
             inf_ad_prod: None,
             obs_item: None,
             dfe_referenciado: None,
+            ind_tot: None,
+            v_tot_trib: None,
         }
     }
 
@@ -1901,6 +2066,41 @@ impl InvoiceItemData {
     /// Set the CEST code.
     pub fn cest(mut self, v: impl Into<String>) -> Self {
         self.cest = Some(v.into());
+        self
+    }
+    /// Set the CEST scale indicator (`indEscala`).
+    pub fn cest_ind_escala(mut self, v: impl Into<String>) -> Self {
+        self.cest_ind_escala = Some(v.into());
+        self
+    }
+    /// Set the CEST manufacturer CNPJ (`CNPJFab`).
+    pub fn cest_cnpj_fab(mut self, v: impl Into<String>) -> Self {
+        self.cest_cnpj_fab = Some(v.into());
+        self
+    }
+    /// Set the tax benefit code (`cBenef`).
+    pub fn c_benef(mut self, v: impl Into<String>) -> Self {
+        self.c_benef = Some(v.into());
+        self
+    }
+    /// Set the TIPI exception code (`EXTIPI`).
+    pub fn extipi(mut self, v: impl Into<String>) -> Self {
+        self.extipi = Some(v.into());
+        self
+    }
+    /// Set the purchase order number (`xPed`).
+    pub fn x_ped(mut self, v: impl Into<String>) -> Self {
+        self.x_ped = Some(v.into());
+        self
+    }
+    /// Set the purchase order item number (`nItemPed`).
+    pub fn n_item_ped(mut self, v: impl Into<String>) -> Self {
+        self.n_item_ped = Some(v.into());
+        self
+    }
+    /// Set the FCI number (`nFCI`).
+    pub fn n_fci(mut self, v: impl Into<String>) -> Self {
+        self.n_fci = Some(v.into());
         self
     }
     /// Set the freight value.
@@ -2166,6 +2366,17 @@ impl InvoiceItemData {
     /// Set referenced DFe data.
     pub fn dfe_referenciado(mut self, v: DFeReferenciadoData) -> Self {
         self.dfe_referenciado = Some(v);
+        self
+    }
+    /// Set the total indicator (`indTot`). Default is `1` (included in total).
+    /// Set to `0` to exclude from invoice total.
+    pub fn ind_tot(mut self, v: u8) -> Self {
+        self.ind_tot = Some(v);
+        self
+    }
+    /// Set the approximate total tax (`vTotTrib`).
+    pub fn v_tot_trib(mut self, v: Cents) -> Self {
+        self.v_tot_trib = Some(v);
         self
     }
 }

@@ -1,14 +1,16 @@
 //! Build the `<emit>` (issuer/emitter) group of the NF-e XML.
 
+use super::tax_id::TaxId;
 use crate::types::InvoiceBuildData;
 use crate::xml_utils::{TagContent, tag};
 
 /// Build the `<emit>` element with issuer data and address.
 pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
     let iss = &data.issuer;
+    let tid = TaxId::new(&iss.tax_id);
 
     let mut children = vec![
-        tag("CNPJ", &[], TagContent::Text(&iss.tax_id)),
+        tag(tid.tag_name(), &[], TagContent::Text(&iss.tax_id)),
         tag("xNome", &[], TagContent::Text(&iss.company_name)),
     ];
 
@@ -29,9 +31,21 @@ pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
             &iss.state_code,
             Some(&iss.zip_code),
             true,
+            iss.phone.as_deref(),
         )),
     ));
     children.push(tag("IE", &[], TagContent::Text(&iss.state_tax_id)));
+
+    if let Some(ref iest) = iss.iest {
+        children.push(tag("IEST", &[], TagContent::Text(iest)));
+    }
+    if let Some(ref im) = iss.im {
+        children.push(tag("IM", &[], TagContent::Text(im)));
+        if let Some(ref cnae) = iss.cnae {
+            children.push(tag("CNAE", &[], TagContent::Text(cnae)));
+        }
+    }
+
     children.push(tag(
         "CRT",
         &[],
@@ -41,7 +55,7 @@ pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
     tag("emit", &[], TagContent::Children(children))
 }
 
-/// Build address child tags (xLgr … xPais), reused for emit/dest/retirada/entrega.
+/// Build address child tags (xLgr … fone), reused for emit/dest/retirada/entrega.
 #[allow(clippy::too_many_arguments)]
 pub fn build_address_fields(
     street: &str,
@@ -53,6 +67,7 @@ pub fn build_address_fields(
     state_code: &str,
     zip_code: Option<&str>,
     include_country: bool,
+    phone: Option<&str>,
 ) -> Vec<String> {
     let mut fields = vec![
         tag("xLgr", &[], TagContent::Text(street)),
@@ -73,6 +88,9 @@ pub fn build_address_fields(
     if include_country {
         fields.push(tag("cPais", &[], TagContent::Text("1058")));
         fields.push(tag("xPais", &[], TagContent::Text("Brasil")));
+    }
+    if let Some(fone) = phone {
+        fields.push(tag("fone", &[], TagContent::Text(fone)));
     }
     fields
 }

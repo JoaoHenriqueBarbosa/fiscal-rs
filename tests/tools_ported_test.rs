@@ -332,8 +332,8 @@ mod tools_test {
             );
             assert!(xml.contains("<envEvento"));
             assert!(xml.contains(&format!("ID210210{chave}01")));
-            // cOrgao = IBGE state code from access key (first 2 digits), matches PHP sped-nfe
-            assert!(xml.contains("<cOrgao>35</cOrgao>"));
+            // cOrgao = 91 (Ambiente Nacional) for manifestação, matches PHP sped-nfe
+            assert!(xml.contains("<cOrgao>91</cOrgao>"));
             assert!(xml.contains("<tpEvento>210210</tpEvento>"));
             assert!(xml.contains("<descEvento>Ciencia da Operacao</descEvento>"));
             assert!(!xml.contains("<xJust>"));

@@ -35,10 +35,13 @@ use fiscal_core::FiscalError;
 use fiscal_core::types::SefazEnvironment;
 
 use crate::request_builders;
-use crate::response_parsers::{self, AuthorizationResponse, CancellationResponse, StatusResponse};
+use crate::response_parsers::{
+    self, AuthorizationResponse, CadastroResponse, CancellationResponse, DistDFeResponse,
+    StatusResponse,
+};
 use crate::services::SefazService;
 use crate::soap;
-use crate::urls::get_sefaz_url_for_model;
+use crate::urls::{get_an_url, get_sefaz_url_for_model};
 
 /// Default timeout for connecting to a SEFAZ endpoint.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -371,6 +374,184 @@ impl SefazClient {
     ) -> Result<String, FiscalError> {
         self.send(SefazService::Inutilizacao, uf, environment, signed_inut_xml)
             .await
+    }
+
+    /// Submit a manifestacao do destinatario event (`RecepcaoEvento4`).
+    ///
+    /// Routes to the Ambiente Nacional (AN) endpoint. Valid event types:
+    /// - `"210200"` — Confirmacao da Operacao
+    /// - `"210210"` — Ciencia da Operacao
+    /// - `"210220"` — Desconhecimento da Operacao
+    /// - `"210240"` — Operacao nao Realizada (requires justification)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn manifest(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        event_type: &str,
+        justification: Option<&str>,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_manifesta_request(
+            access_key,
+            event_type,
+            justification,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Query the distribution of fiscal documents (DF-e) from the national
+    /// environment (`NFeDistribuicaoDFe`).
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the interested party.
+    /// * `tax_id` — CNPJ or CPF of the interested party.
+    /// * `nsu` — Optional specific NSU or last NSU to query.
+    /// * `access_key` — Optional 44-digit access key for direct lookup.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn dist_dfe(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        tax_id: &str,
+        nsu: Option<&str>,
+        access_key: Option<&str>,
+    ) -> Result<DistDFeResponse, FiscalError> {
+        let request_xml =
+            request_builders::build_dist_dfe_request(uf, tax_id, nsu, access_key, environment);
+        let raw = self.send_dist_dfe_raw(environment, &request_xml).await?;
+        response_parsers::parse_dist_dfe_response(&raw)
+    }
+
+    /// Query the SEFAZ taxpayer registry (`CadConsultaCadastro4`).
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State to query.
+    /// * `search_type` — One of `"CNPJ"`, `"IE"`, or `"CPF"`.
+    /// * `search_value` — The document number to search for.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn cadastro(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        search_type: &str,
+        search_value: &str,
+    ) -> Result<CadastroResponse, FiscalError> {
+        let request_xml = request_builders::build_cadastro_request(uf, search_type, search_value);
+        let raw = self
+            .send(
+                SefazService::ConsultaCadastro,
+                uf,
+                environment,
+                &request_xml,
+            )
+            .await?;
+        response_parsers::parse_cadastro_response(&raw)
+    }
+
+    // ── Internal helpers ────────────────────────────────────────────────
+
+    /// Send a request to the Ambiente Nacional (AN) endpoint.
+    ///
+    /// AN provides RecepcaoEvento (manifestacao) and DistDFe services.
+    async fn send_an(
+        &self,
+        service: SefazService,
+        environment: SefazEnvironment,
+        request_xml: &str,
+    ) -> Result<String, FiscalError> {
+        let url = get_an_url(environment, service.url_key())?;
+        let meta = service.meta();
+        // AN is not a real state code, but we use it for envelope building
+        let envelope = soap::build_envelope(request_xml, "AN", &meta)?;
+        let action = soap::build_action(&meta);
+
+        let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
+
+        let response = self
+            .http
+            .post(&url)
+            .header("Content-Type", &content_type)
+            .body(envelope)
+            .send()
+            .await
+            .map_err(|e| FiscalError::Network(format!("{e}")))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| FiscalError::Network(format!("Failed to read response body: {e}")))?;
+
+        if !status.is_success() {
+            return Err(FiscalError::Network(format!(
+                "SEFAZ returned HTTP {status}: {body}"
+            )));
+        }
+
+        Ok(body)
+    }
+
+    /// Send a DistDFe request with the special SOAP wrapper.
+    ///
+    /// Uses `build_envelope_dist_dfe` which adds the extra
+    /// `<nfeDistDFeInteresse>` wrapper required by this service.
+    async fn send_dist_dfe_raw(
+        &self,
+        environment: SefazEnvironment,
+        request_xml: &str,
+    ) -> Result<String, FiscalError> {
+        let service = SefazService::DistribuicaoDFe;
+        let url = get_an_url(environment, service.url_key())?;
+        let meta = service.meta();
+        let envelope = soap::build_envelope_dist_dfe(request_xml, "AN", &meta)?;
+        let action = soap::build_action(&meta);
+
+        let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
+
+        let response = self
+            .http
+            .post(&url)
+            .header("Content-Type", &content_type)
+            .body(envelope)
+            .send()
+            .await
+            .map_err(|e| FiscalError::Network(format!("{e}")))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| FiscalError::Network(format!("Failed to read response body: {e}")))?;
+
+        if !status.is_success() {
+            return Err(FiscalError::Network(format!(
+                "SEFAZ returned HTTP {status}: {body}"
+            )));
+        }
+
+        Ok(body)
     }
 }
 

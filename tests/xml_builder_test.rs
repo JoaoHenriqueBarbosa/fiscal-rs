@@ -269,7 +269,13 @@ mod build_invoice_xml_tests {
         let built = sample_builder().build().unwrap();
         let xml = built.xml();
         assert!(xml.contains(r#"<det nItem="1">"#));
-        assert!(xml.contains("<xProd>Product A</xProd>"));
+        // In homologation + NFC-e, first item xProd is replaced per PHP sped-nfe
+        assert!(
+            xml.contains(
+                "<xProd>NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xProd>"
+            ),
+            "xProd should be replaced in homologation NFC-e (item 1)"
+        );
         assert!(xml.contains("<NCM>84715010</NCM>"));
         assert!(xml.contains("<CFOP>5102</CFOP>"));
     }
@@ -305,7 +311,13 @@ mod build_invoice_xml_tests {
         let xml = built.xml();
         assert!(xml.contains("<dest>"));
         assert!(xml.contains("<CPF>12345678901</CPF>"));
-        assert!(xml.contains("<xNome>John Doe</xNome>"));
+        // In homologation, xNome is replaced per PHP sped-nfe
+        assert!(
+            xml.contains(
+                "<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>"
+            ),
+            "xNome should be replaced in homologation"
+        );
     }
 
     #[test]
