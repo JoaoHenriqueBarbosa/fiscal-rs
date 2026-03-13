@@ -283,4 +283,49 @@ mod tests {
             "EPECStatusServico"
         );
     }
+
+    #[test]
+    fn distribuicao_dfe_url_key() {
+        assert_eq!(
+            SefazService::DistribuicaoDFe.url_key(),
+            "NfeDistribuicaoDFe"
+        );
+    }
+
+    #[test]
+    fn consulta_cadastro_url_key() {
+        assert_eq!(
+            SefazService::ConsultaCadastro.url_key(),
+            "NfeConsultaCadastro"
+        );
+    }
+
+    #[test]
+    fn recepcao_epec_nfce_url_key() {
+        assert_eq!(SefazService::RecepcaoEpecNfce.url_key(), "RecepcaoEPEC");
+    }
+
+    #[test]
+    fn epec_nfce_status_servico_url_key() {
+        assert_eq!(
+            SefazService::EpecNfceStatusServico.url_key(),
+            "EPECStatusServico"
+        );
+    }
+
+    #[test]
+    fn recepcao_epec_nfce_meta() {
+        let meta = SefazService::RecepcaoEpecNfce.meta();
+        assert_eq!(meta.method, "nfeRecepcaoEvento");
+        assert_eq!(meta.operation, "RecepcaoEvento");
+        assert_eq!(meta.version, "1.00");
+    }
+
+    #[test]
+    fn epec_nfce_status_servico_meta() {
+        let meta = SefazService::EpecNfceStatusServico.meta();
+        assert_eq!(meta.method, "nfeStatusServicoNF2");
+        assert_eq!(meta.operation, "NfeStatusServico2");
+        assert_eq!(meta.version, "4.00");
+    }
 }

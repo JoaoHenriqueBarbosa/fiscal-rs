@@ -11,7 +11,8 @@
   <a href="https://crates.io/crates/fiscal"><img src="https://img.shields.io/crates/v/fiscal.svg" alt="crates.io" /></a>
   <a href="https://docs.rs/fiscal"><img src="https://docs.rs/fiscal/badge.svg" alt="docs.rs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-739%2B%20passing-brightgreen" alt="tests" /></a>
+  <a href="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs"><img src="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs/branch/master/graph/badge.svg" alt="coverage" /></a>
+  <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1000%2B%20passing-brightgreen" alt="tests" /></a>
   <a href="https://fiscal-rs-docs.vercel.app/"><img src="https://img.shields.io/badge/docs-passing-brightgreen" alt="docs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/fiscal.svg" alt="license" /></a>
 </p>
@@ -24,7 +25,7 @@
 
 ---
 
-Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 739+ testes.
+Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 1000+ testes (94% de cobertura).
 
 Durante o desenvolvimento, [contribuímos 370 testes de volta ao sped-nfe](https://github.com/nfephp-org/sped-nfe/pull/1313) (PR #1313, mergeado), elevando a cobertura de **40% para 86,5%**.
 

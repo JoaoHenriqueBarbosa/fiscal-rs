@@ -1029,6 +1029,196 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Unknown state abbreviation")]
+    fn contingency_for_state_unknown_panics() {
+        contingency_for_state("XX");
+    }
+
+    #[test]
+    fn display_for_contingency_matches_to_json() {
+        let c = Contingency::new();
+        assert_eq!(c.to_string(), c.to_json());
+    }
+
+    // ── adjust_nfe_contingency tests ────────────────────────────────
+
+    #[test]
+    fn adjust_nfe_contingency_inactive_returns_unchanged() {
+        let c = Contingency::new();
+        let xml = "<NFe><infNFe/></NFe>";
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert_eq!(result, xml);
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_model65_returns_error() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "Motivo de contingencia teste valido",
+        )
+        .unwrap();
+        let xml = "<NFe><infNFe><ide><mod>65</mod><tpEmis>1</tpEmis></ide></infNFe></NFe>";
+        let err = adjust_nfe_contingency(xml, &c).unwrap_err();
+        assert!(matches!(err, FiscalError::Contingency(_)));
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_already_non_normal_returns_unchanged() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "Motivo de contingencia teste valido",
+        )
+        .unwrap();
+        let xml = "<NFe><infNFe><ide><mod>55</mod><tpEmis>6</tpEmis></ide></infNFe></NFe>";
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert!(result.contains("<tpEmis>6</tpEmis>"));
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_replaces_tp_emis_and_inserts_dh_cont() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "Motivo de contingencia teste valido",
+        )
+        .unwrap();
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb></ide>",
+            "<emit><CNPJ>04123456000190</CNPJ></emit>",
+            "</infNFe></NFe>"
+        );
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert!(result.contains("<tpEmis>6</tpEmis>"));
+        assert!(result.contains("<dhCont>"));
+        assert!(result.contains("<xJust>"));
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_replaces_existing_dh_cont() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "Motivo de contingencia teste valido",
+        )
+        .unwrap();
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb>",
+            "<dhCont>2020-01-01T00:00:00-03:00</dhCont>",
+            "<xJust>old reason</xJust>",
+            "</ide>",
+            "<emit><CNPJ>04123456000190</CNPJ></emit>",
+            "</infNFe></NFe>"
+        );
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert!(result.contains("<tpEmis>6</tpEmis>"));
+        assert!(!result.contains("old reason"));
+        assert!(result.contains("Motivo de contingencia teste valido"));
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_inserts_before_nfref() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcRs,
+            "Motivo de contingencia teste valido para NFRef",
+        )
+        .unwrap();
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb><NFref><refNFe>123</refNFe></NFref></ide>",
+            "<emit><CNPJ>04123456000190</CNPJ></emit>",
+            "</infNFe></NFe>"
+        );
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert!(result.contains("<tpEmis>7</tpEmis>"));
+        // dhCont and xJust should appear before <NFref>
+        let dh_pos = result.find("<dhCont>").unwrap();
+        let nfref_pos = result.find("<NFref>").unwrap();
+        assert!(dh_pos < nfref_pos);
+    }
+
+    #[test]
+    fn adjust_nfe_contingency_removes_signature() {
+        let mut c = Contingency::new();
+        c.activate(
+            ContingencyType::SvcAn,
+            "Motivo de contingencia teste valido",
+        )
+        .unwrap();
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb></ide>",
+            "<emit><CNPJ>04123456000190</CNPJ></emit>",
+            "</infNFe>",
+            r#"<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo/></Signature>"#,
+            "</NFe>"
+        );
+        let result = adjust_nfe_contingency(xml, &c).unwrap();
+        assert!(!result.contains("<Signature"));
+    }
+
+    #[test]
+    fn extract_emitter_doc_cpf() {
+        let xml = "<root><emit><CPF>12345678901</CPF></emit></root>";
+        assert_eq!(extract_emitter_doc(xml), "12345678901");
+    }
+
+    #[test]
+    fn extract_emitter_doc_no_emit() {
+        let xml = "<root><other/></root>";
+        assert_eq!(extract_emitter_doc(xml), "");
+    }
+
+    #[test]
+    fn parse_year_month_short_input() {
+        let (y, m) = parse_year_month("2026");
+        assert_eq!(y, "00");
+        assert_eq!(m, "00");
+    }
+
+    #[test]
+    fn extract_tz_offset_no_offset() {
+        assert_eq!(extract_tz_offset("2026"), "-03:00");
+    }
+
+    #[test]
+    fn format_timestamp_with_offset_bad_offset() {
+        // Very short offset, should fall through to fallback
+        let result = format_timestamp_with_offset(0, "X");
+        assert!(result.contains("1970"));
+    }
+
+    #[test]
+    fn escape_json_string_control_chars() {
+        let s = escape_json_string("a\nb\tc\rd");
+        assert_eq!(s, "a\\nb\\tc\\rd");
+    }
+
+    #[test]
     fn all_27_states_have_mapping() {
         let states = [
             "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",

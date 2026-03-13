@@ -533,6 +533,274 @@ mod tests {
     }
 
     #[test]
+    fn put_qr_tag_missing_csc_token() {
+        let params = PutQRTagParams {
+            xml: "<root/>".to_string(),
+            version: "200".to_string(),
+            csc_token: "".to_string(),
+            csc_id: "1".to_string(),
+            qr_code_base_url: "https://example.com/qr".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let err = put_qr_tag(&params).unwrap_err();
+        assert!(err.to_string().contains("CSC token"));
+    }
+
+    #[test]
+    fn put_qr_tag_missing_csc_id() {
+        let params = PutQRTagParams {
+            xml: "<root/>".to_string(),
+            version: "200".to_string(),
+            csc_token: "token123".to_string(),
+            csc_id: "".to_string(),
+            qr_code_base_url: "https://example.com/qr".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let err = put_qr_tag(&params).unwrap_err();
+        assert!(err.to_string().contains("CSC ID"));
+    }
+
+    #[test]
+    fn put_qr_tag_missing_url() {
+        let params = PutQRTagParams {
+            xml: "<root/>".to_string(),
+            version: "200".to_string(),
+            csc_token: "token123".to_string(),
+            csc_id: "1".to_string(),
+            qr_code_base_url: "".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let err = put_qr_tag(&params).unwrap_err();
+        assert!(err.to_string().contains("qr_code_base_url"));
+    }
+
+    #[test]
+    fn put_qr_tag_no_signature_in_xml() {
+        // XML without <Signature
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190650010000001231123456780">"#,
+            "<ide><tpAmb>2</tpAmb><dhEmi>2026-03-15T10:30:00-03:00</dhEmi>",
+            "<tpEmis>1</tpEmis></ide>",
+            "<total><ICMSTot><vNF>100.00</vNF><vICMS>0.00</vICMS></ICMSTot></total>",
+            "</infNFe></NFe>"
+        );
+        let params = PutQRTagParams {
+            xml: xml.to_string(),
+            version: "200".to_string(),
+            csc_token: "token123".to_string(),
+            csc_id: "1".to_string(),
+            qr_code_base_url: "https://example.com/qr".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let err = put_qr_tag(&params).unwrap_err();
+        assert!(err.to_string().contains("Signature"));
+    }
+
+    #[test]
+    fn put_qr_tag_v200_online_success() {
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190650010000001231123456780">"#,
+            "<ide><tpAmb>2</tpAmb><dhEmi>2026-03-15T10:30:00-03:00</dhEmi>",
+            "<tpEmis>1</tpEmis></ide>",
+            "<total><ICMSTot><vNF>100.00</vNF><vICMS>0.00</vICMS></ICMSTot></total>",
+            "</infNFe>",
+            r#"<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">"#,
+            "<SignedInfo/><SignatureValue/>",
+            "<KeyInfo><DigestValue>abc123</DigestValue></KeyInfo>",
+            "</Signature></NFe>"
+        );
+        let params = PutQRTagParams {
+            xml: xml.to_string(),
+            version: "200".to_string(),
+            csc_token: "token123".to_string(),
+            csc_id: "1".to_string(),
+            qr_code_base_url: "https://example.com/qr".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let result = put_qr_tag(&params).unwrap();
+        assert!(result.contains("<infNFeSupl>"));
+        assert!(result.contains("<qrCode>"));
+        assert!(result.contains("<urlChave>"));
+    }
+
+    #[test]
+    fn put_qr_tag_v300_success() {
+        let xml = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe41260304123456000190650010000001231123456780">"#,
+            "<ide><tpAmb>1</tpAmb><dhEmi>2026-03-15T10:30:00-03:00</dhEmi>",
+            "<tpEmis>1</tpEmis></ide>",
+            "<dest><CNPJ>12345678000199</CNPJ></dest>",
+            "<total><ICMSTot><vNF>100.00</vNF><vICMS>0.00</vICMS></ICMSTot></total>",
+            "</infNFe>",
+            r#"<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">"#,
+            "<SignedInfo/><SignatureValue/>",
+            "</Signature></NFe>"
+        );
+        let params = PutQRTagParams {
+            xml: xml.to_string(),
+            version: "300".to_string(),
+            csc_token: "".to_string(),
+            csc_id: "".to_string(),
+            qr_code_base_url: "https://example.com/qr".to_string(),
+            url_chave: "https://example.com/chave".to_string(),
+        };
+        let result = put_qr_tag(&params).unwrap();
+        assert!(result.contains("|3|1"));
+    }
+
+    #[test]
+    fn v200_online_builds_qr() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Normal,
+            "https://example.com/qr",
+        )
+        .csc_token("ABC123")
+        .csc_id("1");
+        let url = build_nfce_qr_code_url(&params).unwrap();
+        assert!(url.contains("|2|2|1|"));
+    }
+
+    #[test]
+    fn v200_missing_csc_token_errors() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Normal,
+            "https://example.com/qr",
+        );
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("CSC token"));
+    }
+
+    #[test]
+    fn v200_offline_builds_qr() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .csc_token("ABC123")
+        .csc_id("1")
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .total_value("200.50")
+        .digest_value("testdigest");
+        let url = build_nfce_qr_code_url(&params).unwrap();
+        assert!(url.contains("|2|2|15|200.50|"));
+    }
+
+    #[test]
+    fn v200_offline_missing_issued_at() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .csc_token("ABC123")
+        .csc_id("1")
+        .total_value("200.50")
+        .digest_value("testdigest");
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("issued_at"));
+    }
+
+    #[test]
+    fn v200_offline_missing_total_value() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .csc_token("ABC123")
+        .csc_id("1")
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .digest_value("testdigest");
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("total_value"));
+    }
+
+    #[test]
+    fn v200_offline_missing_digest_value() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V200,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .csc_token("ABC123")
+        .csc_id("1")
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .total_value("200.50");
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("digest_value"));
+    }
+
+    #[test]
+    fn v300_offline_missing_issued_at() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .total_value("200.50")
+        .sign_fn(|data: &[u8]| Ok(data.to_vec()));
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("issued_at"));
+    }
+
+    #[test]
+    fn v300_offline_missing_total_value() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://example.com/qr",
+        )
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .sign_fn(|data: &[u8]| Ok(data.to_vec()));
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("total_value"));
+    }
+
+    #[test]
+    fn build_nfce_consult_url_with_existing_query_param() {
+        let url = build_nfce_consult_url(
+            "https://example.com/nfce?x=1",
+            "12345678901234567890123456789012345678901234",
+            SefazEnvironment::Production,
+        );
+        assert!(url.contains("&p="));
+    }
+
+    #[test]
+    fn extract_dest_info_id_estrangeiro() {
+        let xml = "<NFe><dest><idEstrangeiro>ABC123</idEstrangeiro></dest></NFe>";
+        let (doc, tp) = extract_dest_info(xml);
+        assert_eq!(doc, "ABC123");
+        assert_eq!(tp, "3");
+    }
+
+    #[test]
+    fn extract_day_fallback_chrono() {
+        // Not standard ISO format but something chrono can parse
+        let day = extract_day("bad");
+        assert_eq!(day, "01");
+    }
+
+    #[test]
     fn v300_offline_foreign_dest_omits_cdest() {
         let params = NfceQrCodeParams::new(
             "41260304123456000190650010000001231123456780",

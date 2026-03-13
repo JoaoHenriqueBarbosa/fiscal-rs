@@ -83,3 +83,27 @@ pub fn calculate_check_digit(gtin: &str) -> Result<u8, FiscalError> {
     let dv = (10 - (total % 10)) % 10;
     Ok(dv as u8)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculate_check_digit_too_short() {
+        let err = calculate_check_digit("1").unwrap_err();
+        assert!(matches!(err, FiscalError::InvalidGtin(_)));
+    }
+
+    #[test]
+    fn calculate_check_digit_single_digit() {
+        let err = calculate_check_digit("0").unwrap_err();
+        assert!(matches!(err, FiscalError::InvalidGtin(_)));
+    }
+
+    #[test]
+    fn calculate_check_digit_valid_gtin13() {
+        // 7891000315507 — check digit is 7
+        let dv = calculate_check_digit("7891000315507").unwrap();
+        assert_eq!(dv, 7);
+    }
+}

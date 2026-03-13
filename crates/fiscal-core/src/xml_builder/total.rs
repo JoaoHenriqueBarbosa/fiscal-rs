@@ -682,4 +682,77 @@ mod tests {
             xml
         );
     }
+
+    // ── vFCPUFDest, vICMSUFDest, vICMSUFRemet emitted when > 0 ─────────
+
+    #[test]
+    fn icms_uf_dest_fields_emitted_when_positive() {
+        let mut icms = zero_icms();
+        icms.v_fcp_uf_dest = Cents(1000);
+        icms.v_icms_uf_dest = Cents(2000);
+        icms.v_icms_uf_remet = Cents(3000);
+
+        let xml = build_total(
+            100000,
+            &icms,
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
+
+        assert!(
+            xml.contains("<vFCPUFDest>10.00</vFCPUFDest>"),
+            "vFCPUFDest must be present when > 0. XML: {xml}"
+        );
+        assert!(
+            xml.contains("<vICMSUFDest>20.00</vICMSUFDest>"),
+            "vICMSUFDest must be present when > 0. XML: {xml}"
+        );
+        assert!(
+            xml.contains("<vICMSUFRemet>30.00</vICMSUFRemet>"),
+            "vICMSUFRemet must be present when > 0. XML: {xml}"
+        );
+
+        // Verify ordering: these fields come after vICMSDeson and before vFCP
+        let deson_end = xml.find("</vICMSDeson>").expect("vICMSDeson must exist");
+        let fcp_uf_start = xml.find("<vFCPUFDest>").expect("vFCPUFDest must exist");
+        let fcp_start = xml.find("<vFCP>").expect("vFCP must exist");
+        assert!(
+            fcp_uf_start > deson_end,
+            "vFCPUFDest must come after vICMSDeson"
+        );
+        assert!(fcp_start > fcp_uf_start, "vFCP must come after vFCPUFDest");
+    }
+
+    #[test]
+    fn icms_uf_dest_fields_omitted_when_zero() {
+        let xml = build_total(
+            100000,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            None,
+            SchemaVersion::PL009,
+            default_method(),
+        );
+
+        assert!(
+            !xml.contains("<vFCPUFDest>"),
+            "vFCPUFDest must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<vICMSUFDest>"),
+            "vICMSUFDest must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<vICMSUFRemet>"),
+            "vICMSUFRemet must be omitted when zero"
+        );
+    }
 }

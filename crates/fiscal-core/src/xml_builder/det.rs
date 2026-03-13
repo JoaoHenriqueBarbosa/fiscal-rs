@@ -1109,8 +1109,8 @@ mod tests {
     use crate::newtypes::{Cents, IbgeCode, Rate, Rate4};
     use crate::tax_issqn::IssqnData as TaxIssqnData;
     use crate::types::{
-        CideData, CombData, EncerranteData, GCredData, InvoiceItemData, InvoiceModel, IssuerData,
-        OrigCombData, SefazEnvironment, TaxRegime,
+        ArmaData, CideData, CombData, EncerranteData, GCredData, InvoiceItemData, InvoiceModel,
+        IssuerData, MedData, OrigCombData, RastroData, SefazEnvironment, TaxRegime, VeicProdData,
     };
 
     fn sample_build_data() -> InvoiceBuildData {
@@ -2073,5 +2073,1452 @@ mod tests {
         let result = build_det(&item, &data).expect("build_det should succeed");
 
         assert!(!result.xml.contains("<gCred>"));
+    }
+
+    // ── Helper: Normal tax regime build data ─────────────────────────────
+
+    fn normal_build_data() -> InvoiceBuildData {
+        let mut data = sample_build_data();
+        data.issuer.tax_regime = TaxRegime::Normal;
+        data
+    }
+
+    fn pl010_build_data() -> InvoiceBuildData {
+        let mut data = sample_build_data();
+        data.schema_version = crate::types::SchemaVersion::PL010;
+        data
+    }
+
+    // ── CSOSN variants (Simples Nacional) ────────────────────────────────
+
+    #[test]
+    fn csosn_101_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_p_cred_sn(Rate(500))
+        .icms_v_cred_icms_sn(Cents(50));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN101>"));
+        assert!(result.xml.contains("<CSOSN>101</CSOSN>"));
+        assert!(result.xml.contains("<pCredSN>"));
+        assert!(result.xml.contains("<vCredICMSSN>"));
+    }
+
+    #[test]
+    fn csosn_101_missing_p_cred_sn_returns_error() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_cred_icms_sn(Cents(50));
+        let data = sample_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn csosn_101_missing_v_cred_icms_sn_returns_error() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "101",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_p_cred_sn(Rate(500));
+        let data = sample_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn csosn_empty_defaults_to_102() {
+        // When icms_cst is empty for Simples, it should default to "102"
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN102>"));
+        assert!(result.xml.contains("<CSOSN>102</CSOSN>"));
+    }
+
+    #[test]
+    fn csosn_103_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "103",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+        // 102, 103, 300, 400 all share the ICMSSN102 tag name
+        assert!(result.xml.contains("<ICMSSN102>"));
+        assert!(result.xml.contains("<CSOSN>103</CSOSN>"));
+    }
+
+    #[test]
+    fn csosn_300_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "300",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+        assert!(result.xml.contains("<ICMSSN102>"));
+        assert!(result.xml.contains("<CSOSN>300</CSOSN>"));
+    }
+
+    #[test]
+    fn csosn_400_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "400",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+        assert!(result.xml.contains("<ICMSSN102>"));
+        assert!(result.xml.contains("<CSOSN>400</CSOSN>"));
+    }
+
+    #[test]
+    fn csosn_201_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "201",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24))
+        .icms_p_cred_sn(Rate(500))
+        .icms_v_cred_icms_sn(Cents(50));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN201>"));
+        assert!(result.xml.contains("<CSOSN>201</CSOSN>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+        assert!(result.xml.contains("<vBCST>12.00</vBCST>"));
+        assert!(result.xml.contains("<pICMSST>"));
+        assert!(result.xml.contains("<vICMSST>"));
+        assert!(result.xml.contains("<pMVAST>"));
+        assert!(result.xml.contains("<pRedBCST>"));
+    }
+
+    #[test]
+    fn csosn_202_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "202",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN202>"));
+        assert!(result.xml.contains("<CSOSN>202</CSOSN>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+    }
+
+    #[test]
+    fn csosn_203_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "203",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        // 202 and 203 share the ICMSSN202 tag name
+        assert!(result.xml.contains("<ICMSSN202>"));
+        assert!(result.xml.contains("<CSOSN>203</CSOSN>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+    }
+
+    #[test]
+    fn csosn_500_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "500",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_substituto(Cents(200));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN500>"));
+        assert!(result.xml.contains("<CSOSN>500</CSOSN>"));
+        assert!(result.xml.contains("<vICMSSubstituto>"));
+    }
+
+    #[test]
+    fn csosn_900_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "900",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc(3)
+        .icms_red_bc(Rate(1000))
+        .icms_mod_bc_st(4)
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24))
+        .icms_p_cred_sn(Rate(500))
+        .icms_v_cred_icms_sn(Cents(50));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMSSN900>"));
+        assert!(result.xml.contains("<CSOSN>900</CSOSN>"));
+        assert!(result.xml.contains("<modBC>3</modBC>"));
+    }
+
+    #[test]
+    fn csosn_unsupported_returns_error() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "999",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = sample_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, FiscalError::UnsupportedIcmsCsosn(ref c) if c == "999"),
+            "expected UnsupportedIcmsCsosn, got {:?}",
+            err
+        );
+    }
+
+    // ── ICMS CST variants (Normal tax regime) ────────────────────────────
+
+    #[test]
+    fn cst_10_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "10",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_v_bc_fcp(Cents(1000))
+        .icms_p_fcp(Rate(200))
+        .icms_v_fcp(Cents(20))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24));
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS10>"));
+        assert!(result.xml.contains("<CST>10</CST>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+        assert!(result.xml.contains("<vBCST>12.00</vBCST>"));
+        assert!(result.xml.contains("<pICMSST>"));
+        assert!(result.xml.contains("<vICMSST>"));
+    }
+
+    #[test]
+    fn cst_20_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "20",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc(3)
+        .icms_red_bc(Rate(2000))
+        .icms_v_bc_fcp(Cents(1000))
+        .icms_p_fcp(Rate(200))
+        .icms_v_fcp(Cents(20))
+        .icms_v_icms_deson(Cents(50))
+        .icms_mot_des_icms(9)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS20>"));
+        assert!(result.xml.contains("<CST>20</CST>"));
+        assert!(result.xml.contains("<pRedBC>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+        assert!(result.xml.contains("<motDesICMS>9</motDesICMS>"));
+        assert!(result.xml.contains("<indDeduzDeson>1</indDeduzDeson>"));
+        assert!(result.ind_deduz_deson);
+    }
+
+    #[test]
+    fn cst_30_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "30",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24))
+        .icms_v_icms_deson(Cents(50))
+        .icms_mot_des_icms(9)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS30>"));
+        assert!(result.xml.contains("<CST>30</CST>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+        assert!(result.xml.contains("<motDesICMS>9</motDesICMS>"));
+    }
+
+    #[test]
+    fn cst_40_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "40",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_deson(Cents(100))
+        .icms_mot_des_icms(1)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS40>"));
+        assert!(result.xml.contains("<CST>40</CST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+        assert!(result.xml.contains("<motDesICMS>1</motDesICMS>"));
+    }
+
+    #[test]
+    fn cst_41_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "41",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_deson(Cents(100))
+        .icms_mot_des_icms(1)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        // 40, 41, 50 all share the ICMS40 tag name
+        assert!(result.xml.contains("<ICMS40>"));
+        assert!(result.xml.contains("<CST>41</CST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+    }
+
+    #[test]
+    fn cst_50_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "50",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_deson(Cents(100))
+        .icms_mot_des_icms(1)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        // 40, 41, 50 all share the ICMS40 tag name
+        assert!(result.xml.contains("<ICMS40>"));
+        assert!(result.xml.contains("<CST>50</CST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+    }
+
+    #[test]
+    fn cst_51_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "51",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc(3)
+        .icms_red_bc(Rate(1000))
+        .icms_v_bc_fcp(Cents(1000))
+        .icms_p_fcp(Rate(200))
+        .icms_v_fcp(Cents(20));
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS51>"));
+        assert!(result.xml.contains("<CST>51</CST>"));
+        assert!(result.xml.contains("<modBC>3</modBC>"));
+        assert!(result.xml.contains("<pRedBC>"));
+        assert!(result.xml.contains("<vICMS>"));
+    }
+
+    #[test]
+    fn cst_60_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "60",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_substituto(Cents(200));
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS60>"));
+        assert!(result.xml.contains("<CST>60</CST>"));
+        assert!(result.xml.contains("<vICMSSubstituto>"));
+    }
+
+    #[test]
+    fn cst_70_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "70",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc(3)
+        .icms_red_bc(Rate(2000))
+        .icms_mod_bc_st(4)
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_v_bc_fcp(Cents(1000))
+        .icms_p_fcp(Rate(200))
+        .icms_v_fcp(Cents(20))
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24))
+        .icms_v_icms_deson(Cents(50))
+        .icms_mot_des_icms(9)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS70>"));
+        assert!(result.xml.contains("<CST>70</CST>"));
+        assert!(result.xml.contains("<pRedBC>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+    }
+
+    #[test]
+    fn cst_90_produces_correct_xml() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "90",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .icms_mod_bc(3)
+        .icms_red_bc(Rate(1000))
+        .icms_v_bc_fcp(Cents(1000))
+        .icms_p_fcp(Rate(200))
+        .icms_v_fcp(Cents(20))
+        .icms_mod_bc_st(4)
+        .icms_p_mva_st(Rate(5000))
+        .icms_red_bc_st(Rate(1000))
+        .icms_v_bc_st(Cents(1200))
+        .icms_p_icms_st(Rate(1200))
+        .icms_v_icms_st(Cents(144))
+        .icms_v_bc_fcp_st(Cents(1200))
+        .icms_p_fcp_st(Rate(200))
+        .icms_v_fcp_st(Cents(24))
+        .icms_v_icms_deson(Cents(50))
+        .icms_mot_des_icms(9)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS90>"));
+        assert!(result.xml.contains("<CST>90</CST>"));
+        assert!(result.xml.contains("<modBC>3</modBC>"));
+        assert!(result.xml.contains("<modBCST>4</modBCST>"));
+        assert!(result.xml.contains("<vICMSDeson>"));
+    }
+
+    #[test]
+    fn cst_unsupported_returns_error() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "99",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        );
+        let data = normal_build_data();
+        let result = build_det(&item, &data);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, FiscalError::UnsupportedIcmsCst(ref c) if c == "99"),
+            "expected UnsupportedIcmsCst, got {:?}",
+            err
+        );
+    }
+
+    // ── IPI (optional) ───────────────────────────────────────────────────
+
+    #[test]
+    fn ipi_produces_correct_xml() {
+        let item = sample_item()
+            .ipi_cst("50")
+            .ipi_c_enq("999")
+            .ipi_v_bc(Cents(10000))
+            .ipi_p_ipi(Rate(500))
+            .ipi_v_ipi(Cents(500));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<IPI>"));
+        assert!(result.xml.contains("<CST>50</CST>"));
+        assert!(result.xml.contains("<cEnq>999</cEnq>"));
+        assert!(result.xml.contains("<vIPI>5.00</vIPI>"));
+        assert_eq!(result.v_ipi, 500);
+    }
+
+    #[test]
+    fn ipi_default_c_enq_when_missing() {
+        let item = sample_item()
+            .ipi_cst("50")
+            .ipi_v_bc(Cents(10000))
+            .ipi_p_ipi(Rate(500))
+            .ipi_v_ipi(Cents(500));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<cEnq>999</cEnq>"));
+    }
+
+    #[test]
+    fn ipi_with_quantity_based() {
+        let item = sample_item()
+            .ipi_cst("50")
+            .ipi_q_unid(100)
+            .ipi_v_unid(50)
+            .ipi_v_ipi(Cents(5000));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<IPI>"));
+        assert_eq!(result.v_ipi, 5000);
+    }
+
+    #[test]
+    fn no_ipi_when_cst_absent() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<IPI>"));
+        assert_eq!(result.v_ipi, 0);
+    }
+
+    // ── II (Import Tax) ──────────────────────────────────────────────────
+
+    #[test]
+    fn ii_produces_correct_xml() {
+        let item = sample_item()
+            .ii_v_bc(Cents(50000))
+            .ii_v_desp_adu(Cents(5000))
+            .ii_v_ii(Cents(10000))
+            .ii_v_iof(Cents(2000));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<II>"));
+        assert!(result.xml.contains("<vBC>500.00</vBC>"));
+        assert!(result.xml.contains("<vDespAdu>50.00</vDespAdu>"));
+        assert!(result.xml.contains("<vII>100.00</vII>"));
+        assert!(result.xml.contains("<vIOF>20.00</vIOF>"));
+        assert_eq!(result.v_ii, 10000);
+    }
+
+    #[test]
+    fn no_ii_when_absent() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<II>"));
+        assert_eq!(result.v_ii, 0);
+    }
+
+    // ── PIS-ST / COFINS-ST ──────────────────────────────────────────────
+
+    #[test]
+    fn pis_st_replaces_pis_and_accumulates_when_ind_soma_1() {
+        use crate::tax_pis_cofins_ipi::PisStData;
+        let pis_st = PisStData::new(Cents(500))
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .ind_soma_pis_st(1);
+        let item = sample_item().pis_st(pis_st);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<PISST>"));
+        assert!(!result.xml.contains("<PISAliq>"));
+        assert_eq!(result.v_pis_st, 500);
+    }
+
+    #[test]
+    fn pis_st_does_not_accumulate_when_ind_soma_0() {
+        use crate::tax_pis_cofins_ipi::PisStData;
+        let pis_st = PisStData::new(Cents(500))
+            .v_bc(Cents(10000))
+            .p_pis(Rate4(16500))
+            .ind_soma_pis_st(0);
+        let item = sample_item().pis_st(pis_st);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<PISST>"));
+        assert_eq!(result.v_pis_st, 0);
+    }
+
+    #[test]
+    fn cofins_st_replaces_cofins_and_accumulates_when_ind_soma_1() {
+        use crate::tax_pis_cofins_ipi::CofinsStData;
+        let cofins_st = CofinsStData::new(Cents(750))
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000))
+            .ind_soma_cofins_st(1);
+        let item = sample_item().cofins_st(cofins_st);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<COFINSST>"));
+        assert!(!result.xml.contains("<COFINSAliq>"));
+        assert_eq!(result.v_cofins_st, 750);
+    }
+
+    #[test]
+    fn cofins_st_does_not_accumulate_when_ind_soma_0() {
+        use crate::tax_pis_cofins_ipi::CofinsStData;
+        let cofins_st = CofinsStData::new(Cents(750))
+            .v_bc(Cents(10000))
+            .p_cofins(Rate4(76000))
+            .ind_soma_cofins_st(0);
+        let item = sample_item().cofins_st(cofins_st);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<COFINSST>"));
+        assert_eq!(result.v_cofins_st, 0);
+    }
+
+    // ── IS / IBS-CBS (PL010 schema) ─────────────────────────────────────
+
+    #[test]
+    fn is_data_emitted_with_pl010_schema() {
+        use crate::tax_is::IsData;
+        let is = IsData::new("00", "001", "5.00");
+        let item = sample_item().is_data(is);
+        let data = pl010_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<IS>"));
+    }
+
+    #[test]
+    fn is_data_not_emitted_with_pl009_schema() {
+        use crate::tax_is::IsData;
+        let is = IsData::new("00", "001", "5.00");
+        let item = sample_item().is_data(is);
+        let data = sample_build_data(); // PL009
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<IS>"));
+    }
+
+    #[test]
+    fn ibs_cbs_data_emitted_with_pl010_schema() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item = sample_item().ibs_cbs(ibs_cbs);
+        let data = pl010_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<IBSCBS>"));
+    }
+
+    // ── CEST with indEscala and CNPJFab ─────────────────────────────────
+
+    #[test]
+    fn cest_with_ind_escala_and_cnpj_fab() {
+        let item = sample_item()
+            .cest("1234567")
+            .cest_ind_escala("S")
+            .cest_cnpj_fab("12345678000199");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<CEST>1234567</CEST>"));
+        assert!(result.xml.contains("<indEscala>S</indEscala>"));
+        assert!(result.xml.contains("<CNPJFab>12345678000199</CNPJFab>"));
+    }
+
+    // ── EXTIPI ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn extipi_produces_correct_xml() {
+        let item = sample_item().extipi("01");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<EXTIPI>01</EXTIPI>"));
+        // EXTIPI must appear after NCM and before CFOP
+        let ncm_pos = result.xml.find("<NCM>").unwrap();
+        let extipi_pos = result.xml.find("<EXTIPI>").unwrap();
+        let cfop_pos = result.xml.find("<CFOP>").unwrap();
+        assert!(extipi_pos > ncm_pos);
+        assert!(extipi_pos < cfop_pos);
+    }
+
+    // ── nItemPed, nFCI ──────────────────────────────────────────────────
+
+    #[test]
+    fn n_item_ped_produces_correct_xml() {
+        let item = sample_item().n_item_ped("5");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<nItemPed>5</nItemPed>"));
+    }
+
+    #[test]
+    fn n_fci_produces_correct_xml() {
+        let item = sample_item().n_fci("B01F70AF-10BF-4B1F-848C-65FF57F616FE");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<nFCI>B01F70AF-10BF-4B1F-848C-65FF57F616FE</nFCI>")
+        );
+    }
+
+    // ── Veículo (veicProd) ──────────────────────────────────────────────
+
+    #[test]
+    fn veic_prod_produces_correct_xml() {
+        let veic = VeicProdData::new(
+            "1",
+            "9BWZZZ377VT004251",
+            "1",
+            "PRATA",
+            "100",
+            "1600",
+            "1050",
+            "1250",
+            "ABC123",
+            "1",
+            "MOT123",
+            "1500",
+            "2600",
+            "2025",
+            "2025",
+            "M",
+            "06",
+            "1",
+            "R",
+            "1",
+            "MOD001",
+            "02",
+            "5",
+            "0",
+        );
+        let item = sample_item().veic_prod(veic);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<veicProd>"));
+        assert!(result.xml.contains("<tpOp>1</tpOp>"));
+        assert!(result.xml.contains("<chassi>9BWZZZ377VT004251</chassi>"));
+        assert!(result.xml.contains("<cCor>1</cCor>"));
+        assert!(result.xml.contains("<xCor>PRATA</xCor>"));
+        assert!(result.xml.contains("<pot>100</pot>"));
+        assert!(result.xml.contains("<cilin>1600</cilin>"));
+        assert!(result.xml.contains("<pesoL>1050</pesoL>"));
+        assert!(result.xml.contains("<pesoB>1250</pesoB>"));
+        assert!(result.xml.contains("<nSerie>ABC123</nSerie>"));
+        assert!(result.xml.contains("<tpComb>1</tpComb>"));
+        assert!(result.xml.contains("<nMotor>MOT123</nMotor>"));
+        assert!(result.xml.contains("<CMT>1500</CMT>"));
+        assert!(result.xml.contains("<dist>2600</dist>"));
+        assert!(result.xml.contains("<anoMod>2025</anoMod>"));
+        assert!(result.xml.contains("<anoFab>2025</anoFab>"));
+        assert!(result.xml.contains("<tpPint>M</tpPint>"));
+        assert!(result.xml.contains("<tpVeic>06</tpVeic>"));
+        assert!(result.xml.contains("<espVeic>1</espVeic>"));
+        assert!(result.xml.contains("<VIN>R</VIN>"));
+        assert!(result.xml.contains("<condVeic>1</condVeic>"));
+        assert!(result.xml.contains("<cMod>MOD001</cMod>"));
+        assert!(result.xml.contains("<cCorDENATRAN>02</cCorDENATRAN>"));
+        assert!(result.xml.contains("<lota>5</lota>"));
+        assert!(result.xml.contains("<tpRest>0</tpRest>"));
+        assert!(result.xml.contains("</veicProd>"));
+    }
+
+    // ── Medicamento (med) ───────────────────────────────────────────────
+
+    #[test]
+    fn med_with_anvisa_code() {
+        let med = MedData::new(Cents(5000)).c_prod_anvisa("1234567890123");
+        let item = sample_item().med(med);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<med>"));
+        assert!(
+            result
+                .xml
+                .contains("<cProdANVISA>1234567890123</cProdANVISA>")
+        );
+        assert!(result.xml.contains("<vPMC>50.00</vPMC>"));
+        assert!(result.xml.contains("</med>"));
+    }
+
+    #[test]
+    fn med_with_exemption_reason() {
+        let med = MedData::new(Cents(3000)).x_motivo_isencao("Medicamento isento de registro");
+        let item = sample_item().med(med);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<med>"));
+        assert!(
+            result
+                .xml
+                .contains("<xMotivoIsencao>Medicamento isento de registro</xMotivoIsencao>")
+        );
+        assert!(result.xml.contains("<vPMC>30.00</vPMC>"));
+        assert!(!result.xml.contains("<cProdANVISA>"));
+    }
+
+    // ── Arma (weapon) ───────────────────────────────────────────────────
+
+    #[test]
+    fn arma_single_produces_correct_xml() {
+        let arma = ArmaData::new("0", "SN12345", "CN6789", "Pistola Taurus");
+        let item = sample_item().arma(vec![arma]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<arma>"));
+        assert!(result.xml.contains("<tpArma>0</tpArma>"));
+        assert!(result.xml.contains("<nSerie>SN12345</nSerie>"));
+        assert!(result.xml.contains("<nCano>CN6789</nCano>"));
+        assert!(result.xml.contains("<descr>Pistola Taurus</descr>"));
+        assert!(result.xml.contains("</arma>"));
+    }
+
+    #[test]
+    fn arma_multiple_produces_multiple_elements() {
+        let a1 = ArmaData::new("0", "SN001", "CN001", "Arma 1");
+        let a2 = ArmaData::new("1", "SN002", "CN002", "Arma 2");
+        let item = sample_item().arma(vec![a1, a2]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert_eq!(result.xml.matches("<arma>").count(), 2);
+        assert!(result.xml.contains("<nSerie>SN001</nSerie>"));
+        assert!(result.xml.contains("<nSerie>SN002</nSerie>"));
+    }
+
+    // ── nRECOPI ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn n_recopi_produces_correct_xml() {
+        let item = sample_item().n_recopi("20250000001234567890");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<nRECOPI>20250000001234567890</nRECOPI>")
+        );
+    }
+
+    #[test]
+    fn n_recopi_empty_not_emitted() {
+        let item = sample_item().n_recopi("");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains("<nRECOPI>"));
+    }
+
+    // ── Rastro (batch tracking) ─────────────────────────────────────────
+
+    #[test]
+    fn rastro_single_produces_correct_xml() {
+        let r = RastroData::new("LOTE001", 10.5, "2025-01-01", "2026-01-01");
+        let item = sample_item().rastro(vec![r]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<rastro>"));
+        assert!(result.xml.contains("<nLote>LOTE001</nLote>"));
+        assert!(result.xml.contains("<qLote>10.500</qLote>"));
+        assert!(result.xml.contains("<dFab>2025-01-01</dFab>"));
+        assert!(result.xml.contains("<dVal>2026-01-01</dVal>"));
+        assert!(result.xml.contains("</rastro>"));
+    }
+
+    #[test]
+    fn rastro_with_c_agreg() {
+        let r = RastroData::new("LOTE002", 5.0, "2025-06-01", "2026-06-01").c_agreg("AGREG001");
+        let item = sample_item().rastro(vec![r]);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<cAgreg>AGREG001</cAgreg>"));
+    }
+
+    // ── obsItem with obsFisco ───────────────────────────────────────────
+
+    #[test]
+    fn obs_item_with_obs_cont_only() {
+        use crate::types::{ObsField, ObsItemData};
+        let obs = ObsItemData::new().obs_cont(ObsField::new("campo1", "texto1"));
+        let item = sample_item().obs_item(obs);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<obsItem>"));
+        assert!(result.xml.contains("<obsCont xCampo=\"campo1\">"));
+        assert!(result.xml.contains("<xTexto>texto1</xTexto>"));
+        assert!(!result.xml.contains("<obsFisco"));
+    }
+
+    #[test]
+    fn obs_item_with_obs_fisco() {
+        use crate::types::{ObsField, ObsItemData};
+        let obs = ObsItemData::new().obs_fisco(ObsField::new("campo_fisco", "texto_fisco"));
+        let item = sample_item().obs_item(obs);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<obsItem>"));
+        assert!(result.xml.contains("<obsFisco xCampo=\"campo_fisco\">"));
+        assert!(result.xml.contains("<xTexto>texto_fisco</xTexto>"));
+    }
+
+    #[test]
+    fn obs_item_with_both_obs_cont_and_obs_fisco() {
+        use crate::types::{ObsField, ObsItemData};
+        let obs = ObsItemData::new()
+            .obs_cont(ObsField::new("campo_cont", "texto_cont"))
+            .obs_fisco(ObsField::new("campo_fisco", "texto_fisco"));
+        let item = sample_item().obs_item(obs);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<obsCont xCampo=\"campo_cont\">"));
+        assert!(result.xml.contains("<obsFisco xCampo=\"campo_fisco\">"));
+    }
+
+    // ── DFeReferenciado ─────────────────────────────────────────────────
+
+    #[test]
+    fn dfe_referenciado_without_n_item() {
+        use crate::types::DFeReferenciadoData;
+        let dfe = DFeReferenciadoData::new("12345678901234567890123456789012345678901234");
+        let item = sample_item().dfe_referenciado(dfe);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<DFeReferenciado>"));
+        assert!(
+            result.xml.contains(
+                "<chaveAcesso>12345678901234567890123456789012345678901234</chaveAcesso>"
+            )
+        );
+        assert!(!result.xml.contains("<nItem>"));
+    }
+
+    #[test]
+    fn dfe_referenciado_with_n_item() {
+        use crate::types::DFeReferenciadoData;
+        let dfe =
+            DFeReferenciadoData::new("12345678901234567890123456789012345678901234").n_item("3");
+        let item = sample_item().dfe_referenciado(dfe);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<DFeReferenciado>"));
+        assert!(result.xml.contains("<nItem>3</nItem>"));
+    }
+
+    // ── Homologation xProd substitution (NFC-e) ─────────────────────────
+
+    #[test]
+    fn nfce_homologation_substitutes_xprod_for_item_1() {
+        let item = sample_item();
+        let mut data = sample_build_data();
+        data.model = InvoiceModel::Nfce;
+        data.environment = SefazEnvironment::Homologation;
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains(HOMOLOGATION_XPROD));
+    }
+
+    #[test]
+    fn nfce_homologation_does_not_substitute_for_item_2() {
+        let mut item = sample_item();
+        item.item_number = 2;
+        let mut data = sample_build_data();
+        data.model = InvoiceModel::Nfce;
+        data.environment = SefazEnvironment::Homologation;
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(!result.xml.contains(HOMOLOGATION_XPROD));
+        assert!(result.xml.contains("<xProd>Gasolina Comum</xProd>"));
+    }
+
+    // ── v_frete, v_seg, v_desc, v_outro ─────────────────────────────────
+
+    #[test]
+    fn optional_value_fields_in_det_result() {
+        let item = sample_item()
+            .v_frete(Cents(1000))
+            .v_seg(Cents(500))
+            .v_desc(Cents(200))
+            .v_outro(Cents(300));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<vFrete>10.00</vFrete>"));
+        assert!(result.xml.contains("<vSeg>5.00</vSeg>"));
+        assert!(result.xml.contains("<vDesc>2.00</vDesc>"));
+        assert!(result.xml.contains("<vOutro>3.00</vOutro>"));
+        assert_eq!(result.v_frete, 1000);
+        assert_eq!(result.v_seg, 500);
+        assert_eq!(result.v_desc, 200);
+        assert_eq!(result.v_outro, 300);
+    }
+
+    // ── ind_tot override ────────────────────────────────────────────────
+
+    #[test]
+    fn ind_tot_zero_excludes_from_total() {
+        let item = sample_item().ind_tot(0);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<indTot>0</indTot>"));
+        assert_eq!(result.ind_tot, 0);
+    }
+
+    // ── v_tot_trib ──────────────────────────────────────────────────────
+
+    #[test]
+    fn v_tot_trib_propagated_to_result() {
+        let item = sample_item().v_tot_trib(Cents(1234));
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert_eq!(result.v_tot_trib, 1234);
+    }
+
+    // ── xPed ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn x_ped_produces_correct_xml() {
+        let item = sample_item().x_ped("PEDIDO-001");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<xPed>PEDIDO-001</xPed>"));
+    }
+
+    // ── infAdProd ───────────────────────────────────────────────────────
+
+    #[test]
+    fn inf_ad_prod_produces_correct_xml() {
+        let item = sample_item().inf_ad_prod("informacao adicional do produto");
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<infAdProd>informacao adicional do produto</infAdProd>")
+        );
+    }
+
+    // ── ind_deduz_deson ─────────────────────────────────────────────────
+
+    #[test]
+    fn ind_deduz_deson_true_when_set_to_1() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "40",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+        .icms_v_icms_deson(Cents(100))
+        .icms_mot_des_icms(1)
+        .icms_ind_deduz_deson("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+        assert!(result.ind_deduz_deson);
+    }
+
+    #[test]
+    fn ind_deduz_deson_false_when_not_set() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+        assert!(!result.ind_deduz_deson);
+    }
+
+    // ── orig override ───────────────────────────────────────────────────
+
+    #[test]
+    fn custom_orig_used_in_icms() {
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000),
+            "00",
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .orig("1");
+        let data = normal_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<orig>1</orig>"));
     }
 }

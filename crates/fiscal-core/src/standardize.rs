@@ -292,6 +292,116 @@ mod tests {
         assert!(identify_xml_type(xml).is_err());
     }
 
+    // ── identify_xml_type additional patterns ────────────────────────
+
+    #[test]
+    fn identify_env_evento() {
+        let xml = r#"<envEvento versao="1.00"><evento/></envEvento>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "envEvento");
+    }
+
+    #[test]
+    fn identify_ret_cons_sit_nfe() {
+        let xml = "<retConsSitNFe><cStat>100</cStat></retConsSitNFe>";
+        assert_eq!(identify_xml_type(xml).unwrap(), "retConsSitNFe");
+    }
+
+    #[test]
+    fn identify_cons_cad() {
+        let xml = r#"<ConsCad versao="2.00"><infCons/></ConsCad>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "ConsCad");
+    }
+
+    #[test]
+    fn identify_inut_nfe() {
+        let xml = r#"<inutNFe versao="4.00"><infInut/></inutNFe>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "inutNFe");
+    }
+
+    #[test]
+    fn identify_ret_env_evento() {
+        let xml = "<retEnvEvento><cStat>128</cStat></retEnvEvento>";
+        assert_eq!(identify_xml_type(xml).unwrap(), "retEnvEvento");
+    }
+
+    #[test]
+    fn identify_ret_inut_nfe() {
+        let xml = "<retInutNFe><infInut/></retInutNFe>";
+        assert_eq!(identify_xml_type(xml).unwrap(), "retInutNFe");
+    }
+
+    #[test]
+    fn identify_adm_csc_nfce() {
+        let xml = r#"<admCscNFCe versao="1.00"><data/></admCscNFCe>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "admCscNFCe");
+    }
+
+    #[test]
+    fn identify_dist_dfe_int() {
+        let xml = r#"<distDFeInt versao="1.01"><data/></distDFeInt>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "distDFeInt");
+    }
+
+    #[test]
+    fn identify_proc_evento_nfe() {
+        let xml = r#"<procEventoNFe versao="1.00"><evento/></procEventoNFe>"#;
+        assert_eq!(identify_xml_type(xml).unwrap(), "procEventoNFe");
+    }
+
+    // ── xml_to_json additional coverage ──────────────────────────────
+
+    #[test]
+    fn xml_to_json_empty_elements() {
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe123"><empty/></infNFe></NFe>"#;
+        let json = xml_to_json(xml).unwrap();
+        assert!(json.contains("NFe"));
+    }
+
+    #[test]
+    fn xml_to_json_non_nfe_document_fails() {
+        let xml = "<garbage><data>hello</data></garbage>";
+        assert!(xml_to_json(xml).is_err());
+    }
+
+    #[test]
+    fn xml_to_json_empty_element_with_attrs() {
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><tag attr="val"/></NFe>"#;
+        let json = xml_to_json(xml).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v.get("NFe").is_some());
+    }
+
+    #[test]
+    fn xml_to_json_repeated_elements_become_array() {
+        let xml =
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><det>a</det><det>b</det></NFe>"#;
+        let json = xml_to_json(xml).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let nfe = v.get("NFe").unwrap();
+        let det = nfe.get("det").unwrap();
+        assert!(det.is_array());
+        assert_eq!(det.as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn xml_to_json_element_with_only_attrs_no_text() {
+        let xml =
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><item a="1" b="2"></item></NFe>"#;
+        let json = xml_to_json(xml).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v.get("NFe").is_some());
+    }
+
+    #[test]
+    fn strip_ns_prefix_with_colon() {
+        assert_eq!(strip_ns_prefix("nfe:NFe"), "NFe");
+    }
+
+    #[test]
+    fn strip_ns_prefix_without_colon() {
+        assert_eq!(strip_ns_prefix("NFe"), "NFe");
+    }
+
     #[test]
     fn xml_to_json_basic() {
         let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe123"><ide><cUF>35</cUF></ide></infNFe></NFe>"#;
