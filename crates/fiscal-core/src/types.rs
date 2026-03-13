@@ -3266,6 +3266,7 @@ pub struct CanaData {
 
 impl CanaData {
     /// Create a new sugarcane supply data entry.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         safra: impl Into<String>,
         referencia: impl Into<String>,

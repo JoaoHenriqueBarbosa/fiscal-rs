@@ -1108,6 +1108,165 @@ impl SefazClient {
         response_parsers::parse_cancellation_response(&raw)
     }
 
+    // ── RTC (Reforma Tributaria) typed convenience methods ──────────────
+
+    /// Send an RTC event via SVRS RecepcaoEvento.
+    async fn send_rtc_event(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        request_xml: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let raw = self
+            .send(SefazService::RecepcaoEvento, uf, environment, request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// RTC: Informacao de pagamento integral (tpEvento=112110).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_info_pagto_integral(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_info_pagto_integral(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Aceite de debito na apuracao (tpEvento=211128).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_aceite_debito(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        ind_aceitacao: u8,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_aceite_debito(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            ind_aceitacao,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Manifestacao transferencia credito IBS (tpEvento=212110).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_manif_transf_cred_ibs(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        ind_aceitacao: u8,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_manif_transf_cred_ibs(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            ind_aceitacao,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Manifestacao transferencia credito CBS (tpEvento=212120).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_manif_transf_cred_cbs(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        ind_aceitacao: u8,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_manif_transf_cred_cbs(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            ind_aceitacao,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Cancelamento de evento (tpEvento=110001).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_cancela_evento(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        tp_evento_aut: &str,
+        n_prot_evento: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_cancela_evento(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            tp_evento_aut,
+            n_prot_evento,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
+    /// RTC: Atualizacao da data de previsao de entrega (tpEvento=112150).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn rtc_atualizacao_data_entrega(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        seq: u32,
+        tax_id: &str,
+        ver_aplic: &str,
+        data_prevista: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let xml = request_builders::build_rtc_atualizacao_data_entrega(
+            access_key,
+            seq,
+            environment,
+            tax_id,
+            uf,
+            ver_aplic,
+            data_prevista,
+        );
+        self.send_rtc_event(uf, environment, &xml).await
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
     /// Send a raw request XML to a SEFAZ service using gzip compression.
