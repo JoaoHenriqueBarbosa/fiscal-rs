@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.5.0...fiscal-core-v0.5.1) - 2026-03-13
+
+### Fixed
+
+- *(clippy)* use str::repeat instead of manual iterator in pad_decimal
+- *(parity)* round 9 — 11 fixes from blind audit with real execution
+
 ## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.4.0...fiscal-core-v0.5.0) - 2026-03-13
 
 ### Fixed

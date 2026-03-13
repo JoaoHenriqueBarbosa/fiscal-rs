@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.1...fiscal-sefaz-v0.4.2) - 2026-03-13
+
+### Fixed
+
+- *(parity)* round 9 — 11 fixes from blind audit with real execution
+
 ## [0.4.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.0...fiscal-sefaz-v0.4.1) - 2026-03-13
 
 ### Other
