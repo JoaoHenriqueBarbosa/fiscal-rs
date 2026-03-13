@@ -837,6 +837,10 @@ pub struct PaymentCardDetail {
     pub card_brand: Option<String>,
     /// Authorization code from the acquirer (`cAut`).
     pub auth_code: Option<String>,
+    /// CNPJ of the payment beneficiary (`CNPJReceb`). Optional — NT 2023.004.
+    pub cnpj_receb: Option<String>,
+    /// Payment terminal identifier (`idTermPag`). Optional — NT 2023.004.
+    pub id_term_pag: Option<String>,
 }
 
 impl PaymentCardDetail {
@@ -866,6 +870,18 @@ impl PaymentCardDetail {
     /// Set the authorization code.
     pub fn auth_code(mut self, v: impl Into<String>) -> Self {
         self.auth_code = Some(v.into());
+        self
+    }
+
+    /// Set the CNPJ of the payment beneficiary (NT 2023.004).
+    pub fn cnpj_receb(mut self, v: impl Into<String>) -> Self {
+        self.cnpj_receb = Some(v.into());
+        self
+    }
+
+    /// Set the payment terminal identifier (NT 2023.004).
+    pub fn id_term_pag(mut self, v: impl Into<String>) -> Self {
+        self.id_term_pag = Some(v.into());
         self
     }
 }

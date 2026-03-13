@@ -76,6 +76,12 @@ pub fn build_pag(
                         if let Some(ref auth) = card.auth_code {
                             card_children.push(tag("cAut", &[], TagContent::Text(auth)));
                         }
+                        if let Some(ref cnpj_receb) = card.cnpj_receb {
+                            card_children.push(tag("CNPJReceb", &[], TagContent::Text(cnpj_receb)));
+                        }
+                        if let Some(ref id_term) = card.id_term_pag {
+                            card_children.push(tag("idTermPag", &[], TagContent::Text(id_term)));
+                        }
                         det_children.push(tag("card", &[], TagContent::Children(card_children)));
                     }
                 }
