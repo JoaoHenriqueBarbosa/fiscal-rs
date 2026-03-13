@@ -356,6 +356,48 @@ fn add_child_str(arr: &mut Vec<String>, name: &str, value: &str) {
     arr.push(format!("<{name}>{}</{name}>", escape_xml(value)));
 }
 
+/// Pad a decimal string value to the given number of decimal places.
+///
+/// If the value already has a decimal point, it pads (or truncates) to
+/// exactly `places` decimal digits. If the value has no decimal point, a
+/// `.` followed by `places` zeros is appended. Empty strings are returned
+/// unchanged.
+fn pad_decimal(value: &str, places: usize) -> String {
+    if value.is_empty() {
+        return String::new();
+    }
+    if let Some(dot_pos) = value.find('.') {
+        let integer = &value[..dot_pos];
+        let frac = &value[dot_pos + 1..];
+        if frac.len() >= places {
+            format!("{integer}.{}", &frac[..places])
+        } else {
+            let mut padded = String::from(frac);
+            while padded.len() < places {
+                padded.push('0');
+            }
+            format!("{integer}.{padded}")
+        }
+    } else {
+        let zeros: String = std::iter::repeat('0').take(places).collect();
+        format!("{value}.{zeros}")
+    }
+}
+
+/// Add a child element with a decimal value padded to `places` decimal digits.
+fn add_child_dec(arr: &mut Vec<String>, name: &str, value: Option<&str>, places: usize) {
+    if let Some(v) = value {
+        let formatted = pad_decimal(v, places);
+        arr.push(format!("<{name}>{}</{name}>", escape_xml(&formatted)));
+    }
+}
+
+/// Add a child element (from a non-empty string) with decimal padding.
+fn add_child_str_dec(arr: &mut Vec<String>, name: &str, value: &str, places: usize) {
+    let formatted = pad_decimal(value, places);
+    arr.push(format!("<{name}>{}</{name}>", escape_xml(&formatted)));
+}
+
 /// Accumulated data for a single det item.
 #[allow(dead_code)]
 struct ItemBuild {
@@ -974,6 +1016,28 @@ impl<'a> NFeParser<'a> {
                 add_child_str(&mut c, "cBenef", v);
             }
         }
+        // gCred — must come between cBenef and EXTIPI per XSD sequence
+        if let Some(gc) = &item.g_cred {
+            let mut gcc = Vec::new();
+            add_child(
+                &mut gcc,
+                "cCredPresumido",
+                gc.get("cCredPresumido").map(|s| s.as_str()),
+            );
+            add_child_dec(
+                &mut gcc,
+                "pCredPresumido",
+                gc.get("pCredPresumido").map(|s| s.as_str()),
+                4,
+            );
+            add_child_dec(
+                &mut gcc,
+                "vCredPresumido",
+                gc.get("vCredPresumido").map(|s| s.as_str()),
+                2,
+            );
+            c.push(xml_tag("gCred", &gcc.join("")));
+        }
         if let Some(v) = p.get("EXTIPI") {
             if !v.is_empty() {
                 add_child_str(&mut c, "EXTIPI", v);
@@ -981,35 +1045,35 @@ impl<'a> NFeParser<'a> {
         }
         add_child(&mut c, "CFOP", p.get("CFOP").map(|s| s.as_str()));
         add_child(&mut c, "uCom", p.get("uCom").map(|s| s.as_str()));
-        add_child(&mut c, "qCom", p.get("qCom").map(|s| s.as_str()));
-        add_child(&mut c, "vUnCom", p.get("vUnCom").map(|s| s.as_str()));
-        add_child(&mut c, "vProd", p.get("vProd").map(|s| s.as_str()));
+        add_child_dec(&mut c, "qCom", p.get("qCom").map(|s| s.as_str()), 4);
+        add_child_dec(&mut c, "vUnCom", p.get("vUnCom").map(|s| s.as_str()), 10);
+        add_child_dec(&mut c, "vProd", p.get("vProd").map(|s| s.as_str()), 2);
         add_child_str(
             &mut c,
             "cEANTrib",
             p.get("cEANTrib").map(|s| s.as_str()).unwrap_or("SEM GTIN"),
         );
         add_child(&mut c, "uTrib", p.get("uTrib").map(|s| s.as_str()));
-        add_child(&mut c, "qTrib", p.get("qTrib").map(|s| s.as_str()));
-        add_child(&mut c, "vUnTrib", p.get("vUnTrib").map(|s| s.as_str()));
+        add_child_dec(&mut c, "qTrib", p.get("qTrib").map(|s| s.as_str()), 4);
+        add_child_dec(&mut c, "vUnTrib", p.get("vUnTrib").map(|s| s.as_str()), 10);
         if let Some(v) = p.get("vFrete") {
             if !v.is_empty() {
-                add_child_str(&mut c, "vFrete", v);
+                add_child_str_dec(&mut c, "vFrete", v, 2);
             }
         }
         if let Some(v) = p.get("vSeg") {
             if !v.is_empty() {
-                add_child_str(&mut c, "vSeg", v);
+                add_child_str_dec(&mut c, "vSeg", v, 2);
             }
         }
         if let Some(v) = p.get("vDesc") {
             if !v.is_empty() {
-                add_child_str(&mut c, "vDesc", v);
+                add_child_str_dec(&mut c, "vDesc", v, 2);
             }
         }
         if let Some(v) = p.get("vOutro") {
             if !v.is_empty() {
-                add_child_str(&mut c, "vOutro", v);
+                add_child_str_dec(&mut c, "vOutro", v, 2);
             }
         }
         let ind_tot = p.get("indTot").map(|s| s.as_str()).unwrap_or("1");
@@ -1025,34 +1089,13 @@ impl<'a> NFeParser<'a> {
             }
         }
 
-        // gCred
-        if let Some(gc) = &item.g_cred {
-            let mut gcc = Vec::new();
-            add_child(
-                &mut gcc,
-                "cCredPresumido",
-                gc.get("cCredPresumido").map(|s| s.as_str()),
-            );
-            add_child(
-                &mut gcc,
-                "pCredPresumido",
-                gc.get("pCredPresumido").map(|s| s.as_str()),
-            );
-            add_child(
-                &mut gcc,
-                "vCredPresumido",
-                gc.get("vCredPresumido").map(|s| s.as_str()),
-            );
-            c.push(xml_tag("gCred", &gcc.join("")));
-        }
-
         xml_tag("prod", &c.join(""))
     }
 
     fn build_imposto(&self, item: &ItemBuild) -> String {
         let mut c = Vec::new();
         if !item.v_tot_trib.is_empty() {
-            add_child_str(&mut c, "vTotTrib", &item.v_tot_trib);
+            add_child_str_dec(&mut c, "vTotTrib", &item.v_tot_trib, 2);
         }
         if item.icms_data.is_some() {
             c.push(self.build_icms(item));
@@ -1131,7 +1174,12 @@ impl<'a> NFeParser<'a> {
         ] {
             if let Some(v) = d.get(field) {
                 if !v.is_empty() {
-                    add_child_str(&mut ic, field, v);
+                    let places = icms_field_decimal_places(field);
+                    if places > 0 {
+                        add_child_str_dec(&mut ic, field, v, places);
+                    } else {
+                        add_child_str(&mut ic, field, v);
+                    }
                 }
             }
         }
@@ -1160,13 +1208,13 @@ impl<'a> NFeParser<'a> {
             let mut tc = Vec::new();
             add_child_str(&mut tc, "CST", cst);
             if !item.ipi_v_bc.is_empty() {
-                add_child_str(&mut tc, "vBC", &item.ipi_v_bc);
+                add_child_str_dec(&mut tc, "vBC", &item.ipi_v_bc, 2);
             }
             if !item.ipi_p_ipi.is_empty() {
-                add_child_str(&mut tc, "pIPI", &item.ipi_p_ipi);
+                add_child_str_dec(&mut tc, "pIPI", &item.ipi_p_ipi, 4);
             }
             if !item.ipi_v_ipi.is_empty() {
-                add_child_str(&mut tc, "vIPI", &item.ipi_v_ipi);
+                add_child_str_dec(&mut tc, "vIPI", &item.ipi_v_ipi, 2);
             }
             c.push(xml_tag("IPITrib", &tc.join("")));
         } else if !cst.is_empty() {
@@ -1188,13 +1236,13 @@ impl<'a> NFeParser<'a> {
         let mut c = Vec::new();
         add_child_str(&mut c, "CST", cst);
         if !item.pis_v_bc.is_empty() {
-            add_child_str(&mut c, "vBC", &item.pis_v_bc);
+            add_child_str_dec(&mut c, "vBC", &item.pis_v_bc, 2);
         }
         if !item.pis_p_pis.is_empty() {
-            add_child_str(&mut c, "pPIS", &item.pis_p_pis);
+            add_child_str_dec(&mut c, "pPIS", &item.pis_p_pis, 4);
         }
         if !item.pis_v_pis.is_empty() {
-            add_child_str(&mut c, "vPIS", &item.pis_v_pis);
+            add_child_str_dec(&mut c, "vPIS", &item.pis_v_pis, 2);
         }
 
         xml_tag("PIS", &xml_tag(inner_tag, &c.join("")))
@@ -1212,13 +1260,13 @@ impl<'a> NFeParser<'a> {
         let mut c = Vec::new();
         add_child_str(&mut c, "CST", cst);
         if !item.cofins_v_bc.is_empty() {
-            add_child_str(&mut c, "vBC", &item.cofins_v_bc);
+            add_child_str_dec(&mut c, "vBC", &item.cofins_v_bc, 2);
         }
         if !item.cofins_p_cofins.is_empty() {
-            add_child_str(&mut c, "pCOFINS", &item.cofins_p_cofins);
+            add_child_str_dec(&mut c, "pCOFINS", &item.cofins_p_cofins, 4);
         }
         if !item.cofins_v_cofins.is_empty() {
-            add_child_str(&mut c, "vCOFINS", &item.cofins_v_cofins);
+            add_child_str_dec(&mut c, "vCOFINS", &item.cofins_v_cofins, 2);
         }
 
         xml_tag("COFINS", &xml_tag(inner_tag, &c.join("")))
@@ -1248,11 +1296,11 @@ impl<'a> NFeParser<'a> {
             "vOutro",
             "vNF",
         ] {
-            add_child(&mut c, field, t.get(field).map(|s| s.as_str()));
+            add_child_dec(&mut c, field, t.get(field).map(|s| s.as_str()), 2);
         }
         if let Some(v) = t.get("vTotTrib") {
             if !v.is_empty() {
-                add_child_str(&mut c, "vTotTrib", v);
+                add_child_str_dec(&mut c, "vTotTrib", v, 2);
             }
         }
         xml_tag("total", &xml_tag("ICMSTot", &c.join("")))
@@ -1322,12 +1370,12 @@ impl<'a> NFeParser<'a> {
             }
             if let Some(v) = vol.get("pesoL") {
                 if !v.is_empty() {
-                    add_child_str(&mut vc, "pesoL", v);
+                    add_child_str_dec(&mut vc, "pesoL", v, 3);
                 }
             }
             if let Some(v) = vol.get("pesoB") {
                 if !v.is_empty() {
-                    add_child_str(&mut vc, "pesoB", v);
+                    add_child_str_dec(&mut vc, "pesoB", v, 3);
                 }
             }
             c.push(xml_tag("vol", &vc.join("")));
@@ -1341,16 +1389,16 @@ impl<'a> NFeParser<'a> {
         if let Some(f) = &self.fat_fields {
             let mut fc = Vec::new();
             add_child(&mut fc, "nFat", f.get("nFat").map(|s| s.as_str()));
-            add_child(&mut fc, "vOrig", f.get("vOrig").map(|s| s.as_str()));
-            add_child(&mut fc, "vDesc", f.get("vDesc").map(|s| s.as_str()));
-            add_child(&mut fc, "vLiq", f.get("vLiq").map(|s| s.as_str()));
+            add_child_dec(&mut fc, "vOrig", f.get("vOrig").map(|s| s.as_str()), 2);
+            add_child_dec(&mut fc, "vDesc", f.get("vDesc").map(|s| s.as_str()), 2);
+            add_child_dec(&mut fc, "vLiq", f.get("vLiq").map(|s| s.as_str()), 2);
             c.push(xml_tag("fat", &fc.join("")));
         }
         for dup in &self.dup_items {
             let mut dc = Vec::new();
             add_child(&mut dc, "nDup", dup.get("nDup").map(|s| s.as_str()));
             add_child(&mut dc, "dVenc", dup.get("dVenc").map(|s| s.as_str()));
-            add_child(&mut dc, "vDup", dup.get("vDup").map(|s| s.as_str()));
+            add_child_dec(&mut dc, "vDup", dup.get("vDup").map(|s| s.as_str()), 2);
             c.push(xml_tag("dup", &dc.join("")));
         }
         xml_tag("cobr", &c.join(""))
@@ -1371,7 +1419,7 @@ impl<'a> NFeParser<'a> {
                     add_child_str(&mut dc, "xPag", v);
                 }
             }
-            add_child(&mut dc, "vPag", dp.get("vPag").map(|s| s.as_str()));
+            add_child_dec(&mut dc, "vPag", dp.get("vPag").map(|s| s.as_str()), 2);
             if let Some(v) = dp.get("dPag") {
                 if !v.is_empty() {
                     add_child_str(&mut dc, "dPag", v);
@@ -1387,9 +1435,11 @@ impl<'a> NFeParser<'a> {
                     add_child_str(&mut dc, "UFPag", v);
                 }
             }
-            // Card group
+            // Card group – only generate <card> for valid XSD values (1 or 2).
+            // tpIntegra=0 is not part of the NF-e enumeration; PHP's empty("0")
+            // also suppresses it, so we replicate that behaviour here.
             if let Some(tp) = dp.get("tpIntegra") {
-                if !tp.is_empty() {
+                if tp == "1" || tp == "2" {
                     let mut cc = Vec::new();
                     add_child_str(&mut cc, "tpIntegra", tp);
                     if let Some(v) = dp.get("CNPJ") {
@@ -1425,7 +1475,7 @@ impl<'a> NFeParser<'a> {
         if let Some(pf) = &self.pag_fields {
             if let Some(v) = pf.get("vTroco") {
                 if !v.is_empty() {
-                    add_child_str(&mut c, "vTroco", v);
+                    add_child_str_dec(&mut c, "vTroco", v, 2);
                 }
             }
         }
@@ -1460,6 +1510,22 @@ fn icms_group_tag(cst: &str) -> String {
         "70" => "ICMS70".into(),
         "90" => "ICMS90".into(),
         _ => format!("ICMS{cst}"),
+    }
+}
+
+/// Return the number of decimal places for an ICMS field, or 0 if it is not a
+/// decimal field (e.g. `modBC`, `motDesICMS`).
+fn icms_field_decimal_places(field: &str) -> usize {
+    match field {
+        // Percentage fields → 4 decimal places
+        "pRedBC" | "pICMS" | "pDif" | "pFCP" | "pMVAST" | "pRedBCST" | "pICMSST" | "pFCPST"
+        | "pST" | "pFCPSTRet" | "pRedBCEfet" | "pICMSEfet" | "pBCOp" | "pCredSN" => 4,
+        // Value fields → 2 decimal places
+        "vBC" | "vICMS" | "vICMSOp" | "vICMSDif" | "vBCFCP" | "vFCP" | "vBCST" | "vICMSST"
+        | "vBCFCPST" | "vFCPST" | "vICMSDeson" | "vBCSTRet" | "vICMSSTRet" | "vICMSSubstituto"
+        | "vBCFCPSTRet" | "vFCPSTRet" | "vBCEfet" | "vICMSEfet" | "vCredICMSSN" => 2,
+        // Non-decimal fields
+        _ => 0,
     }
 }
 
@@ -1533,8 +1599,15 @@ fn structure_400() -> HashMap<&'static str, &'static str> {
         "NOTAFISCAL" => "NOTAFISCAL|qtd|",
         "A" => "A|versao|Id|pk_nItem|",
         "B" => "B|cUF|cNF|natOp|mod|serie|nNF|dhEmi|dhSaiEnt|tpNF|idDest|cMunFG|cMunFGIBS|tpImp|tpEmis|cDV|tpAmb|finNFe|indFinal|indPres|indIntermed|procEmi|verProc|dhCont|xJust|",
+        "B31" => "B31|tpEnteGov|pRedutor|tpOperGov|",
         "BA" => "BA|",
         "BA02" => "BA02|refNFe|",
+        "BA03" => "BA03|cUF|AAMM|CNPJ|mod|serie|nNF|",
+        "BA10" => "BA10|cUF|AAMM|IE|mod|serie|nNF|",
+        "BA13" => "BA13|CNPJ|",
+        "BA14" => "BA14|CPF|",
+        "BA19" => "B19|refCTe|",
+        "BA20" => "BA20|mod|nECF|nCOO|",
         "BB" => "BB|",
         "BB02" => "BB02|refNFe|",
         "C" => "C|xNome|xFant|IE|IEST|IM|CNAE|CRT|",
@@ -1547,12 +1620,34 @@ fn structure_400() -> HashMap<&'static str, &'static str> {
         "E03" => "E03|CPF|",
         "E03A" => "E03a|idEstrangeiro|",
         "E05" => "E05|xLgr|nro|xCpl|xBairro|cMun|xMun|UF|CEP|cPais|xPais|fone|",
+        "F" => "F|xLgr|nro|xCpl|xBairro|cMun|xMun|UF|CEP|cPais|xPais|fone|email|IE|",
+        "F02" => "F02|CNPJ|",
+        "F02A" => "F02a|CPF|",
+        "F02B" => "F02b|xNome|",
+        "G" => "G|xLgr|nro|xCpl|xBairro|cMun|xMun|UF|CEP|cPais|xPais|fone|email|IE|",
+        "G02" => "G02|CNPJ|",
+        "G02A" => "G02a|CPF|",
+        "G02B" => "G02b|xNome|",
+        "GA" => "GA|",
+        "GA02" => "GA02|CNPJ|",
+        "GA03" => "GA03|CPF|",
         "H" => "H|item|infAdProd|",
         "I" => "I|cProd|cEAN|xProd|NCM|cBenef|EXTIPI|CFOP|uCom|qCom|vUnCom|vProd|cEANTrib|uTrib|qTrib|vUnTrib|vFrete|vSeg|vDesc|vOutro|indTot|xPed|nItemPed|nFCI|indBemMovelUsado|",
         "I05A" => "I05A|NVE|",
         "I05C" => "I05C|CEST|indEscala|CNPJFab|",
         "I05G" => "I05C|cCredPresumido|pCredPresumido|vCredPresumido|",
+        "I18" => "I18|nDI|dDI|xLocDesemb|UFDesemb|dDesemb|tpViaTransp|vAFRMM|tpIntermedio|CNPJ|UFTerceiro|cExportador|",
+        "I25" => "I25|nAdicao|nSeqAdic|cFabricante|vDescDI|nDraw|",
+        "I50" => "I50|nDraw|",
+        "I52" => "I52|nRE|chNFe|qExport|",
         "I80" => "I80|nLote|qLote|dFab|dVal|cAgreg|",
+        "JA" => "JA|tpOp|chassi|cCor|xCor|pot|cilin|pesoL|pesoB|nSerie|tpComb|nMotor|CMT|dist|anoMod|anoFab|tpPint|tpVeic|espVeic|VIN|condVeic|cMod|cCorDENATRAN|lota|tpRest|",
+        "K" => "K|cProdANVISA|vPMC|xMotivoIsencao|",
+        "L" => "L|tpArma|nSerie|nCano|descr|",
+        "LA" => "LA|cProdANP|descANP|pGLP|pGNn|pGNi|vPart|CODIF|qTemp|UFCons|",
+        "LA07" => "LA07|qBCProd|vAliqProd|vCIDE|",
+        "LA11" => "LA11|nBico|nBomba|nTanque|vEncIni|vEncFin|",
+        "LB" => "LB|nRECOPI|",
         "M" => "M|vTotTrib|",
         "N" => "N|",
         "N02" => "N02|orig|CST|modBC|vBC|pICMS|vICMS|pFCP|vFCP|",
@@ -1564,29 +1659,80 @@ fn structure_400() -> HashMap<&'static str, &'static str> {
         "N08" => "N08|orig|CST|vBCSTRet|pST|vICMSSTRet|vBCFCPSTRet|pFCPSTRet|vFCPSTRet|pRedBCEfet|vBCEfet|pICMSEfet|vICMSEfet|vICMSSubstituto|",
         "N09" => "N09|orig|CST|modBC|pRedBC|vBC|pICMS|vICMS|vBCFCP|pFCP|vFCP|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|vBCFCPST|pFCPST|vFCPST|vICMSDeson|motDesICMS|",
         "N10" => "N10|orig|CST|modBC|vBC|pRedBC|pICMS|vICMS|vBCFCP|pFCP|vFCP|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|vBCFCPST|pFCPST|vFCPST|vICMSDeson|motDesICMS|",
+        "N10A" => "N10a|orig|CST|modBC|vBC|pRedBC|pICMS|vICMS|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|pBCOp|UFST|",
+        "N10B" => "N10b|orig|CST|vBCSTRet|vICMSSTRet|vBCSTDest|vICMSSTDest|vBCFCPSTRet|pFCPSTRet|vFCPSTRet|pST|vICMSSubstituto|pRedBCEfet|vBCEfet|pICMSEfet|vICMSEfet|",
+        "N10C" => "N10c|orig|CSOSN|pCredSN|vCredICMSSN|",
+        "N10D" => "N10d|orig|CSOSN|",
+        "N10E" => "N10e|orig|CSOSN|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|vBCFCPST|pFCPST|vFCPST|pCredSN|vCredICMSSN|",
+        "N10F" => "N10f|orig|CSOSN|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|vBCFCPST|pFCPST|vFCPST|",
+        "N10G" => "N10g|orig|CSOSN|vBCSTRet|pST|vICMSSTRet|vBCFCPSTRet|pFCPSTRet|vFCPSTRet|pRedBCEfet|vBCEfet|pICMSEfet|vICMSEfet|vICMSSubstituto|",
+        "N10H" => "N10h|orig|CSOSN|modBC|vBC|pRedBC|pICMS|vICMS|modBCST|pMVAST|pRedBCST|vBCST|pICMSST|vICMSST|vBCFCPST|pFCPST|vFCPST|pCredSN|vCredICMSSN|",
+        "NA" => "NA|vBCUFDest|vBCFCPUFDest|pFCPUFDest|pICMSUFDest|pICMSInter|pICMSInterPart|vFCPUFDest|vICMSUFDest|vICMSUFRemet|",
         "O" => "O|CNPJProd|cSelo|qSelo|cEnq|",
         "O07" => "O07|CST|vIPI|",
         "O08" => "O08|CST|",
         "O10" => "O10|vBC|pIPI|",
+        "O11" => "O11|qUnid|vUnid|",
+        "P" => "P|vBC|vDespAdu|vII|vIOF|",
         "Q" => "Q|",
         "Q02" => "Q02|CST|vBC|pPIS|vPIS|",
+        "Q03" => "Q03|CST|qBCProd|vAliqProd|vPIS|",
         "Q04" => "Q04|CST|",
+        "Q05" => "Q05|CST|vPIS|",
+        "Q07" => "Q07|vBC|pPIS|",
+        "Q10" => "Q10|qBCProd|vAliqProd|",
+        "R" => "R|vPIS|",
+        "R02" => "R02|vBC|pPIS|",
+        "R04" => "R04|qBCProd|vAliqProd|vPIS|",
         "S" => "S|",
         "S02" => "S02|CST|vBC|pCOFINS|vCOFINS|",
+        "S03" => "S03|CST|qBCProd|vAliqProd|vCOFINS|",
         "S04" => "S04|CST|",
+        "S05" => "S05|CST|vCOFINS|",
+        "S07" => "S07|vBC|pCOFINS|",
+        "S09" => "S09|qBCProd|vAliqProd|",
+        "T" => "T|vCOFINS|",
+        "T02" => "T02|vBC|pCOFINS|",
+        "T04" => "T04|qBCProd|vAliqProd|",
+        "U" => "U|vBC|vAliq|vISSQN|cMunFG|cListServ|vDeducao|vOutro|vDescIncond|vDescCond|vISSRet|indISS|cServico|cMun|cPais|nProcesso|indIncentivo|",
+        "UA" => "UA|pDevol|vIPIDevol|",
+        "UB" => "UB|",
+        "UB01" => "UB01|CSTIS|cClassTribIS|vBCIS|pIS|pISEspec|uTrib|qTrib|vIS|",
+        "UB12" => "UB12|CST|cClassTrib|vBC|pIBSUF|vIBSUF|pIBSMun|vIBSMun|pCBS|vCBS|vIBS|",
+        "UB73" => "UB73|cCredPres|pCredPres|vCredPres|vCredPresCondSus|",
+        "UB78" => "UB78|cCredPres|pCredPres|vCredPres|vCredPresCondSus|",
         "W" => "W|",
         "W02" => "W02|vBC|vICMS|vICMSDeson|vFCP|vBCST|vST|vFCPST|vFCPSTRet|vProd|vFrete|vSeg|vDesc|vII|vIPI|vIPIDevol|vPIS|vCOFINS|vOutro|vNF|vTotTrib|vFCPUFDest|vICMSUFDest|vICMSUFRemet|",
+        "W03" => "W03|vIBS|vCBS|vIS|vBCIBSCBS|gIBS_vIBS|gIBS_vCredPres|gIBS_vCredPresCondSus|gIBSUF_vDif|gIBSUF_vDevTrib|gIBSUF_vIBSUF|gIBSMun_vDif|gIBSMun_vDevTrib|gIBSMun_vIBSMun|gCBS_vDif|gCBS_vDevTrib|gCBS_vCBS|gCBS_vCredPres|gCBS_vCredPresCondSus|gMono_vIBSMono|gMono_vCBSMono|gMono_vIBSMonoReten|gMono_vCBSMonoReten|gMono_vIBSMonoRet|gMono_vCBSMonoRet|",
+        "W17" => "W17|vServ|vBC|vISS|vPIS|vCOFINS|dCompet|vDeducao|vOutro|vDescIncond|vDescCond|vISSRet|cRegTrib|",
+        "W23" => "W23|vRetPIS|vRetCOFINS|vRetCSLL|vBCIRRF|vIRRF|vBCRetPrev|vRetPrev|",
         "X" => "X|modFrete|",
         "X03" => "X03|xNome|IE|xEnder|xMun|UF|",
         "X04" => "X04|CNPJ|",
         "X05" => "X05|CPF|",
+        "X11" => "X11|vServ|vBCRet|pICMSRet|vICMSRet|CFOP|cMunFG|",
+        "X18" => "X18|placa|UF|RNTC|",
+        "X22" => "X22|placa|UF|RNTC|",
+        "X25A" => "X25a|vagao|",
+        "X25B" => "X25b|balsa|",
         "X26" => "X26|qVol|esp|marca|nVol|pesoL|pesoB|",
+        "X33" => "X33|nLacre|",
         "Y" => "Y|vTroco|",
         "Y02" => "Y02|nFat|vOrig|vDesc|vLiq|",
         "Y07" => "Y07|nDup|dVenc|vDup|",
         "YA" => "YA|indPag|tPag|vPag|CNPJ|tBand|cAut|tpIntegra|xPag|",
+        "YB" => "YB|CNPJ|idCadIntTran|",
         "Z" => "Z|infAdFisco|infCpl|",
-        "ZD" => "ZD|CNPJ|xContato|email|fone|CSRT|idCSRT|"
+        "Z04" => "Z04|xCampo|xTexto|",
+        "Z07" => "Z07|xCampo|xTexto|",
+        "Z10" => "Z10|nProc|indProc|",
+        "ZA" => "ZA|UFSaidaPais|xLocExporta|xLocDespacho|",
+        "ZB" => "ZB|xNEmp|xPed|xCont|",
+        "ZC" => "ZC|safra|ref|qTotMes|qTotAnt|qTotGer|vFor|vTotDed|vLiqFor|",
+        "ZC04" => "ZC04|dia|qtde|",
+        "ZC10" => "ZC10|xDed|vDed|",
+        "ZD" => "ZD|CNPJ|xContato|email|fone|CSRT|idCSRT|",
+        "ZX01" => "ZX01|qrcode|urlChave|"
     }
 }
 

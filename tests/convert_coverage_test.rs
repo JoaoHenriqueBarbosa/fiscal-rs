@@ -505,6 +505,36 @@ fn ya04_card_without_cnpj_receb() {
     assert!(!xml.contains("<idTermPag>"), "idTermPag should be absent");
 }
 
+// tpIntegra=0 must NOT generate <card> (value 0 is outside the XSD enumeration)
+#[test]
+fn ya04_tp_integra_zero_no_card() {
+    // SEBRAE layout (YA01 + YA04)
+    let txt = minimal_txt_sebrae().replace(
+        "YA01||90|18.08|\n",
+        "YA01||03|18.08|\nYA04|0|12345678000199|02|AUTH000|||\n",
+    );
+    let xml = fiscal::convert::txt_to_xml(&txt, "sebrae").unwrap();
+    assert!(
+        !xml.contains("<card>"),
+        "tpIntegra=0 should NOT produce a <card> element"
+    );
+    assert!(
+        !xml.contains("<tpIntegra>"),
+        "tpIntegra=0 should NOT produce a <tpIntegra> element"
+    );
+}
+
+#[test]
+fn ya_tp_integra_zero_no_card_standard_layout() {
+    // Standard layout (YA with inline card fields) – tpIntegra is "0"
+    let txt = minimal_txt_v400("");
+    let xml = fiscal::convert::txt_to_xml(&txt, "local_v12").unwrap();
+    assert!(
+        !xml.contains("<card>"),
+        "tpIntegra=0 in standard YA should NOT produce a <card> element"
+    );
+}
+
 // Access key validation
 #[test]
 fn invalid_access_key() {
@@ -535,6 +565,57 @@ fn local_fixture_full() {
     assert!(x.contains("<gCred>"));
     assert!(x.contains("<ICMS70>"));
     assert_eq!(x.matches("<det ").count(), 4);
+}
+
+// gCred ordering — must be between cBenef and EXTIPI/CFOP per XSD sequence
+#[test]
+fn gcred_order_between_cbenef_and_extipi() {
+    // I line with cBenef="BEN001" and EXTIPI="01", plus I05G for gCred
+    let t = "NOTAFISCAL|1|\nA|4.00|NFe35180825028332000105550010000005021000005010||\nB|35|00000501|VENDA|55|1|502|2018-08-13T17:28:10-03:00||1|1|3550308|1|1|8|1|1|0|3||0|3.2.1.1|||\nC|E|F|1|||1|3|\nC02|25028332000105|\nC05|R|1||C|3|S|SP|0||||\nE|D|1|||||\nE02|1|\nE05|R|1||B|3|S|SP|0|1|B||\nH|1||\nI|1001|7897|Produto|84715010|BEN001|01|5102|UN|1.0000|10.00|10.00|7897|UN|1.0000|10.00|||||1||||\nI05G|CRED01|10.00|100.00|\nM|0|\nN|\nN02|0|00|3|10|18|1.80|0|0|\nQ|\nQ02|01|10|0.65|0.07|\nS|\nS02|01|10|3|0.30|\nW|\nW02|10|1|0|0|0|0|0|0|10|0|0|0|0|0|0|0|0|0|10|0|0|0|0|\nX|9|\nY|0|\nYA|0|01|10||00||0||\nZ|||\n";
+    let x = fiscal::convert::txt_to_xml(t, "local_v12").unwrap();
+
+    let cbenef_pos = x.find("<cBenef>").expect("cBenef must exist");
+    let gcred_pos = x.find("<gCred>").expect("gCred must exist");
+    let extipi_pos = x.find("<EXTIPI>").expect("EXTIPI must exist");
+    let cfop_pos = x.find("<CFOP>").expect("CFOP must exist");
+
+    assert!(
+        gcred_pos > cbenef_pos,
+        "gCred ({gcred_pos}) must come after cBenef ({cbenef_pos})"
+    );
+    assert!(
+        gcred_pos < extipi_pos,
+        "gCred ({gcred_pos}) must come before EXTIPI ({extipi_pos})"
+    );
+    assert!(
+        gcred_pos < cfop_pos,
+        "gCred ({gcred_pos}) must come before CFOP ({cfop_pos})"
+    );
+}
+
+#[test]
+fn gcred_order_before_cfop_no_extipi() {
+    // I line with cBenef="BEN001" but NO EXTIPI, plus I05G for gCred
+    let t = "NOTAFISCAL|1|\nA|4.00|NFe35180825028332000105550010000005021000005010||\nB|35|00000501|VENDA|55|1|502|2018-08-13T17:28:10-03:00||1|1|3550308|1|1|8|1|1|0|3||0|3.2.1.1|||\nC|E|F|1|||1|3|\nC02|25028332000105|\nC05|R|1||C|3|S|SP|0||||\nE|D|1|||||\nE02|1|\nE05|R|1||B|3|S|SP|0|1|B||\nH|1||\nI|1001|7897|Produto|84715010|BEN001||5102|UN|1.0000|10.00|10.00|7897|UN|1.0000|10.00|||||1||||\nI05G|CRED02|5.50|50.00|\nM|0|\nN|\nN02|0|00|3|10|18|1.80|0|0|\nQ|\nQ02|01|10|0.65|0.07|\nS|\nS02|01|10|3|0.30|\nW|\nW02|10|1|0|0|0|0|0|0|10|0|0|0|0|0|0|0|0|0|10|0|0|0|0|\nX|9|\nY|0|\nYA|0|01|10||00||0||\nZ|||\n";
+    let x = fiscal::convert::txt_to_xml(t, "local_v12").unwrap();
+
+    let cbenef_pos = x.find("<cBenef>").expect("cBenef must exist");
+    let gcred_pos = x.find("<gCred>").expect("gCred must exist");
+    let cfop_pos = x.find("<CFOP>").expect("CFOP must exist");
+
+    assert!(
+        gcred_pos > cbenef_pos,
+        "gCred ({gcred_pos}) must come after cBenef ({cbenef_pos})"
+    );
+    assert!(
+        gcred_pos < cfop_pos,
+        "gCred ({gcred_pos}) must come before CFOP ({cfop_pos})"
+    );
+    // EXTIPI should not be present
+    assert!(
+        x.find("<EXTIPI>").is_none(),
+        "EXTIPI should not be present when empty"
+    );
 }
 
 // Total vTotTrib

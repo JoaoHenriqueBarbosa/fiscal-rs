@@ -2422,7 +2422,7 @@ mod ipi_builders_ported {
         let xml = build_ipi_xml(
             &IpiData::new("50", "999")
                 .v_bc(Cents(10000))
-                .p_ipi(Rate(50000))
+                .p_ipi(Rate(500))
                 .v_ipi(Cents(500)),
         );
 
@@ -2445,7 +2445,7 @@ mod ipi_builders_ported {
         let xml = build_ipi_xml(
             &IpiData::new("00", "999")
                 .v_bc(Cents(20000))
-                .p_ipi(Rate(100000))
+                .p_ipi(Rate(1000))
                 .v_ipi(Cents(2000)),
         );
 
@@ -2479,7 +2479,7 @@ mod ipi_builders_ported {
         let xml = build_ipi_xml(
             &IpiData::new("99", "311")
                 .v_bc(Cents(50000))
-                .p_ipi(Rate(150000))
+                .p_ipi(Rate(1500))
                 .v_ipi(Cents(7500)),
         );
 
@@ -2524,7 +2524,7 @@ mod ipi_builders_ported {
                 .c_selo("SELO123")
                 .q_selo(10)
                 .v_bc(Cents(10000))
-                .p_ipi(Rate(50000))
+                .p_ipi(Rate(500))
                 .v_ipi(Cents(500)),
         );
 

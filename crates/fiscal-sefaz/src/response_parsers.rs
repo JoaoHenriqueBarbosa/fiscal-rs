@@ -15,6 +15,10 @@ pub struct AuthorizationResponse {
     pub protocol_xml: Option<String>,
     /// Timestamp when SEFAZ received/authorized the document (`dhRecbto`).
     pub authorized_at: Option<String>,
+    /// Receipt number (`nRec`), present for asynchronous batch submissions
+    /// (`indSinc=0`). Use this with [`SefazClient::consult_receipt`] to
+    /// poll for the batch processing result.
+    pub receipt_number: Option<String>,
 }
 
 /// Parsed result of a SEFAZ service status (`retConsStatServ`) response.
@@ -205,6 +209,10 @@ pub struct ConsultaSituacaoResponse {
 pub fn parse_autorizacao_response(xml: &str) -> Result<AuthorizationResponse, FiscalError> {
     let body = strip_soap_envelope(xml);
 
+    // Extract receipt number (nRec) at the batch level — present for
+    // asynchronous submissions (indSinc=0).
+    let receipt_number = extract_xml_tag_value(&body, "nRec");
+
     // Try to find <protNFe> section first — it carries per-NF-e result
     if let Some(prot_xml) = extract_raw_tag(&body, "protNFe") {
         let inf_prot = extract_inner_content(&prot_xml, "infProt").unwrap_or(&prot_xml);
@@ -221,6 +229,7 @@ pub fn parse_autorizacao_response(xml: &str) -> Result<AuthorizationResponse, Fi
             protocol_number,
             protocol_xml: Some(prot_xml.to_string()),
             authorized_at,
+            receipt_number,
         });
     }
 
@@ -237,6 +246,7 @@ pub fn parse_autorizacao_response(xml: &str) -> Result<AuthorizationResponse, Fi
         protocol_number: None,
         protocol_xml: None,
         authorized_at: None,
+        receipt_number,
     })
 }
 
@@ -871,6 +881,38 @@ mod tests {
     fn authorization_rejects_malformed_xml() {
         let err = parse_autorizacao_response("<garbage>no cstat</garbage>").unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn parses_authorization_async_receipt_number() {
+        let xml = concat!(
+            "<retEnviNFe><cStat>103</cStat>",
+            "<xMotivo>Lote recebido com sucesso</xMotivo>",
+            "<nRec>351000000012345</nRec>",
+            "</retEnviNFe>"
+        );
+        let resp = parse_autorizacao_response(xml).unwrap();
+        assert_eq!(resp.status_code, "103");
+        assert_eq!(resp.status_message, "Lote recebido com sucesso");
+        assert_eq!(resp.receipt_number.as_deref(), Some("351000000012345"));
+        assert!(resp.protocol_number.is_none());
+    }
+
+    #[test]
+    fn parses_authorization_sync_no_receipt() {
+        let xml = concat!(
+            "<retEnviNFe><cStat>104</cStat>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado o uso da NF-e</xMotivo>",
+            "<nProt>135220000009921</nProt>",
+            "<dhRecbto>2024-05-31T12:00:00-03:00</dhRecbto>",
+            "</infProt></protNFe></retEnviNFe>"
+        );
+        let resp = parse_autorizacao_response(xml).unwrap();
+        assert_eq!(resp.status_code, "100");
+        // Sync responses typically don't have nRec
+        assert!(resp.receipt_number.is_none());
     }
 
     // ── parse_cancellation_response ─────────────────────────────────

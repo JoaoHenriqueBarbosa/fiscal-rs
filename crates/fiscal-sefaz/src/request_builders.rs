@@ -184,6 +184,67 @@ pub fn build_autorizacao_request(xml: &str, lot_id: &str, sync: bool, _compresse
     )
 }
 
+/// Build a SEFAZ batch authorization request XML (`<enviNFe>`) for multiple NF-e documents.
+///
+/// Wraps one or more signed NF-e XML documents in a single `<enviNFe>` envelope
+/// for batch submission to the SEFAZ authorization web service.
+///
+/// When `ind_sinc` is `0` (asynchronous), SEFAZ returns a receipt number (`nRec`)
+/// that must be polled via [`build_consulta_recibo_request`] to obtain the result.
+/// When `ind_sinc` is `1` (synchronous), only a single NF-e is allowed per the
+/// MOC specification.
+///
+/// This matches the PHP `sefazEnviaLote()` method from `Tools.php`.
+///
+/// # Arguments
+///
+/// * `xmls` - Slice of signed NF-e XML strings. Each one is stripped of its
+///   XML declaration automatically.
+/// * `id_lote` - Lot identifier for the submission batch.
+/// * `ind_sinc` - Synchronous indicator: `0` for asynchronous (batch),
+///   `1` for synchronous (single document).
+///
+/// # Errors
+///
+/// Returns [`FiscalError::InvalidTaxData`] if:
+/// - `xmls` is empty
+/// - `xmls` has more than 50 documents
+/// - `ind_sinc` is `1` but `xmls` has more than 1 document
+pub fn build_autorizacao_batch_request(
+    xmls: &[&str],
+    id_lote: &str,
+    ind_sinc: u8,
+) -> Result<String, fiscal_core::FiscalError> {
+    if xmls.is_empty() {
+        return Err(fiscal_core::FiscalError::InvalidTaxData(
+            "At least one NF-e XML is required for batch authorization".into(),
+        ));
+    }
+    if xmls.len() > 50 {
+        return Err(fiscal_core::FiscalError::InvalidTaxData(format!(
+            "Batch authorization accepts at most 50 NF-e documents, got {}",
+            xmls.len()
+        )));
+    }
+    if ind_sinc == 1 && xmls.len() > 1 {
+        return Err(fiscal_core::FiscalError::InvalidTaxData(format!(
+            "Synchronous mode (indSinc=1) accepts only 1 NF-e, got {}",
+            xmls.len()
+        )));
+    }
+
+    let mut nfe_concat = String::new();
+    for xml in xmls {
+        let content = xml.trim().trim_start_matches(|c: char| c != '<');
+        let stripped = strip_xml_declaration(content);
+        nfe_concat.push_str(stripped);
+    }
+
+    Ok(format!(
+        "<enviNFe xmlns=\"{NFE_NAMESPACE}\" versao=\"{NFE_VERSION}\"><idLote>{id_lote}</idLote><indSinc>{ind_sinc}</indSinc>{nfe_concat}</enviNFe>"
+    ))
+}
+
 /// Build a SEFAZ service status request XML (`<consStatServ>`).
 ///
 /// Queries the operational status of a SEFAZ web service for the given state.
@@ -4836,5 +4897,85 @@ mod tests {
         assert!(xml.contains("<tpAutor>1</tpAutor>"));
         assert!(xml.contains("<verAplic>APP-1.0</verAplic>"));
         assert!(xml.contains("<dPrevEntrega>2026-06-15</dPrevEntrega>"));
+    }
+
+    // ── build_autorizacao_batch_request ──────────────────────────────
+
+    #[test]
+    fn batch_request_single_xml() {
+        let nfe = "<NFe><infNFe>data1</infNFe></NFe>";
+        let result = build_autorizacao_batch_request(&[nfe], "123", 0).unwrap();
+        assert!(result.contains("<idLote>123</idLote>"));
+        assert!(result.contains("<indSinc>0</indSinc>"));
+        assert!(result.contains("<NFe><infNFe>data1</infNFe></NFe>"));
+        assert!(
+            result.starts_with(
+                "<enviNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\">"
+            )
+        );
+        assert!(result.ends_with("</enviNFe>"));
+    }
+
+    #[test]
+    fn batch_request_multiple_xmls() {
+        let nfe1 = "<NFe><infNFe>data1</infNFe></NFe>";
+        let nfe2 = "<NFe><infNFe>data2</infNFe></NFe>";
+        let nfe3 = "<NFe><infNFe>data3</infNFe></NFe>";
+        let result = build_autorizacao_batch_request(&[nfe1, nfe2, nfe3], "456", 0).unwrap();
+        assert!(result.contains("<indSinc>0</indSinc>"));
+        assert!(result.contains("<NFe><infNFe>data1</infNFe></NFe><NFe><infNFe>data2</infNFe></NFe><NFe><infNFe>data3</infNFe></NFe>"));
+    }
+
+    #[test]
+    fn batch_request_strips_xml_declarations() {
+        let nfe1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><NFe><infNFe>d1</infNFe></NFe>";
+        let nfe2 = "<?xml version=\"1.0\"?><NFe><infNFe>d2</infNFe></NFe>";
+        let result = build_autorizacao_batch_request(&[nfe1, nfe2], "789", 0).unwrap();
+        assert!(!result.contains("<?xml"));
+        assert!(result.contains("<NFe><infNFe>d1</infNFe></NFe>"));
+        assert!(result.contains("<NFe><infNFe>d2</infNFe></NFe>"));
+    }
+
+    #[test]
+    fn batch_request_sync_single_ok() {
+        let nfe = "<NFe><infNFe>data</infNFe></NFe>";
+        let result = build_autorizacao_batch_request(&[nfe], "1", 1).unwrap();
+        assert!(result.contains("<indSinc>1</indSinc>"));
+    }
+
+    #[test]
+    fn batch_request_sync_multiple_rejected() {
+        let nfe1 = "<NFe>1</NFe>";
+        let nfe2 = "<NFe>2</NFe>";
+        let err = build_autorizacao_batch_request(&[nfe1, nfe2], "1", 1).unwrap_err();
+        assert!(
+            matches!(err, fiscal_core::FiscalError::InvalidTaxData(_)),
+            "expected InvalidTaxData, got: {err}"
+        );
+    }
+
+    #[test]
+    fn batch_request_rejects_empty() {
+        let err = build_autorizacao_batch_request(&[], "1", 0).unwrap_err();
+        assert!(matches!(err, fiscal_core::FiscalError::InvalidTaxData(_)));
+    }
+
+    #[test]
+    fn batch_request_rejects_more_than_50() {
+        let xmls: Vec<&str> = (0..51).map(|_| "<NFe>x</NFe>").collect();
+        let err = build_autorizacao_batch_request(&xmls, "1", 0).unwrap_err();
+        assert!(matches!(err, fiscal_core::FiscalError::InvalidTaxData(_)));
+        let msg = err.to_string();
+        assert!(
+            msg.contains("50"),
+            "error should mention the 50-doc limit: {msg}"
+        );
+    }
+
+    #[test]
+    fn batch_request_accepts_exactly_50() {
+        let xmls: Vec<&str> = (0..50).map(|_| "<NFe>x</NFe>").collect();
+        let result = build_autorizacao_batch_request(&xmls, "1", 0);
+        assert!(result.is_ok());
     }
 }

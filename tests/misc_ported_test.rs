@@ -169,20 +169,28 @@ mod standardize_test {
     #[test]
     fn convert_nfe_xml_to_array_object() {
         // testToArray: convert NFe XML to array/object
+        // Root NFe is unwrapped — top-level key is infNFe
         let xml = std::fs::read_to_string(nfe_xml_path()).expect("Failed to read NFe XML");
         let json = fiscal::standardize::xml_to_json(&xml).expect("xml_to_json failed");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON parse failed");
         assert!(parsed.is_object());
-        assert!(parsed.get("NFe").is_some());
+        assert!(
+            parsed.get("infNFe").is_some(),
+            "infNFe at top level after NFe unwrap"
+        );
     }
 
     #[test]
     fn convert_nfe_xml_to_std_object() {
         // testToStd: convert NFe 4.0 XML to stdClass-like object
+        // Root NFe is unwrapped — top-level key is infNFe
         let xml = std::fs::read_to_string(nfe_xml_path()).expect("Failed to read NFe XML");
         let json = fiscal::standardize::xml_to_json(&xml).expect("xml_to_json failed");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON parse failed");
-        assert!(parsed.get("NFe").is_some());
+        assert!(
+            parsed.get("infNFe").is_some(),
+            "infNFe at top level after NFe unwrap"
+        );
     }
 
     #[test]
@@ -194,11 +202,15 @@ mod standardize_test {
 
     #[test]
     fn convert_nfe_xml_to_json_string() {
+        // Root NFe is unwrapped — top-level key is infNFe
         let xml = std::fs::read_to_string(nfe_xml_path()).expect("Failed to read NFe XML");
         let json = fiscal::standardize::xml_to_json(&xml).expect("xml_to_json failed");
         assert!(!json.is_empty());
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON parse failed");
-        assert!(parsed.get("NFe").is_some());
+        assert!(
+            parsed.get("infNFe").is_some(),
+            "infNFe at top level after NFe unwrap"
+        );
     }
 
     // convert_nfe_xml_to_object merged into convert_nfe_xml_to_array_object above
@@ -507,8 +519,8 @@ mod convert_test {
         // gCred
         assert!(xml.contains("<gCred>"));
         assert!(xml.contains("<cCredPresumido>1</cCredPresumido>"));
-        assert!(xml.contains("<pCredPresumido>10</pCredPresumido>"));
-        assert!(xml.contains("<vCredPresumido>100</vCredPresumido>"));
+        assert!(xml.contains("<pCredPresumido>10.0000</pCredPresumido>"));
+        assert!(xml.contains("<vCredPresumido>100.00</vCredPresumido>"));
 
         // imposto
         assert!(xml.contains("<vTotTrib>0.00</vTotTrib>"));

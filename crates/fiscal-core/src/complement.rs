@@ -345,13 +345,17 @@ pub fn attach_b2b(
     let nfe_proc_content = extract_tag(nfe_proc_xml, "nfeProc")
         .ok_or_else(|| FiscalError::XmlParsing("Could not extract <nfeProc> from XML".into()))?;
 
+    // PHP DOMDocument re-serializes <nfeProc> with xmlns before versao
+    // (DOM canonical attribute ordering). We must match this behavior.
+    let nfe_proc_normalized = normalize_nfe_proc_attrs(&nfe_proc_content);
+
     let b2b_content = extract_tag(b2b_xml, tag_name).ok_or_else(|| {
         FiscalError::XmlParsing(format!("Could not extract <{tag_name}> from B2B XML"))
     })?;
 
     let raw = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
-         <nfeProcB2B>{nfe_proc_content}{b2b_content}</nfeProcB2B>"
+         <nfeProcB2B>{nfe_proc_normalized}{b2b_content}</nfeProcB2B>"
     );
 
     // PHP Complements::b2bTag line 79 does:
@@ -546,6 +550,34 @@ pub fn attach_cancellation(
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
+
+/// Normalize the opening `<nfeProc>` tag so that `xmlns` comes before `versao`,
+/// matching PHP DOMDocument canonical attribute ordering.
+///
+/// If the tag already has `xmlns` before `versao`, or if either attribute is
+/// missing, the string is returned unchanged.
+fn normalize_nfe_proc_attrs(nfe_proc_xml: &str) -> String {
+    let xmlns = extract_attribute(nfe_proc_xml, "nfeProc", "xmlns");
+    let versao = extract_attribute(nfe_proc_xml, "nfeProc", "versao");
+
+    if let (Some(xmlns_val), Some(versao_val)) = (xmlns, versao) {
+        // Find the opening tag range
+        let open_pattern = "<nfeProc";
+        if let Some(start) = nfe_proc_xml.find(open_pattern) {
+            if let Some(gt_offset) = nfe_proc_xml[start..].find('>') {
+                let gt_pos = start + gt_offset;
+                let old_opening = &nfe_proc_xml[start..=gt_pos];
+                let new_opening =
+                    format!("<nfeProc xmlns=\"{xmlns_val}\" versao=\"{versao_val}\">");
+                if old_opening != new_opening {
+                    return nfe_proc_xml.replacen(old_opening, &new_opening, 1);
+                }
+            }
+        }
+    }
+
+    nfe_proc_xml.to_string()
+}
 
 /// Re-serialize an `<nfeProc>` XML in a way that matches PHP
 /// `DOMDocument::saveXML()` output.

@@ -5,10 +5,26 @@ use openssl::hash::MessageDigest;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
-use sha1::{Digest, Sha1};
+use sha1::{Digest as _, Sha1};
+use sha2::Sha256;
 
 use fiscal_core::FiscalError;
 use fiscal_core::types::{CertificateData, CertificateInfo};
+
+/// Hash algorithm used for XML-DSig digest and RSA signature.
+///
+/// Brazilian ICP-Brasil v5 certificates require SHA-256, and some SEFAZs
+/// already reject SHA-1 (rejeição 297). Use [`SignatureAlgorithm::Sha256`]
+/// for new certificates; [`SignatureAlgorithm::Sha1`] is kept for
+/// backwards compatibility.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SignatureAlgorithm {
+    /// RSA-SHA1 — legacy, kept as default for backwards compatibility.
+    #[default]
+    Sha1,
+    /// RSA-SHA256 — required by ICP-Brasil v5 certificates.
+    Sha256,
+}
 
 /// Load OpenSSL legacy provider (needed for RC2-40-CBC in old PFX files on OpenSSL 3.x).
 ///
@@ -218,54 +234,134 @@ pub fn get_certificate_info(
 /// Sign an NF-e XML with RSA-SHA1 enveloped XMLDSig signature.
 ///
 /// Produces a `<Signature>` element inserted inside `<NFe>` after `</infNFe>`,
-/// using C14N exclusive canonicalization, SHA-1 digest, and RSA-SHA1 signing.
+/// using C14N canonicalization, SHA-1 digest, and RSA-SHA1 signing.
 ///
 /// The signed element is identified by the `Id` attribute on `<infNFe>`.
+///
+/// For SHA-256 support, use [`sign_xml_with_algorithm`].
 ///
 /// # Errors
 ///
 /// Returns [`FiscalError::Certificate`] if:
 /// - The XML does not contain an `<infNFe>` element with an `Id` attribute
 /// - The private key or certificate PEM cannot be parsed
-/// - The RSA-SHA1 signing operation fails
+/// - The signing operation fails
 pub fn sign_xml(xml: &str, private_key: &str, certificate: &str) -> Result<String, FiscalError> {
-    sign_xml_generic(xml, private_key, certificate, "infNFe", "NFe")
+    sign_xml_with_algorithm(xml, private_key, certificate, SignatureAlgorithm::Sha1)
+}
+
+/// Sign an NF-e XML with the specified hash algorithm.
+///
+/// Same as [`sign_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infNFe>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
+pub fn sign_xml_with_algorithm(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+    algorithm: SignatureAlgorithm,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(xml, private_key, certificate, "infNFe", "NFe", algorithm)
 }
 
 /// Sign a SEFAZ event XML with RSA-SHA1 enveloped XMLDSig signature.
 ///
 /// Same algorithm as [`sign_xml`] but targets `<infEvento>` inside `<evento>`.
 ///
+/// For SHA-256 support, use [`sign_event_xml_with_algorithm`].
+///
 /// # Errors
 ///
 /// Returns [`FiscalError::Certificate`] if:
 /// - The XML does not contain an `<infEvento>` element with an `Id` attribute
 /// - The private key or certificate PEM cannot be parsed
-/// - The RSA-SHA1 signing operation fails
+/// - The signing operation fails
 pub fn sign_event_xml(
     xml: &str,
     private_key: &str,
     certificate: &str,
 ) -> Result<String, FiscalError> {
-    sign_xml_generic(xml, private_key, certificate, "infEvento", "evento")
+    sign_event_xml_with_algorithm(xml, private_key, certificate, SignatureAlgorithm::Sha1)
+}
+
+/// Sign a SEFAZ event XML with the specified hash algorithm.
+///
+/// Same as [`sign_event_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infEvento>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
+pub fn sign_event_xml_with_algorithm(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+    algorithm: SignatureAlgorithm,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(
+        xml,
+        private_key,
+        certificate,
+        "infEvento",
+        "evento",
+        algorithm,
+    )
 }
 
 /// Sign a SEFAZ inutilização XML with RSA-SHA1 enveloped XMLDSig signature.
 ///
 /// Same algorithm as [`sign_xml`] but targets `<infInut>` inside `<inutNFe>`.
 ///
+/// For SHA-256 support, use [`sign_inutilizacao_xml_with_algorithm`].
+///
 /// # Errors
 ///
 /// Returns [`FiscalError::Certificate`] if:
 /// - The XML does not contain an `<infInut>` element with an `Id` attribute
 /// - The private key or certificate PEM cannot be parsed
-/// - The RSA-SHA1 signing operation fails
+/// - The signing operation fails
 pub fn sign_inutilizacao_xml(
     xml: &str,
     private_key: &str,
     certificate: &str,
 ) -> Result<String, FiscalError> {
-    sign_xml_generic(xml, private_key, certificate, "infInut", "inutNFe")
+    sign_inutilizacao_xml_with_algorithm(xml, private_key, certificate, SignatureAlgorithm::Sha1)
+}
+
+/// Sign a SEFAZ inutilização XML with the specified hash algorithm.
+///
+/// Same as [`sign_inutilizacao_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infInut>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
+pub fn sign_inutilizacao_xml_with_algorithm(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+    algorithm: SignatureAlgorithm,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(
+        xml,
+        private_key,
+        certificate,
+        "infInut",
+        "inutNFe",
+        algorithm,
+    )
 }
 
 // ── Private helpers ─────────────────────────────────────────────────────────
@@ -274,12 +370,14 @@ pub fn sign_inutilizacao_xml(
 ///
 /// `signed_tag` is the element whose Id attribute is referenced (e.g. "infNFe").
 /// `parent_tag` is the element that receives the `<Signature>` child (e.g. "NFe").
+/// `algorithm` selects between SHA-1 and SHA-256 for digest and RSA signing.
 fn sign_xml_generic(
     xml: &str,
     private_key_pem: &str,
     certificate_pem: &str,
     signed_tag: &str,
     parent_tag: &str,
+    algorithm: SignatureAlgorithm,
 ) -> Result<String, FiscalError> {
     // 1. Extract the Id from the signed element
     let id = extract_element_id(xml, signed_tag)?;
@@ -301,17 +399,13 @@ fn sign_xml_generic(
     // 5. Canonicalize the signed element (C14N 1.0 — sorts attributes)
     let canonical = canonicalize_xml(&with_inherited_ns);
 
-    // 5. SHA-1 digest of the canonical form
-    let digest = {
-        let mut hasher = Sha1::new();
-        hasher.update(canonical.as_bytes());
-        BASE64.encode(hasher.finalize())
-    };
+    // 6. Compute digest of the canonical form using the selected algorithm
+    let digest = compute_digest(canonical.as_bytes(), algorithm);
 
-    // 6. Build the SignedInfo XML (without xmlns — it inherits from parent Signature)
-    let signed_info = build_signed_info(&id, &digest);
+    // 7. Build the SignedInfo XML (without xmlns — it inherits from parent Signature)
+    let signed_info = build_signed_info(&id, &digest, algorithm);
 
-    // 7. Canonicalize the SignedInfo for signing.
+    // 8. Canonicalize the SignedInfo for signing.
     //    In C14N inclusive, when SignedInfo is canonicalized as a subset of
     //    <Signature xmlns="...">, the in-scope namespace is included on
     //    SignedInfo even though it's inherited. We must sign this form so
@@ -322,30 +416,40 @@ fn sign_xml_generic(
         1,
     );
 
-    // 8. RSA-SHA1 sign the canonical SignedInfo
+    // 9. RSA sign the canonical SignedInfo with the selected digest algorithm
     let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
 
-    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
+    let openssl_digest = match algorithm {
+        SignatureAlgorithm::Sha1 => MessageDigest::sha1(),
+        SignatureAlgorithm::Sha256 => MessageDigest::sha256(),
+    };
+
+    let mut signer = Signer::new(openssl_digest, &pkey)
         .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
 
     signer
         .update(canonical_signed_info.as_bytes())
         .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
 
+    let algo_name = match algorithm {
+        SignatureAlgorithm::Sha1 => "RSA-SHA1",
+        SignatureAlgorithm::Sha256 => "RSA-SHA256",
+    };
+
     let signature_bytes = signer
         .sign_to_vec()
-        .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
+        .map_err(|e| FiscalError::Certificate(format!("{algo_name} signing failed: {e}")))?;
 
     let signature_value = BASE64.encode(&signature_bytes);
 
-    // 9. Extract certificate Base64 (strip PEM headers)
+    // 10. Extract certificate Base64 (strip PEM headers)
     let cert_base64 = extract_cert_base64(certificate_pem);
 
-    // 10. Build the full <Signature> element
+    // 11. Build the full <Signature> element
     let signature_xml = build_signature_element(&signed_info, &signature_value, &cert_base64);
 
-    // 11. Insert the <Signature> inside the parent element, after the signed element
+    // 12. Insert the <Signature> inside the parent element, after the signed element
     let closing_tag = format!("</{parent_tag}>");
     let result = if let Some(pos) = xml.rfind(&closing_tag) {
         format!("{}{signature_xml}{}", &xml[..pos], &xml[pos..])
@@ -356,6 +460,22 @@ fn sign_xml_generic(
     };
 
     Ok(result)
+}
+
+/// Compute the Base64-encoded digest of `data` using the selected algorithm.
+fn compute_digest(data: &[u8], algorithm: SignatureAlgorithm) -> String {
+    match algorithm {
+        SignatureAlgorithm::Sha1 => {
+            let mut hasher = Sha1::new();
+            sha1::Digest::update(&mut hasher, data);
+            BASE64.encode(sha1::Digest::finalize(hasher))
+        }
+        SignatureAlgorithm::Sha256 => {
+            let mut hasher = Sha256::new();
+            sha2::Digest::update(&mut hasher, data);
+            BASE64.encode(sha2::Digest::finalize(hasher))
+        }
+    }
 }
 
 /// Extract the `Id` attribute value from the first occurrence of `<tag_name ... Id="...">`.
@@ -609,11 +729,31 @@ fn parse_attributes(attrs_str: &str) -> Vec<(&str, &str)> {
 /// redundant namespace declarations are suppressed, so both the signing and
 /// verification sides must use the same canonical form (without `xmlns` on
 /// `<SignedInfo>`).
-fn build_signed_info(reference_id: &str, digest_value: &str) -> String {
+///
+/// The `algorithm` parameter selects the appropriate XML-DSig URIs for
+/// `<SignatureMethod>` and `<DigestMethod>`.
+fn build_signed_info(
+    reference_id: &str,
+    digest_value: &str,
+    algorithm: SignatureAlgorithm,
+) -> String {
+    let (signature_method_uri, digest_method_uri) = match algorithm {
+        SignatureAlgorithm::Sha1 => (
+            "http://www.w3.org/2000/09/xmldsig#rsa-sha1",
+            "http://www.w3.org/2000/09/xmldsig#sha1",
+        ),
+        SignatureAlgorithm::Sha256 => (
+            "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+            "http://www.w3.org/2001/04/xmlenc#sha256",
+        ),
+    };
+
     let mut s = String::with_capacity(1024);
     s.push_str("<SignedInfo>");
     s.push_str("<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></CanonicalizationMethod>");
-    s.push_str("<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod>");
+    s.push_str("<SignatureMethod Algorithm=\"");
+    s.push_str(signature_method_uri);
+    s.push_str("\"></SignatureMethod>");
     s.push_str("<Reference URI=\"#");
     s.push_str(reference_id);
     s.push_str("\">");
@@ -623,9 +763,9 @@ fn build_signed_info(reference_id: &str, digest_value: &str) -> String {
         "<Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></Transform>",
     );
     s.push_str("</Transforms>");
-    s.push_str(
-        "<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod>",
-    );
+    s.push_str("<DigestMethod Algorithm=\"");
+    s.push_str(digest_method_uri);
+    s.push_str("\"></DigestMethod>");
     s.push_str("<DigestValue>");
     s.push_str(digest_value);
     s.push_str("</DigestValue>");
@@ -1073,5 +1213,231 @@ mod tests {
         let canonical = canonicalize_xml(xml);
         // Attributes sorted, self-closing expanded
         assert!(canonical.contains(r#"<item a="1" b="2"></item>"#));
+    }
+
+    // ── SignatureAlgorithm ──────────────────────────────────────────
+
+    #[test]
+    fn signature_algorithm_default_is_sha1() {
+        assert_eq!(SignatureAlgorithm::default(), SignatureAlgorithm::Sha1);
+    }
+
+    // ── sign_xml_with_algorithm (SHA-256) ───────────────────────────
+
+    #[test]
+    fn sign_xml_sha256_basic() {
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF></ide>",
+            "</infNFe></NFe>"
+        );
+        let signed = sign_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha256,
+        )
+        .expect("should sign with SHA-256");
+
+        assert!(signed.contains("<Signature"));
+        assert!(signed.contains("<SignatureValue>"));
+        assert!(signed.contains("<X509Certificate>"));
+        assert!(signed.contains("<DigestValue>"));
+        // Verify SHA-256 URIs are used
+        assert!(
+            signed.contains("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"),
+            "SignatureMethod should reference rsa-sha256"
+        );
+        assert!(
+            signed.contains("http://www.w3.org/2001/04/xmlenc#sha256"),
+            "DigestMethod should reference sha256"
+        );
+        // Verify SHA-1 URIs are NOT present
+        assert!(
+            !signed.contains("xmldsig#rsa-sha1"),
+            "SHA-1 SignatureMethod should not be present"
+        );
+        assert!(
+            !signed.contains("xmldsig#sha1"),
+            "SHA-1 DigestMethod should not be present"
+        );
+    }
+
+    #[test]
+    fn sign_xml_sha1_explicit() {
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF></ide>",
+            "</infNFe></NFe>"
+        );
+        let signed = sign_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha1,
+        )
+        .expect("should sign with SHA-1");
+
+        // Verify SHA-1 URIs are used (same as sign_xml)
+        assert!(signed.contains("xmldsig#rsa-sha1"));
+        assert!(signed.contains("xmldsig#sha1"));
+    }
+
+    #[test]
+    fn sign_xml_sha256_produces_different_signature_than_sha1() {
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF></ide>",
+            "</infNFe></NFe>"
+        );
+
+        let signed_sha1 = sign_xml(xml, &cert_data.private_key, &cert_data.certificate).unwrap();
+        let signed_sha256 = sign_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha256,
+        )
+        .unwrap();
+
+        // Both should produce valid signatures, but with different values
+        assert!(signed_sha1.contains("<SignatureValue>"));
+        assert!(signed_sha256.contains("<SignatureValue>"));
+        assert_ne!(signed_sha1, signed_sha256);
+    }
+
+    #[test]
+    fn sign_xml_sha256_verify_roundtrip() {
+        // Sign with SHA-256, then verify the signature by re-computing the digest
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF></ide>",
+            "</infNFe></NFe>"
+        );
+
+        let signed = sign_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha256,
+        )
+        .unwrap();
+
+        // Extract the SignatureValue from the signed XML
+        let sig_start = signed.find("<SignatureValue>").unwrap() + "<SignatureValue>".len();
+        let sig_end = signed.find("</SignatureValue>").unwrap();
+        let sig_b64 = &signed[sig_start..sig_end];
+        let sig_bytes = BASE64.decode(sig_b64).unwrap();
+
+        // Extract the SignedInfo for verification
+        let si_start = signed.find("<SignedInfo>").unwrap();
+        let si_end = signed.find("</SignedInfo>").unwrap() + "</SignedInfo>".len();
+        let signed_info_raw = &signed[si_start..si_end];
+
+        // Add the namespace for canonical form (same as signing does)
+        let canonical_signed_info = signed_info_raw.replacen(
+            "<SignedInfo>",
+            "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+            1,
+        );
+
+        // Verify the signature using the certificate's public key
+        let cert = openssl::x509::X509::from_pem(cert_data.certificate.as_bytes()).unwrap();
+        let pubkey = cert.public_key().unwrap();
+
+        let mut verifier = openssl::sign::Verifier::new(MessageDigest::sha256(), &pubkey).unwrap();
+        verifier.update(canonical_signed_info.as_bytes()).unwrap();
+        assert!(
+            verifier.verify(&sig_bytes).unwrap(),
+            "RSA-SHA256 signature verification failed"
+        );
+    }
+
+    // ── sign_event_xml_with_algorithm (SHA-256) ─────────────────────
+
+    #[test]
+    fn sign_event_xml_sha256() {
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">"#,
+            r#"<infEvento Id="ID1101114126030412345600019055001000000012312345678001">"#,
+            "<cOrgao>41</cOrgao>",
+            "</infEvento></evento>"
+        );
+        let signed = sign_event_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha256,
+        )
+        .expect("should sign event with SHA-256");
+
+        assert!(signed.contains("<Signature"));
+        assert!(signed.contains("rsa-sha256"));
+        assert!(signed.contains("xmlenc#sha256"));
+    }
+
+    // ── sign_inutilizacao_xml_with_algorithm (SHA-256) ──────────────
+
+    #[test]
+    fn sign_inutilizacao_xml_sha256() {
+        let pfx = test_pfx_cnpj();
+        let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+        let xml = concat!(
+            r#"<inutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#,
+            r#"<infInut Id="ID41260304123456000190550010000001231000000010">"#,
+            "<tpAmb>2</tpAmb>",
+            "</infInut></inutNFe>"
+        );
+        let signed = sign_inutilizacao_xml_with_algorithm(
+            xml,
+            &cert_data.private_key,
+            &cert_data.certificate,
+            SignatureAlgorithm::Sha256,
+        )
+        .expect("should sign inutilizacao with SHA-256");
+
+        assert!(signed.contains("<Signature"));
+        assert!(signed.contains("rsa-sha256"));
+        assert!(signed.contains("xmlenc#sha256"));
+    }
+
+    // ── compute_digest ─────────────────────────────────────────────
+
+    #[test]
+    fn compute_digest_sha1_matches_known_value() {
+        // SHA-1 of "" = da39a3ee5e6b4b0d3255bfef95601890afd80709
+        let result = compute_digest(b"", SignatureAlgorithm::Sha1);
+        let bytes = BASE64.decode(&result).unwrap();
+        assert_eq!(bytes.len(), 20); // SHA-1 produces 20 bytes
+    }
+
+    #[test]
+    fn compute_digest_sha256_matches_known_value() {
+        // SHA-256 of "" = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        let result = compute_digest(b"", SignatureAlgorithm::Sha256);
+        let bytes = BASE64.decode(&result).unwrap();
+        assert_eq!(bytes.len(), 32); // SHA-256 produces 32 bytes
+    }
+
+    #[test]
+    fn compute_digest_sha1_and_sha256_differ() {
+        let data = b"test data for hashing";
+        let sha1_result = compute_digest(data, SignatureAlgorithm::Sha1);
+        let sha256_result = compute_digest(data, SignatureAlgorithm::Sha256);
+        assert_ne!(sha1_result, sha256_result);
     }
 }

@@ -10,7 +10,7 @@
 //! [`ContributionTaxConfig`]; their public APIs accept separate typed structs
 //! ([`PisData`] / [`CofinsData`]) so callers remain independent.
 
-use crate::format_utils::{format_cents_or_zero, format_rate4_or_zero};
+use crate::format_utils::{format_cents_or_zero, format_rate_4, format_rate4_or_zero};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_element::{TaxElement, TaxField, serialize_tax_element};
 
@@ -657,7 +657,7 @@ pub fn build_ipi_xml(data: &IpiData) -> String {
             ));
             fields.push(TaxField::new(
                 "pIPI",
-                format_rate4_or_zero(data.p_ipi.map(|r| r.0)),
+                format_rate_4(data.p_ipi.map(|r| r.0).unwrap_or(0)),
             ));
         } else {
             fields.push(TaxField::new("qUnid", format_rate4_or_zero(data.q_unid)));

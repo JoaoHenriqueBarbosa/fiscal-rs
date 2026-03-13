@@ -583,6 +583,16 @@ pub(crate) fn build_det(
 
     // Assemble imposto
     let mut imposto_children: Vec<String> = Vec::new();
+    // vTotTrib: emitted as first child of <imposto> when > 0 (matches PHP tagimposto)
+    if let Some(ref v) = item.v_tot_trib {
+        if v.0 > 0 {
+            imposto_children.push(tag(
+                "vTotTrib",
+                &[],
+                TagContent::Text(&format_cents(v.0, 2)),
+            ));
+        }
+    }
     if !icms_xml.is_empty() {
         imposto_children.push(icms_xml);
     }

@@ -194,11 +194,11 @@ mod build_ipi_xml_tests {
 
     #[test]
     fn cst_50_ipi_trib_percentage_based() {
-        // pIPI=50000 means 5.0000%
+        // pIPI=500 means 5.0000% (Rate stores as hundredths: 500/100 = 5.0000)
         let xml = build_ipi_xml(
             &IpiData::new("50", "999")
                 .v_bc(Cents(10000))
-                .p_ipi(Rate(50000))
+                .p_ipi(Rate(500))
                 .v_ipi(Cents(500)),
         );
         assert!(xml.contains("<IPI>"));
@@ -215,7 +215,7 @@ mod build_ipi_xml_tests {
         let xml = build_ipi_xml(
             &IpiData::new("00", "999")
                 .v_bc(Cents(5000))
-                .p_ipi(Rate(100000))
+                .p_ipi(Rate(1000))
                 .v_ipi(Cents(500)),
         );
         assert!(xml.contains("<IPITrib>"));
@@ -267,7 +267,7 @@ mod build_ipi_xml_tests {
                 .c_selo("ABC")
                 .q_selo(10)
                 .v_bc(Cents(10000))
-                .p_ipi(Rate(50000))
+                .p_ipi(Rate(500))
                 .v_ipi(Cents(500)),
         );
         assert!(xml.contains("<CNPJProd>12345678000199</CNPJProd>"));

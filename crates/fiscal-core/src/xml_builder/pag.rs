@@ -61,28 +61,43 @@ pub fn build_pag(
                 det_children.push(tag("UFPag", &[], TagContent::Text(uf)));
             }
 
-            // Card details
+            // Card details – only emit <card> for valid tpIntegra ("1" or "2").
+            // tpIntegra=0 is not in the XSD enumeration, so we skip it.
             if let Some(cards) = card_details {
                 if let Some(card) = cards.get(i) {
                     if let Some(ref integ) = card.integ_type {
-                        let mut card_children =
-                            vec![tag("tpIntegra", &[], TagContent::Text(integ))];
-                        if let Some(ref tid) = card.card_tax_id {
-                            card_children.push(tag("CNPJ", &[], TagContent::Text(tid)));
+                        if integ == "1" || integ == "2" {
+                            let mut card_children =
+                                vec![tag("tpIntegra", &[], TagContent::Text(integ))];
+                            if let Some(ref tid) = card.card_tax_id {
+                                card_children.push(tag("CNPJ", &[], TagContent::Text(tid)));
+                            }
+                            if let Some(ref brand) = card.card_brand {
+                                card_children.push(tag("tBand", &[], TagContent::Text(brand)));
+                            }
+                            if let Some(ref auth) = card.auth_code {
+                                card_children.push(tag("cAut", &[], TagContent::Text(auth)));
+                            }
+                            if let Some(ref cnpj_receb) = card.cnpj_receb {
+                                card_children.push(tag(
+                                    "CNPJReceb",
+                                    &[],
+                                    TagContent::Text(cnpj_receb),
+                                ));
+                            }
+                            if let Some(ref id_term) = card.id_term_pag {
+                                card_children.push(tag(
+                                    "idTermPag",
+                                    &[],
+                                    TagContent::Text(id_term),
+                                ));
+                            }
+                            det_children.push(tag(
+                                "card",
+                                &[],
+                                TagContent::Children(card_children),
+                            ));
                         }
-                        if let Some(ref brand) = card.card_brand {
-                            card_children.push(tag("tBand", &[], TagContent::Text(brand)));
-                        }
-                        if let Some(ref auth) = card.auth_code {
-                            card_children.push(tag("cAut", &[], TagContent::Text(auth)));
-                        }
-                        if let Some(ref cnpj_receb) = card.cnpj_receb {
-                            card_children.push(tag("CNPJReceb", &[], TagContent::Text(cnpj_receb)));
-                        }
-                        if let Some(ref id_term) = card.id_term_pag {
-                            card_children.push(tag("idTermPag", &[], TagContent::Text(id_term)));
-                        }
-                        det_children.push(tag("card", &[], TagContent::Children(card_children)));
                     }
                 }
             }
