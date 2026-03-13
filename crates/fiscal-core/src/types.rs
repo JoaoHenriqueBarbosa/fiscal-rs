@@ -881,6 +881,13 @@ pub enum ReferenceDoc {
         /// 44-digit access key of the referenced NF-e.
         access_key: String,
     },
+    /// Reference to another NF-e by its signed access key (PL_010).
+    ///
+    /// Emits `<refNFeSig>` instead of `<refNFe>`. Mutually exclusive with `Nfe`.
+    NfeSig {
+        /// Signed access key of the referenced NF-e.
+        access_key: String,
+    },
     /// Reference to a paper NF (model 1 or 1A).
     Nf {
         /// IBGE numeric state code (e.g. `"41"` for PR).
