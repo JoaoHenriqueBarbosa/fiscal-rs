@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.6.0...fiscal-core-v0.6.1) - 2026-03-13
+
+### Other
+
+- *(core)* split types.rs into 15 modules (3855 lines)
+- *(core)* split xml_builder/det.rs into 4 modules (3825 lines)
+- *(core)* split complement.rs into 7 modules (1881 lines)
+- *(core)* split contingency.rs into 4 modules (1251 lines)
+- *(core)* split tax_icms.rs into 7 modules (2771 lines)
+- *(core)* split tax_ibs_cbs.rs into 7 modules (1848 lines)
+- *(core)* split newtypes.rs into 6 modules (1057 lines)
+
 ## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.5.1...fiscal-core-v0.6.0) - 2026-03-13
 
 ### Added
