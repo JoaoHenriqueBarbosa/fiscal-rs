@@ -900,4 +900,169 @@ mod tests {
         let xml = "<infNFe>content</infNFe>";
         assert_eq!(extract_access_key(xml), None);
     }
+
+    // ── is_valid_xml edge cases ───────────────────────────────────
+
+    #[test]
+    fn is_valid_xml_more_closes_than_opens() {
+        assert!(!is_valid_xml("</root>"));
+    }
+
+    #[test]
+    fn is_valid_xml_bom_prefix() {
+        // BOM + valid XML
+        let xml = "\u{feff}<root><child/></root>";
+        assert!(is_valid_xml(xml));
+    }
+
+    #[test]
+    fn is_valid_xml_not_starting_with_lt() {
+        assert!(!is_valid_xml("text <root/>"));
+    }
+
+    #[test]
+    fn is_valid_xml_empty_element() {
+        assert!(is_valid_xml("<root/>"));
+    }
+
+    // ── validate_nfe_xml edge cases ─────────────────────────────────
+
+    #[test]
+    fn validate_nfe_xml_missing_versao_attribute() {
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe Id="NFe41260304123456000190550010000001231123456780">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal>",
+            "<indPres>1</indPres><procEmi>0</procEmi><verProc>1.0</verProc></ide>",
+            "<emit><CNPJ>04123456000190</CNPJ><xNome>Test</xNome>",
+            "<enderEmit><xLgr>Rua</xLgr></enderEmit>",
+            "<IE>9012345678</IE><CRT>3</CRT></emit>",
+            r#"<det nItem="1"><prod><cProd>001</cProd></prod></det>"#,
+            "<total><ICMSTot><vNF>150.00</vNF></ICMSTot></total>",
+            "<transp><modFrete>9</modFrete></transp>",
+            "<pag><detPag><tPag>01</tPag><vPag>150.00</vPag></detPag></pag>",
+            "<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+            "<SignedInfo/><SignatureValue/></Signature>",
+            "</infNFe></NFe>",
+        );
+        let err = validate_nfe_xml(xml, "4.00").unwrap_err();
+        assert!(err.to_string().contains("versao"));
+    }
+
+    #[test]
+    fn validate_nfe_xml_missing_id_attribute() {
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00">"#,
+            "<ide><cUF>41</cUF><cNF>12345678</cNF><natOp>VENDA</natOp>",
+            "<mod>55</mod><serie>1</serie><nNF>123</nNF>",
+            "<dhEmi>2026-03-11T10:30:00-03:00</dhEmi>",
+            "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4106902</cMunFG>",
+            "<tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV>",
+            "<tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal>",
+            "<indPres>1</indPres><procEmi>0</procEmi><verProc>1.0</verProc></ide>",
+            "<emit><CNPJ>04123456000190</CNPJ><xNome>Test</xNome>",
+            "<enderEmit><xLgr>Rua</xLgr></enderEmit>",
+            "<IE>9012345678</IE><CRT>3</CRT></emit>",
+            r#"<det nItem="1"><prod><cProd>001</cProd></prod></det>"#,
+            "<total><ICMSTot><vNF>150.00</vNF></ICMSTot></total>",
+            "<transp><modFrete>9</modFrete></transp>",
+            "<pag><detPag><tPag>01</tPag><vPag>150.00</vPag></detPag></pag>",
+            "<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+            "<SignedInfo/><SignatureValue/></Signature>",
+            "</infNFe></NFe>",
+        );
+        let err = validate_nfe_xml(xml, "4.00").unwrap_err();
+        assert!(err.to_string().contains("chave de acesso"));
+    }
+
+    // ── validate_request_xml edge cases ──────────────────────────────
+
+    #[test]
+    fn validate_request_xml_not_valid_xml() {
+        let err = validate_request_xml("not xml", "4.00", "enviNFe").unwrap_err();
+        assert!(err.to_string().contains("não é um XML"));
+    }
+
+    #[test]
+    fn validate_request_xml_missing_namespace() {
+        let xml = r#"<enviNFe versao="4.00"><idLote>1</idLote></enviNFe>"#;
+        let err = validate_request_xml(xml, "4.00", "enviNFe").unwrap_err();
+        assert!(err.to_string().contains("Namespace"));
+    }
+
+    // ── validate_authorized_nfe edge cases ──────────────────────────
+
+    #[test]
+    fn validate_authorized_nfe_missing_ch_nfe() {
+        let sefaz_response = concat!(
+            "<retConsSitNFe>",
+            "<protNFe><infProt>",
+            "<nProt>141260000123456</nProt>",
+            "<digVal>abc123==</digVal>",
+            "</infProt></protNFe>",
+            "</retConsSitNFe>",
+        );
+        let err = validate_authorized_nfe(
+            "41260304123456000190550010000001231123456780",
+            "141260000123456",
+            "abc123==",
+            sefaz_response,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("chNFe"));
+    }
+
+    #[test]
+    fn validate_authorized_nfe_missing_nprot() {
+        let sefaz_response = concat!(
+            "<retConsSitNFe>",
+            "<protNFe><infProt>",
+            "<chNFe>41260304123456000190550010000001231123456780</chNFe>",
+            "<digVal>abc123==</digVal>",
+            "</infProt></protNFe>",
+            "</retConsSitNFe>",
+        );
+        let err = validate_authorized_nfe(
+            "41260304123456000190550010000001231123456780",
+            "141260000123456",
+            "abc123==",
+            sefaz_response,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("nProt"));
+    }
+
+    // ── extract_nfe_validation_data edge cases ──────────────────────
+
+    #[test]
+    fn extract_validation_data_missing_nprot() {
+        let xml = concat!(
+            r#"<nfeProc><NFe><infNFe Id="NFe41260304123456000190550010000001231123456780">"#,
+            "</infNFe></NFe>",
+            "<protNFe><infProt>",
+            "<DigestValue>abc123==</DigestValue>",
+            "</infProt></protNFe></nfeProc>",
+        );
+        let err = extract_nfe_validation_data(xml).unwrap_err();
+        assert!(err.to_string().contains("nProt"));
+    }
+
+    #[test]
+    fn extract_validation_data_missing_digest() {
+        let xml = concat!(
+            r#"<nfeProc><NFe><infNFe Id="NFe41260304123456000190550010000001231123456780">"#,
+            "</infNFe></NFe>",
+            "<protNFe><infProt>",
+            "<nProt>141260000123456</nProt>",
+            "</infProt></protNFe></nfeProc>",
+        );
+        let err = extract_nfe_validation_data(xml).unwrap_err();
+        assert!(err.to_string().contains("DigestValue"));
+    }
 }

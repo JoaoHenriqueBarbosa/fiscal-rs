@@ -99,3 +99,44 @@ pub fn serialize_tax_element(element: &TaxElement) -> String {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_xml_value_with_ampersand_and_quotes() {
+        let result = escape_xml_value("Tom & Jerry \"cats\" <dogs>");
+        assert_eq!(result, "Tom &amp; Jerry &quot;cats&quot; &lt;dogs&gt;");
+    }
+
+    #[test]
+    fn serialize_tax_element_no_outer_tag() {
+        let element = TaxElement {
+            outer_tag: None,
+            outer_fields: vec![],
+            variant_tag: "II".to_string(),
+            fields: vec![
+                TaxField::new("vBC", "100.00"),
+                TaxField::new("vII", "10.00"),
+            ],
+        };
+        let xml = serialize_tax_element(&element);
+        assert_eq!(xml, "<II><vBC>100.00</vBC><vII>10.00</vII></II>");
+    }
+
+    #[test]
+    fn serialize_tax_element_with_outer_tag() {
+        let element = TaxElement {
+            outer_tag: Some("IPI".to_string()),
+            outer_fields: vec![TaxField::new("cEnq", "999")],
+            variant_tag: "IPINT".to_string(),
+            fields: vec![TaxField::new("CST", "53")],
+        };
+        let xml = serialize_tax_element(&element);
+        assert!(xml.starts_with("<IPI>"));
+        assert!(xml.contains("<cEnq>999</cEnq>"));
+        assert!(xml.contains("<IPINT><CST>53</CST></IPINT>"));
+        assert!(xml.ends_with("</IPI>"));
+    }
+}

@@ -1335,4 +1335,54 @@ mod tests {
         let err = parse_consulta_situacao_response("<garbage>nothing</garbage>").unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
+
+    // ── find_closing_tag_pos with namespace prefix ──────────────────
+
+    #[test]
+    fn find_closing_tag_pos_namespaced() {
+        let xml = "<nfe:Body>content</nfe:Body>";
+        let pos = find_closing_tag_pos(xml, "Body");
+        assert!(pos.is_some());
+        assert_eq!(pos.unwrap(), 17);
+    }
+
+    #[test]
+    fn find_closing_tag_pos_plain() {
+        let xml = "<Body>content</Body>";
+        let pos = find_closing_tag_pos(xml, "Body");
+        assert!(pos.is_some());
+    }
+
+    #[test]
+    fn find_closing_tag_pos_not_found() {
+        let xml = "<Body>no closing tag";
+        let pos = find_closing_tag_pos(xml, "Body");
+        assert!(pos.is_none());
+    }
+
+    // ── find_opening_tag_pos ─────────────────────────────────────────
+
+    #[test]
+    fn find_opening_tag_pos_namespaced() {
+        let xml = "<nfe:retConsStatServ><nfe:cStat>107</nfe:cStat></nfe:retConsStatServ>";
+        let pos = find_opening_tag_pos(xml, "retConsStatServ");
+        assert_eq!(pos, Some(0));
+    }
+
+    #[test]
+    fn find_opening_tag_pos_skips_closing_tags() {
+        let xml = "</close><open>data</open>";
+        let pos = find_opening_tag_pos(xml, "open");
+        assert!(pos.is_some());
+    }
+
+    // ── extract_raw_tag ────────────────────────────────────────────────
+
+    #[test]
+    fn extract_raw_tag_namespaced() {
+        let xml = r#"<nfe:protNFe versao="4.00"><nfe:infProt><nfe:cStat>100</nfe:cStat></nfe:infProt></nfe:protNFe>"#;
+        let raw = extract_raw_tag(xml, "protNFe");
+        assert!(raw.is_some());
+        assert!(raw.unwrap().contains("protNFe"));
+    }
 }

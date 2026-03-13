@@ -951,4 +951,65 @@ mod tests {
     fn replace_unacceptable_del_char() {
         assert_eq!(replace_unacceptable_characters("abc\x7Fdef"), "abcdef");
     }
+
+    // ── TagContent::from impls ─────────────────────────────────────
+
+    #[test]
+    fn tag_content_from_string() {
+        let content: TagContent = String::from("hello").into();
+        match content {
+            TagContent::Text(t) => assert_eq!(t, "hello"),
+            _ => panic!("expected Text"),
+        }
+    }
+
+    #[test]
+    fn tag_content_from_vec_string() {
+        let content: TagContent = vec!["<a/>".to_string(), "<b/>".to_string()].into();
+        match content {
+            TagContent::Children(kids) => assert_eq!(kids.len(), 2),
+            _ => panic!("expected Children"),
+        }
+    }
+
+    // ── pretty_print_xml self-closing ──────────────────────────────
+
+    #[test]
+    fn pretty_print_self_closing_tag() {
+        let xml = "<root><empty/></root>";
+        let pretty = pretty_print_xml(xml);
+        assert!(pretty.contains("  <empty/>"));
+    }
+
+    #[test]
+    fn pretty_print_standalone_text() {
+        // This is unusual XML but the formatter should handle it
+        let xml = "<root><a><b>text</b></a></root>";
+        let pretty = pretty_print_xml(xml);
+        assert!(pretty.contains("    <b>text</b>"));
+    }
+
+    // ── clear_xml_string preserves trailing ws after non-tag ───────
+
+    #[test]
+    fn clear_xml_string_non_tag_after_whitespace() {
+        // After '>' if the next non-whitespace is NOT '<', preserve whitespace
+        let xml = "<a>text after close</a>";
+        let result = clear_xml_string(xml, false);
+        assert_eq!(result, "<a>text after close</a>");
+    }
+
+    // ── delete_all_between ────────────────────────────────────────
+
+    #[test]
+    fn delete_all_between_no_match() {
+        let result = delete_all_between("hello world", "<?xml", "?>");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn delete_all_between_no_end_match() {
+        let result = delete_all_between("<?xml version start", "<?xml", "?>");
+        assert_eq!(result, "<?xml version start");
+    }
 }

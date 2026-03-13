@@ -703,3 +703,25 @@ pub fn build_ii_xml(data: &IiData) -> String {
     };
     serialize_tax_element(&element)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_pis_xml_unknown_cst_fallback_to_nt() {
+        // CST "88" is not in any of the known sets, should fall back to NT
+        let data = PisData::new("88");
+        let xml = build_pis_xml(&data);
+        assert!(xml.contains("<PISNT>"));
+        assert!(xml.contains("<CST>88</CST>"));
+    }
+
+    #[test]
+    fn build_cofins_xml_unknown_cst_fallback_to_nt() {
+        let data = CofinsData::new("88");
+        let xml = build_cofins_xml(&data);
+        assert!(xml.contains("<COFINSNT>"));
+        assert!(xml.contains("<CST>88</CST>"));
+    }
+}

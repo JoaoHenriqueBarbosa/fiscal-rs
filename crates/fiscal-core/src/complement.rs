@@ -932,6 +932,253 @@ mod tests {
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 
+    // ── attach_protocol tests ─────────────────────────────────────
+
+    #[test]
+    fn attach_protocol_empty_request_xml() {
+        let err = attach_protocol("", "<protNFe/>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_protocol_empty_response_xml() {
+        let err = attach_protocol("<NFe/>", "").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_protocol_matching_digest_and_key() {
+        let request = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199650010000000011123456780">"#,
+            r#"<ide/></infNFe>"#,
+            r#"<Signature><SignedInfo/><SignatureValue/>"#,
+            r#"<KeyInfo><DigestValue>abc123</DigestValue></KeyInfo></Signature>"#,
+            r#"</NFe>"#
+        );
+        let response = concat!(
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<digVal>abc123</digVal>"#,
+            r#"<chNFe>35260112345678000199650010000000011123456780</chNFe>"#,
+            r#"<cStat>100</cStat>"#,
+            r#"<xMotivo>Autorizado</xMotivo>"#,
+            r#"</infProt></protNFe>"#
+        );
+        let result = attach_protocol(request, response).unwrap();
+        assert!(result.contains("<nfeProc"));
+        assert!(result.contains("</nfeProc>"));
+        assert!(result.contains("<NFe>"));
+        assert!(result.contains("<protNFe"));
+    }
+
+    #[test]
+    fn attach_protocol_rejected_status_in_exact_match() {
+        let request = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199650010000000011123456780">"#,
+            r#"<ide/></infNFe>"#,
+            r#"<Signature><SignedInfo/><SignatureValue/>"#,
+            r#"<KeyInfo><DigestValue>abc123</DigestValue></KeyInfo></Signature>"#,
+            r#"</NFe>"#
+        );
+        let response = concat!(
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<digVal>abc123</digVal>"#,
+            r#"<chNFe>35260112345678000199650010000000011123456780</chNFe>"#,
+            r#"<cStat>999</cStat>"#,
+            r#"<xMotivo>Rejeitada</xMotivo>"#,
+            r#"</infProt></protNFe>"#
+        );
+        let err = attach_protocol(request, response).unwrap_err();
+        assert!(matches!(err, FiscalError::SefazRejection { .. }));
+    }
+
+    #[test]
+    fn attach_protocol_fallback_rejected_status() {
+        // No digest match, falls back to first protNFe which is rejected
+        let request = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199650010000000011123456780">"#,
+            r#"<ide/></infNFe></NFe>"#
+        );
+        let response = concat!(
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<cStat>999</cStat>"#,
+            r#"<xMotivo>Rejeitada</xMotivo>"#,
+            r#"</infProt></protNFe>"#
+        );
+        let err = attach_protocol(request, response).unwrap_err();
+        assert!(matches!(err, FiscalError::SefazRejection { .. }));
+    }
+
+    // ── attach_inutilizacao tests ───────────────────────────────────
+
+    #[test]
+    fn attach_inutilizacao_empty_request() {
+        let err = attach_inutilizacao("", "<retInutNFe/>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_inutilizacao_empty_response() {
+        let err = attach_inutilizacao("<inutNFe/>", "").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_inutilizacao_missing_inut_tag() {
+        let err = attach_inutilizacao("<other/>", "<retInutNFe><cStat>102</cStat></retInutNFe>")
+            .unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_inutilizacao_missing_ret_tag() {
+        let err = attach_inutilizacao(
+            r#"<inutNFe versao="4.00"><data/></inutNFe>"#,
+            "<other/>",
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_inutilizacao_rejected_status() {
+        let err = attach_inutilizacao(
+            r#"<inutNFe versao="4.00"><data/></inutNFe>"#,
+            r#"<retInutNFe><cStat>999</cStat><xMotivo>Erro</xMotivo></retInutNFe>"#,
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::SefazRejection { .. }));
+    }
+
+    #[test]
+    fn attach_inutilizacao_success() {
+        let result = attach_inutilizacao(
+            r#"<inutNFe versao="4.00"><infInut/></inutNFe>"#,
+            r#"<retInutNFe><cStat>102</cStat><xMotivo>Inutilizacao de numero homologado</xMotivo></retInutNFe>"#,
+        )
+        .unwrap();
+        assert!(result.contains("<ProcInutNFe"));
+        assert!(result.contains("<inutNFe"));
+        assert!(result.contains("<retInutNFe>"));
+    }
+
+    // ── attach_event_protocol tests ─────────────────────────────────
+
+    #[test]
+    fn attach_event_protocol_empty_request() {
+        let err = attach_event_protocol("", "<retEvento/>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_event_protocol_empty_response() {
+        let err = attach_event_protocol("<evento/>", "").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_event_protocol_missing_evento() {
+        let err = attach_event_protocol("<other/>", "<retEvento><infEvento><cStat>135</cStat></infEvento></retEvento>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_event_protocol_missing_ret_evento() {
+        let err = attach_event_protocol(
+            r#"<evento versao="1.00"><infEvento/></evento>"#,
+            "<other/>",
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_event_protocol_rejected_status() {
+        let err = attach_event_protocol(
+            r#"<evento versao="1.00"><infEvento/></evento>"#,
+            r#"<retEvento><infEvento><cStat>999</cStat><xMotivo>Rejeitado</xMotivo></infEvento></retEvento>"#,
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::SefazRejection { .. }));
+    }
+
+    #[test]
+    fn attach_event_protocol_success() {
+        let result = attach_event_protocol(
+            r#"<evento versao="1.00"><infEvento Id="ID1234"/></evento>"#,
+            r#"<retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo></infEvento></retEvento>"#,
+        )
+        .unwrap();
+        assert!(result.contains("<procEventoNFe"));
+        assert!(result.contains("<evento"));
+        assert!(result.contains("<retEvento>"));
+    }
+
+    // ── attach_b2b tests ────────────────────────────────────────────
+
+    #[test]
+    fn attach_b2b_no_nfe_proc() {
+        let err = attach_b2b("<NFe/>", "<NFeB2BFin>data</NFeB2BFin>", None).unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_b2b_no_b2b_tag() {
+        let err = attach_b2b(
+            "<nfeProc><NFe/></nfeProc>",
+            "<other>data</other>",
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_b2b_extract_failure() {
+        // nfeProc without closing tag won't extract
+        let err = attach_b2b(
+            "<nfeProc><NFe/>",
+            "<NFeB2BFin>data</NFeB2BFin>",
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn attach_b2b_success() {
+        let result = attach_b2b(
+            "<nfeProc><NFe/><protNFe/></nfeProc>",
+            "<NFeB2BFin><tag>data</tag></NFeB2BFin>",
+            None,
+        )
+        .unwrap();
+        assert!(result.contains("<nfeProcB2B>"));
+        assert!(result.contains("<nfeProc>"));
+        assert!(result.contains("<NFeB2BFin>"));
+    }
+
+    #[test]
+    fn attach_b2b_custom_tag() {
+        let result = attach_b2b(
+            "<nfeProc><NFe/><protNFe/></nfeProc>",
+            "<CustomB2B><tag>data</tag></CustomB2B>",
+            Some("CustomB2B"),
+        )
+        .unwrap();
+        assert!(result.contains("<CustomB2B>"));
+    }
+
+    // ── extract_all_tags delimiter check ─────────────────────────────
+
+    #[test]
+    fn extract_all_tags_skips_prefix_match() {
+        // "protNFeExtra" should NOT be matched when looking for "protNFe"
+        let xml = "<root><protNFeExtra>bad</protNFeExtra><protNFe>good</protNFe></root>";
+        let results = extract_all_tags(xml, "protNFe");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].contains("good"));
+    }
+
     #[test]
     fn attach_cancellation_picks_first_matching_from_multiple_ret_eventos() {
         let nfe_proc = concat!(
@@ -1024,6 +1271,202 @@ mod tests {
         let result = attach_b2b(nfe_proc, b2b, None).unwrap();
         assert!(!result.contains('\r'));
         assert!(!result.contains('\n'));
+    }
+
+    // ── attach_protocol: fallback protNFe with invalid cStat (lines 112-116) ──
+
+    #[test]
+    fn attach_protocol_fallback_prot_invalid_status() {
+        // Request with NFe, digest, access key
+        let request = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199550010000000011123456780">"#,
+            r#"<DigestValue>abc123</DigestValue>"#,
+            r#"</infNFe></NFe>"#
+        );
+        // Response with single protNFe that has NO digVal (trigger fallback),
+        // but status is invalid
+        let response = concat!(
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<cStat>999</cStat>"#,
+            r#"<xMotivo>Rejeitado</xMotivo>"#,
+            r#"</infProt></protNFe>"#
+        );
+        let err = attach_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::SefazRejection { code, .. } => assert_eq!(code, "999"),
+            other => panic!("Expected SefazRejection, got {:?}", other),
+        }
+    }
+
+    // ── attach_inutilizacao: version mismatch (line 197) ────────────────
+
+    #[test]
+    fn attach_inutilizacao_version_mismatch() {
+        let request = concat!(
+            r#"<inutNFe versao="4.00"><infInut>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>1</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></inutNFe>"#
+        );
+        let response = concat!(
+            r#"<retInutNFe versao="3.10"><infInut>"#,
+            r#"<cStat>102</cStat><xMotivo>Inutilizacao homologada</xMotivo>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>1</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></retInutNFe>"#
+        );
+        let err = attach_inutilizacao(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert!(msg.contains("versao"), "Expected version mismatch error, got: {msg}");
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    // ── attach_inutilizacao: tag mismatch (line 217) ────────────────────
+
+    #[test]
+    fn attach_inutilizacao_tag_value_mismatch() {
+        let request = concat!(
+            r#"<inutNFe versao="4.00"><infInut>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>1</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></inutNFe>"#
+        );
+        let response = concat!(
+            r#"<retInutNFe versao="4.00"><infInut>"#,
+            r#"<cStat>102</cStat><xMotivo>Inutilizacao homologada</xMotivo>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>2</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></retInutNFe>"#
+        );
+        let err = attach_inutilizacao(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert!(msg.contains("serie"), "Expected serie mismatch error, got: {msg}");
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    // ── attach_event_protocol: idLote mismatch (lines 277-278) ──────────
+
+    #[test]
+    fn attach_event_protocol_id_lote_mismatch() {
+        let request = concat!(
+            r#"<envEvento><idLote>100</idLote>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento><idLote>999</idLote>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let err = attach_event_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::XmlParsing(msg) => {
+                assert!(
+                    msg.contains("lote"),
+                    "Expected lote mismatch error, got: {msg}"
+                );
+            }
+            other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    // ── attach_b2b: extract_tag for b2b content (line 348) ──────────────
+
+    #[test]
+    fn attach_b2b_extract_tag_coverage() {
+        let nfe_proc = concat!(
+            r#"<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<NFe><infNFe/></NFe><protNFe><infProt/></protNFe>"#,
+            r#"</nfeProc>"#
+        );
+        let b2b = r#"<NFeB2BFin versao="1.00"><dados>value</dados></NFeB2BFin>"#;
+        let result = attach_b2b(nfe_proc, b2b, None).unwrap();
+        assert!(result.contains("<nfeProcB2B>"));
+        assert!(result.contains("<dados>value</dados>"));
+    }
+
+    // ── to_authorize: NFe path (line 428) ───────────────────────────────
+
+    #[test]
+    fn to_authorize_dispatches_nfe() {
+        let request = concat!(
+            r#"<NFe><infNFe versao="4.00" Id="NFe35260112345678000199550010000000011123456780">"#,
+            r#"<DigestValue>abc</DigestValue>"#,
+            r#"</infNFe></NFe>"#
+        );
+        let response = concat!(
+            r#"<protNFe versao="4.00"><infProt>"#,
+            r#"<cStat>100</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<digVal>abc</digVal>"#,
+            r#"<chNFe>35260112345678000199550010000000011123456780</chNFe>"#,
+            r#"</infProt></protNFe>"#
+        );
+        let result = to_authorize(request, response).unwrap();
+        assert!(result.contains("<nfeProc"));
+    }
+
+    // ── to_authorize: envEvento path (line 430) ─────────────────────────
+
+    #[test]
+    fn to_authorize_dispatches_env_evento() {
+        let request = concat!(
+            r#"<envEvento>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>135</cStat><xMotivo>OK</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento>"#
+        );
+        let result = to_authorize(request, response).unwrap();
+        assert!(result.contains("<procEventoNFe"));
+    }
+
+    // ── to_authorize: inutNFe path (line 432) ───────────────────────────
+
+    #[test]
+    fn to_authorize_dispatches_inut_nfe() {
+        let request = concat!(
+            r#"<inutNFe versao="4.00"><infInut>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>1</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></inutNFe>"#
+        );
+        let response = concat!(
+            r#"<retInutNFe versao="4.00"><infInut>"#,
+            r#"<cStat>102</cStat><xMotivo>Inutilizacao homologada</xMotivo>"#,
+            r#"<tpAmb>2</tpAmb><cUF>35</cUF><ano>26</ano>"#,
+            r#"<CNPJ>12345678000199</CNPJ><mod>55</mod><serie>1</serie>"#,
+            r#"<nNFIni>1</nNFIni><nNFFin>10</nNFFin>"#,
+            r#"</infInut></retInutNFe>"#
+        );
+        let result = to_authorize(request, response).unwrap();
+        assert!(result.contains("<ProcInutNFe"));
+    }
+
+    // ── contains_xml_tag: tag at very end of string (line 446) ──────────
+
+    #[test]
+    fn contains_xml_tag_at_end_of_string() {
+        // Tag pattern at the very end, after >= xml.len() → true
+        assert!(contains_xml_tag("<NFe", "NFe"));
     }
 
     // ── strip_newlines helper tests ─────────────────────────────────────

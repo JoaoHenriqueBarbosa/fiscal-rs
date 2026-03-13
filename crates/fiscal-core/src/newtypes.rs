@@ -565,6 +565,66 @@ impl fmt::Display for Cfop {
 mod tests {
     use super::*;
 
+    // -- From<i64> for Cents and From<Cents> for i64 -------------------------
+
+    #[test]
+    fn cents_from_i64() {
+        let c = Cents::from(42_i64);
+        assert_eq!(c, Cents(42));
+    }
+
+    #[test]
+    fn i64_from_cents() {
+        let v: i64 = Cents(999).into();
+        assert_eq!(v, 999);
+    }
+
+    // -- From<i64> for Rate and From<Rate> for i64 ---------------------------
+
+    #[test]
+    fn rate_from_i64() {
+        let r = Rate::from(1800_i64);
+        assert_eq!(r, Rate(1800));
+    }
+
+    #[test]
+    fn i64_from_rate() {
+        let v: i64 = Rate(1800).into();
+        assert_eq!(v, 1800);
+    }
+
+    // -- From<i64> for Rate4 and From<Rate4> for i64 -------------------------
+
+    #[test]
+    fn rate4_from_i64() {
+        let r = Rate4::from(16500_i64);
+        assert_eq!(r, Rate4(16500));
+    }
+
+    #[test]
+    fn i64_from_rate4() {
+        let v: i64 = Rate4(16500).into();
+        assert_eq!(v, 16500);
+    }
+
+    // -- Rate arithmetic -------------------------------------------------------
+
+    #[test]
+    fn rate_add_assign() {
+        let mut r = Rate(100);
+        r += Rate(50);
+        assert_eq!(r, Rate(150));
+    }
+
+    // -- Rate4 arithmetic -------------------------------------------------------
+
+    #[test]
+    fn rate4_add_assign() {
+        let mut r = Rate4(10000);
+        r += Rate4(5000);
+        assert_eq!(r, Rate4(15000));
+    }
+
     // -- Cents -----------------------------------------------------------------
 
     #[test]
@@ -934,5 +994,31 @@ mod tests {
     fn cfop_error_variant() {
         let err = Cfop::new("bad").unwrap_err();
         assert!(matches!(err, FiscalError::InvalidTaxData(_)));
+    }
+
+    // -- Explicit From/Into round-trip tests for coverage on #[inline] impls --
+
+    #[test]
+    fn cents_from_into_roundtrip() {
+        let original: i64 = 42;
+        let c: Cents = original.into();
+        let back: i64 = c.into();
+        assert_eq!(original, back);
+    }
+
+    #[test]
+    fn rate_from_into_roundtrip() {
+        let original: i64 = 1800;
+        let r: Rate = original.into();
+        let back: i64 = r.into();
+        assert_eq!(original, back);
+    }
+
+    #[test]
+    fn rate4_from_into_roundtrip() {
+        let original: i64 = 16500;
+        let r: Rate4 = original.into();
+        let back: i64 = r.into();
+        assert_eq!(original, back);
     }
 }
