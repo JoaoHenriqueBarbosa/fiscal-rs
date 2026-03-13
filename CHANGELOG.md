@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.0...fiscal-v0.4.1) - 2026-03-13
+
+### Other
+
+- Merge branch 'worktree-agent-a420714f'
+- Merge branch 'worktree-agent-ab761285'
+- Merge branch 'worktree-agent-ad27b720'
+
 ## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.3.0...fiscal-v0.4.0) - 2026-03-13
 
 ### Added

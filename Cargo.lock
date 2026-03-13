@@ -304,7 +304,7 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "fiscal"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64",
  "chrono",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "fiscal-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64",
  "chrono",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "fiscal-crypto"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64",
  "chrono",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "fiscal-sefaz"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64",
  "chrono",
