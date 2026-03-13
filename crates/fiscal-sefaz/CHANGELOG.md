@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.1.2...fiscal-sefaz-v0.2.0) - 2026-03-13
+
+### Added
+
+- *(parity)* IBS/CBS, IS, eventos RTC — reforma tributária completa
+- *(parity)* round 4 — download, CSC, lote, conciliação, cana, ICMS mono, gzip
+- *(parity)* round 3 — byte-exact PHP alignment, DI, detExport, impostoDevol, prorrogação
+- *(parity)* implement cancelRegister, EPEC, 6 events, combustíveis, ISSQN
+
+### Fixed
+
+- *(parity)* comprehensive PHP alignment — URLs, totals, requests, XML builder
+
 ## [0.1.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.1.1...fiscal-sefaz-v0.1.2) - 2026-03-12
 
 ### Fixed

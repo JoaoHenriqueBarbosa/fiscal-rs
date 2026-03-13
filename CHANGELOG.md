@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.1.2...fiscal-v0.2.0) - 2026-03-13
+
+### Added
+
+- *(parity)* round 5 — últimas disparidades, paridade total com PHP
+- *(parity)* round 4 — download, CSC, lote, conciliação, cana, ICMS mono, gzip
+
+### Fixed
+
+- *(ci)* add --workspace to test commands to cover all crates
+- *(bench)* add v_ipi_devol field to OtherTotals in bench
+- *(bench)* add issqn_tot parameter to build_total bench call
+- *(bench)* update bench to match new build_address_fields and OtherTotals signatures
+- *(parity)* comprehensive PHP alignment — URLs, totals, requests, XML builder
+
+### Other
+
+- *(fmt)* apply cargo fmt
+
 ## [0.1.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.1.1...fiscal-v0.1.2) - 2026-03-12
 
 ### Fixed

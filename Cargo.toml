@@ -11,7 +11,7 @@ resolver = "2"
 
 [package]
 name = "fiscal"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Brazilian fiscal document library (NF-e/NFC-e) — Rust port of sped-nfe"
@@ -22,9 +22,9 @@ keywords = ["nfe", "nfce", "fiscal", "brazil", "sefaz"]
 categories = ["encoding", "cryptography", "web-programming"]
 
 [dependencies]
-fiscal-core = { path = "crates/fiscal-core", version = "0.1.2" }
-fiscal-crypto = { path = "crates/fiscal-crypto", version = "0.1.2" }
-fiscal-sefaz = { path = "crates/fiscal-sefaz", version = "0.1.2" }
+fiscal-core = { path = "crates/fiscal-core", version = "0.2.0" }
+fiscal-crypto = { path = "crates/fiscal-crypto", version = "0.1.3" }
+fiscal-sefaz = { path = "crates/fiscal-sefaz", version = "0.2.0" }
 
 [dev-dependencies]
 pretty_assertions = "1"
