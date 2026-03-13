@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.1.3...fiscal-crypto-v0.1.4) - 2026-03-13
+
+### Other
+
+- updated the following local packages: fiscal-core
+
 ## [0.1.3](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.1.2...fiscal-crypto-v0.1.3) - 2026-03-13
 
 ### Other

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.2.0...fiscal-v0.3.0) - 2026-03-13
+
+### Added
+
+- *(parity)* round 6 — paridade completa com PHP sped-nfe
+
 ## [0.2.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.1.2...fiscal-v0.2.0) - 2026-03-13
 
 ### Added
