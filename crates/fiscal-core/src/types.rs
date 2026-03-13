@@ -3320,6 +3320,8 @@ pub(crate) struct InvoiceBuildData {
     pub pag_antecipado: Option<PagAntecipadoData>,
     pub is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     pub ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
+    // vNFTot override (PL_010 only)
+    pub v_nf_tot_override: Option<crate::newtypes::Cents>,
     // ASCII sanitization
     pub only_ascii: bool,
     pub calculation_method: CalculationMethod,

@@ -160,6 +160,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
         data.ibs_cbs_tot.as_ref(),
         data.schema_version,
         data.calculation_method,
+        data.v_nf_tot_override,
     ));
 
     inf_children.push(transp::build_transp(data));

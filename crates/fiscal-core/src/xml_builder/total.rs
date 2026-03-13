@@ -89,9 +89,29 @@ fn calculate_v_nf_v2(
     calculate_v_nf_v1(total_products, icms, other, v_serv)
 }
 
-/// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, and IBSCBSTot.
+/// Parse a decimal string (e.g. "100.50") into cents (i64).
 ///
-/// `schema_version` controls whether PL_010-exclusive totals (ISTot, IBSCBSTot) are emitted.
+/// Returns 0 when the string is empty or cannot be parsed.
+/// Used internally to extract numeric values from `IbsCbsTotData` / `IsTotData`
+/// for the `vNFTot` auto-calculation.
+fn parse_decimal_to_cents(s: &str) -> i64 {
+    if s.is_empty() {
+        return 0;
+    }
+    s.parse::<f64>()
+        .map(|v| (v * 100.0).round() as i64)
+        .unwrap_or(0)
+}
+
+/// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, IBSCBSTot,
+/// and optional vNFTot (PL_010 only).
+///
+/// `schema_version` controls whether PL_010-exclusive totals (ISTot, IBSCBSTot, vNFTot) are
+/// emitted.
+///
+/// `v_nf_tot_override` allows the caller to supply a manual override for `vNFTot`, matching
+/// the PHP `tagTotal(vNFTot)` API.  When `None`, `vNFTot` is auto-calculated as
+/// `vNF + vIBS + vCBS + vIS` (only emitted when IBSCBSTot is present and the result > 0).
 #[allow(clippy::too_many_arguments)]
 pub fn build_total(
     total_products: i64,
@@ -103,6 +123,7 @@ pub fn build_total(
     ibs_cbs_tot: Option<&IbsCbsTotData>,
     schema_version: SchemaVersion,
     calculation_method: CalculationMethod,
+    v_nf_tot_override: Option<Cents>,
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
@@ -231,7 +252,7 @@ pub fn build_total(
         total_children.push(build_issqn_tot(iqt));
     }
 
-    // ISTot and IBSCBSTot — only emitted when schema is PL_010 or later
+    // ISTot, IBSCBSTot, and vNFTot — only emitted when schema is PL_010 or later
     // (matching PHP: $this->schema > 9)
     if schema_version.is_pl010() {
         // ISTot — emitted when IS (Imposto Seletivo) is present
@@ -242,6 +263,35 @@ pub fn build_total(
         // IBSCBSTot — emitted when IBS/CBS is present
         if let Some(ibst) = ibs_cbs_tot {
             total_children.push(tax_ibs_cbs::build_ibs_cbs_tot_xml(ibst));
+
+            // vNFTot — emitted after IBSCBSTot (matching PHP addTagTotal position).
+            // When override is provided and non-zero, use it directly.
+            // Otherwise, auto-calculate as vNF + vIBS + vCBS + vIS.
+            let v_nf_tot_value = if let Some(ov) = v_nf_tot_override {
+                // Override provided — use it (PHP errors on zero, we skip emission)
+                ov.0
+            } else {
+                // Auto-calculate: vNFTot = vNF + vIBS + vCBS + vIS
+                let v_ibs = ibst
+                    .g_ibs_v_ibs
+                    .as_deref()
+                    .map(parse_decimal_to_cents)
+                    .unwrap_or(0);
+                let v_cbs = ibst
+                    .g_cbs_v_cbs
+                    .as_deref()
+                    .map(parse_decimal_to_cents)
+                    .unwrap_or(0);
+                let v_is = is_tot
+                    .map(|ist| parse_decimal_to_cents(&ist.v_is))
+                    .unwrap_or(0);
+                v_nf + v_ibs + v_cbs + v_is
+            };
+
+            // Only emit when > 0 (matches PHP: empty check)
+            if v_nf_tot_value > 0 {
+                total_children.push(tag("vNFTot", &[], TagContent::Text(&fc2(v_nf_tot_value))));
+            }
         }
     }
 
@@ -439,6 +489,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // ISSQNtot should appear after ICMSTot
@@ -464,6 +515,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
         assert!(!xml.contains("<ISSQNtot>"));
     }
@@ -488,6 +540,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // All monophasic fields must be present
@@ -521,6 +574,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         assert!(
@@ -566,6 +620,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // q_bc_mono is 0, should be omitted
@@ -616,6 +671,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // vNF = vProd - vDesc - vICMSDeson + ... = 1000.00 - 0 - 100.00 = 900.00
@@ -645,6 +701,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // vNF = vProd = 1000.00 (desoneração NÃO deduzida)
@@ -672,6 +729,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         // vNF = vProd + vServ = 1000.00 + 500.00 = 1500.00
@@ -702,6 +760,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         assert!(
@@ -740,6 +799,7 @@ mod tests {
             None,
             SchemaVersion::PL009,
             default_method(),
+            None,
         );
 
         assert!(
@@ -753,6 +813,171 @@ mod tests {
         assert!(
             !xml.contains("<vICMSUFRemet>"),
             "vICMSUFRemet must be omitted when zero"
+        );
+    }
+
+    // ── vNFTot (PL_010 only) ─────────────────────────────────────────────
+
+    #[test]
+    fn v_nf_tot_override_emitted_on_pl010_with_ibs_cbs() {
+        use crate::tax_ibs_cbs::IbsCbsTotData;
+
+        let ibs_cbs = IbsCbsTotData::new("1000.00");
+        let xml = build_total(
+            100_000, // vProd = 1000.00
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            Some(&ibs_cbs),
+            SchemaVersion::PL010,
+            default_method(),
+            Some(Cents(150_000)), // override = 1500.00
+        );
+
+        assert!(
+            xml.contains("<vNFTot>1500.00</vNFTot>"),
+            "vNFTot override deve ser emitido com valor 1500.00. XML: {xml}"
+        );
+
+        // vNFTot deve vir depois de </IBSCBSTot>
+        let ibs_end = xml.find("</IBSCBSTot>").expect("</IBSCBSTot> must exist");
+        let vnftot_start = xml.find("<vNFTot>").expect("<vNFTot> must exist");
+        assert!(
+            vnftot_start > ibs_end,
+            "vNFTot deve vir depois de IBSCBSTot"
+        );
+    }
+
+    #[test]
+    fn v_nf_tot_auto_calculated_on_pl010() {
+        use crate::tax_ibs_cbs::{IbsCbsTotData, IsTotData};
+
+        // vProd = 1000.00, vNF será 1000.00
+        // vIBS = 50.00, vCBS = 30.00, vIS = 10.00
+        // vNFTot auto = 1000.00 + 50.00 + 30.00 + 10.00 = 1090.00
+        let mut ibs_cbs = IbsCbsTotData::new("1000.00");
+        ibs_cbs.g_ibs_v_ibs = Some("50.00".to_string());
+        ibs_cbs.g_cbs_v_cbs = Some("30.00".to_string());
+
+        let is_tot = IsTotData::new("10.00");
+
+        let xml = build_total(
+            100_000, // vProd = 1000.00
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            Some(&is_tot),
+            Some(&ibs_cbs),
+            SchemaVersion::PL010,
+            default_method(),
+            None, // sem override — auto-cálculo
+        );
+
+        assert!(
+            xml.contains("<vNFTot>1090.00</vNFTot>"),
+            "vNFTot auto-calculado deve ser 1090.00. XML: {xml}"
+        );
+    }
+
+    #[test]
+    fn v_nf_tot_not_emitted_on_pl009() {
+        use crate::tax_ibs_cbs::IbsCbsTotData;
+
+        let ibs_cbs = IbsCbsTotData::new("1000.00");
+        let xml = build_total(
+            100_000,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            Some(&ibs_cbs),
+            SchemaVersion::PL009,
+            default_method(),
+            Some(Cents(150_000)),
+        );
+
+        assert!(
+            !xml.contains("<vNFTot>"),
+            "vNFTot não deve ser emitido no PL009. XML: {xml}"
+        );
+    }
+
+    #[test]
+    fn v_nf_tot_not_emitted_without_ibs_cbs() {
+        let xml = build_total(
+            100_000,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            None, // sem IBSCBSTot
+            SchemaVersion::PL010,
+            default_method(),
+            Some(Cents(150_000)),
+        );
+
+        assert!(
+            !xml.contains("<vNFTot>"),
+            "vNFTot não deve ser emitido sem IBSCBSTot. XML: {xml}"
+        );
+    }
+
+    #[test]
+    fn v_nf_tot_zero_override_not_emitted() {
+        use crate::tax_ibs_cbs::IbsCbsTotData;
+
+        let ibs_cbs = IbsCbsTotData::new("1000.00");
+        let xml = build_total(
+            100_000,
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            Some(&ibs_cbs),
+            SchemaVersion::PL010,
+            default_method(),
+            Some(Cents(0)), // override = zero
+        );
+
+        assert!(
+            !xml.contains("<vNFTot>"),
+            "vNFTot não deve ser emitido quando override é zero. XML: {xml}"
+        );
+    }
+
+    #[test]
+    fn v_nf_tot_auto_without_is() {
+        use crate::tax_ibs_cbs::IbsCbsTotData;
+
+        // vProd = 500.00, vNF será 500.00
+        // vIBS = 25.00, vCBS = 15.00, sem IS
+        // vNFTot auto = 500.00 + 25.00 + 15.00 = 540.00
+        let mut ibs_cbs = IbsCbsTotData::new("500.00");
+        ibs_cbs.g_ibs_v_ibs = Some("25.00".to_string());
+        ibs_cbs.g_cbs_v_cbs = Some("15.00".to_string());
+
+        let xml = build_total(
+            50_000, // vProd = 500.00
+            &zero_icms(),
+            &zero_other(),
+            None,
+            None,
+            None,
+            Some(&ibs_cbs),
+            SchemaVersion::PL010,
+            default_method(),
+            None,
+        );
+
+        assert!(
+            xml.contains("<vNFTot>540.00</vNFTot>"),
+            "vNFTot auto-calculado sem IS deve ser 540.00. XML: {xml}"
         );
     }
 }
