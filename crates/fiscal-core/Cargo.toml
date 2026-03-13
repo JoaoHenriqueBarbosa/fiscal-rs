@@ -1,6 +1,6 @@
 [package]
 name = "fiscal-core"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Core types, tax calculations, and XML builder for Brazilian fiscal documents"
