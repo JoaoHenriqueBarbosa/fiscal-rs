@@ -578,8 +578,8 @@ pub(crate) fn build_det(
         .map(|v| v == "1")
         .unwrap_or(false);
 
-    // Build det-level extras (infAdProd, obsItem, DFeReferenciado)
-    let det_extras = build_det_extras(item);
+    // Build det-level extras (infAdProd, obsItem, vItem, DFeReferenciado)
+    // Deferred to after imposto assembly so we have access to computed values.
 
     // Assemble imposto
     let mut imposto_children: Vec<String> = Vec::new();
@@ -667,6 +667,12 @@ pub(crate) fn build_det(
     }
     if let Some(ref cb) = item.c_benef {
         prod_children.push(tag("cBenef", &[], TagContent::Text(cb)));
+    }
+    // tpCredPresIBSZFM — PL_010 only, after cBenef, before gCred (NT 2025.002)
+    if data.schema_version.is_pl010() {
+        if let Some(ref tp) = item.tp_cred_pres_ibs_zfm {
+            prod_children.push(tag("tpCredPresIBSZFM", &[], TagContent::Text(tp)));
+        }
     }
     // gCred (crédito presumido ICMS) — up to 4 per item, inside <prod>
     for gc in item.g_cred.iter().take(4) {
@@ -785,6 +791,51 @@ pub(crate) fn build_det(
     } else {
         String::new()
     };
+
+    // Compute vItem for PL_010 — matching PHP calculateTtensValues2
+    // Emitted inside <det> when schema >= PL_010 and at least one item has IBS/CBS data.
+    let v_item_xml =
+        if data.schema_version.is_pl010() && data.items.iter().any(|i| i.ibs_cbs.is_some()) {
+            let v_item_cents = if let Some(ref explicit) = item.v_item {
+                // User-supplied vItem takes precedence (matches PHP: $this->aVItem[$item]['vItem'])
+                explicit.0
+            } else {
+                // Auto-calculate (matches PHP calculateTtensValues2)
+                let v_prod = item.total_price.0;
+                let v_desc = item.v_desc.map(|c| c.0).unwrap_or(0);
+                let v_icms_deson = if item_ind_deduz_deson {
+                    item.icms_v_icms_deson.map(|c| c.0).unwrap_or(0)
+                } else {
+                    0
+                };
+                let v_icms_st = icms_totals.v_st.0;
+                let v_icms_mono_reten = icms_totals.v_icms_mono_reten.0;
+                let v_fcp_st = icms_totals.v_fcp_st.0;
+                let v_frete = item.v_frete.map(|c| c.0).unwrap_or(0);
+                let v_seg = item.v_seg.map(|c| c.0).unwrap_or(0);
+                let v_outro = item.v_outro.map(|c| c.0).unwrap_or(0);
+
+                v_prod - v_desc - v_icms_deson
+                    + v_icms_st
+                    + v_icms_mono_reten
+                    + v_fcp_st
+                    + v_frete
+                    + v_seg
+                    + v_outro
+                    + v_ii
+                    + v_ipi
+                    + v_ipi_devol
+                    + v_pis_st
+                    + v_cofins_st
+            };
+            let v_item_str = format_cents(v_item_cents, 2);
+            tag("vItem", &[], TagContent::Text(&v_item_str))
+        } else {
+            String::new()
+        };
+
+    // Build det-level extras (infAdProd, obsItem, vItem, DFeReferenciado)
+    let det_extras = build_det_extras(item, &v_item_xml);
 
     // Assemble det
     let nitem = item.item_number.to_string();
@@ -1062,7 +1113,7 @@ fn build_comb_xml(comb: &CombData) -> String {
     tag("comb", &[], TagContent::Children(children))
 }
 
-fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
+fn build_det_extras(item: &InvoiceItemData, v_item_xml: &str) -> Vec<String> {
     let mut extras = Vec::new();
 
     if let Some(ref info) = item.inf_ad_prod {
@@ -1086,6 +1137,11 @@ fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
             ));
         }
         extras.push(tag("obsItem", &[], TagContent::Children(obs_children)));
+    }
+
+    // vItem — PL_010 only, after obsItem, before DFeReferenciado
+    if !v_item_xml.is_empty() {
+        extras.push(v_item_xml.to_string());
     }
 
     if let Some(ref dfe) = item.dfe_referenciado {
@@ -3520,5 +3576,239 @@ mod tests {
         let result = build_det(&item, &data).expect("build_det should succeed");
 
         assert!(result.xml.contains("<orig>1</orig>"));
+    }
+
+    // ── tpCredPresIBSZFM (PL010 only, inside <prod>) ────────────────────
+
+    #[test]
+    fn tp_cred_pres_ibs_zfm_emitted_with_pl010_schema() {
+        let item = sample_item()
+            .tp_cred_pres_ibs_zfm("1")
+            .c_benef("SEM CBENEF");
+        let data = pl010_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result
+                .xml
+                .contains("<tpCredPresIBSZFM>1</tpCredPresIBSZFM>")
+        );
+        // Must appear after cBenef
+        let cbenef_pos = result.xml.find("<cBenef>").expect("cBenef should exist");
+        let tp_pos = result
+            .xml
+            .find("<tpCredPresIBSZFM>")
+            .expect("tpCredPresIBSZFM should exist");
+        assert!(
+            tp_pos > cbenef_pos,
+            "tpCredPresIBSZFM must come after cBenef"
+        );
+    }
+
+    #[test]
+    fn tp_cred_pres_ibs_zfm_not_emitted_with_pl009_schema() {
+        let item = sample_item().tp_cred_pres_ibs_zfm("1");
+        let data = sample_build_data(); // PL009
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            !result.xml.contains("<tpCredPresIBSZFM>"),
+            "tpCredPresIBSZFM must not be emitted with PL009"
+        );
+    }
+
+    #[test]
+    fn tp_cred_pres_ibs_zfm_not_emitted_when_not_set() {
+        let item = sample_item();
+        let data = pl010_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            !result.xml.contains("<tpCredPresIBSZFM>"),
+            "tpCredPresIBSZFM must not be emitted when not set"
+        );
+    }
+
+    #[test]
+    fn tp_cred_pres_ibs_zfm_position_after_cbenef_before_gcred() {
+        let gc = GCredData::new("ABC1234567", Rate4(2500)).v_cred_presumido(Cents(500));
+        let item = sample_item()
+            .c_benef("SEM CBENEF")
+            .tp_cred_pres_ibs_zfm("2")
+            .g_cred(vec![gc]);
+        let data = pl010_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let cbenef_pos = result.xml.find("<cBenef>").expect("cBenef should exist");
+        let tp_pos = result
+            .xml
+            .find("<tpCredPresIBSZFM>")
+            .expect("tpCredPresIBSZFM should exist");
+        let gcred_pos = result.xml.find("<gCred>").expect("gCred should exist");
+        assert!(
+            tp_pos > cbenef_pos && tp_pos < gcred_pos,
+            "tpCredPresIBSZFM must be between cBenef and gCred"
+        );
+    }
+
+    // ── vItem (PL010 only, inside <det>) ─────────────────────────────────
+
+    #[test]
+    fn v_item_emitted_with_pl010_and_ibs_cbs() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item = sample_item().ibs_cbs(ibs_cbs);
+        let mut data = pl010_build_data();
+        // At least one item in the invoice must have IBS/CBS
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result.xml.contains("<vItem>"),
+            "vItem must be emitted with PL010 and IBS/CBS data"
+        );
+    }
+
+    #[test]
+    fn v_item_not_emitted_with_pl009() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item = sample_item().ibs_cbs(ibs_cbs);
+        let mut data = sample_build_data(); // PL009
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            !result.xml.contains("<vItem>"),
+            "vItem must not be emitted with PL009"
+        );
+    }
+
+    #[test]
+    fn v_item_not_emitted_without_ibs_cbs() {
+        let item = sample_item();
+        let mut data = pl010_build_data();
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            !result.xml.contains("<vItem>"),
+            "vItem must not be emitted without any IBS/CBS data"
+        );
+    }
+
+    #[test]
+    fn v_item_auto_calculated_from_values() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        // vProd=1000, vDesc=100, vFrete=50, vSeg=30, vOutro=20
+        // Expected: 1000 - 100 + 50 + 30 + 20 = 1000 cents = 10.00
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item = InvoiceItemData::new(
+            1,
+            "001",
+            "Produto",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(1000),
+            Cents(1000), // vProd
+            "102",       // CSOSN for Simples Nacional
+            Rate(1800),
+            Cents(180),
+            "99",
+            "99",
+        )
+        .v_desc(Cents(100))
+        .v_frete(Cents(50))
+        .v_seg(Cents(30))
+        .v_outro(Cents(20))
+        .ibs_cbs(ibs_cbs);
+        let mut data = pl010_build_data();
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result.xml.contains("<vItem>10.00</vItem>"),
+            "vItem should be auto-calculated as 10.00, got xml: {}",
+            result.xml
+        );
+    }
+
+    #[test]
+    fn v_item_user_supplied_takes_precedence() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item = sample_item().ibs_cbs(ibs_cbs).v_item(Cents(9999)); // 99.99
+        let mut data = pl010_build_data();
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(
+            result.xml.contains("<vItem>99.99</vItem>"),
+            "vItem should use user-supplied value 99.99"
+        );
+    }
+
+    #[test]
+    fn v_item_position_after_obs_item_before_dfe_referenciado() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        use crate::types::{DFeReferenciadoData, ObsField, ObsItemData};
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let obs = ObsItemData::new().obs_cont(ObsField::new("campo1", "texto1"));
+        let dfe = DFeReferenciadoData::new("12345678901234567890123456789012345678901234");
+        let item = sample_item()
+            .ibs_cbs(ibs_cbs)
+            .obs_item(obs)
+            .dfe_referenciado(dfe)
+            .v_item(Cents(5000));
+        let mut data = pl010_build_data();
+        data.items = vec![item.clone()];
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        let obs_pos = result.xml.find("<obsItem>").expect("obsItem should exist");
+        let v_item_pos = result.xml.find("<vItem>").expect("vItem should exist");
+        let dfe_pos = result
+            .xml
+            .find("<DFeReferenciado>")
+            .expect("DFeReferenciado should exist");
+        assert!(
+            v_item_pos > obs_pos && v_item_pos < dfe_pos,
+            "vItem must be between obsItem and DFeReferenciado"
+        );
+    }
+
+    #[test]
+    fn v_item_emitted_for_item_without_ibs_cbs_when_another_item_has_it() {
+        use crate::tax_ibs_cbs::IbsCbsData;
+        // item1 has no IBS/CBS, but item2 does
+        let item1 = sample_item();
+        let ibs_cbs = IbsCbsData::new("00", "001");
+        let item2 = InvoiceItemData::new(
+            2,
+            "002",
+            "Produto 2",
+            "27101259",
+            "5102",
+            "UN",
+            1.0,
+            Cents(500),
+            Cents(500),
+            "00",
+            Rate(1800),
+            Cents(90),
+            "99",
+            "99",
+        )
+        .ibs_cbs(ibs_cbs);
+        let mut data = pl010_build_data();
+        data.items = vec![item1.clone(), item2.clone()];
+        // Build item1 (no ibs_cbs) — should still emit vItem because another item has it
+        let result = build_det(&item1, &data).expect("build_det should succeed");
+
+        assert!(
+            result.xml.contains("<vItem>"),
+            "vItem must be emitted even for items without IBS/CBS when another item has it"
+        );
     }
 }

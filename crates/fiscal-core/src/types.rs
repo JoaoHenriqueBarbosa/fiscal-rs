@@ -2563,6 +2563,9 @@ pub struct InvoiceItemData {
     pub cest_cnpj_fab: Option<String>,
     /// Tax benefit code (`cBenef`). Optional.
     pub c_benef: Option<String>,
+    /// Classificação para subapuração do IBS na ZFM (`tpCredPresIBSZFM`).
+    /// PL_010 only — emitted inside `<prod>` after `<cBenef>`.
+    pub tp_cred_pres_ibs_zfm: Option<String>,
     /// Crédito presumido ICMS entries (`gCred`). Optional — up to 4 per item.
     pub g_cred: Vec<GCredData>,
     /// TIPI exception code (`EXTIPI`). Optional.
@@ -2721,6 +2724,9 @@ pub struct InvoiceItemData {
     pub is_data: Option<crate::tax_is::IsData>,
     /// IBS/CBS (Imposto sobre Bens e Servicos / Contribuicao sobre Bens e Servicos) data. Optional.
     pub ibs_cbs: Option<crate::tax_ibs_cbs::IbsCbsData>,
+    /// Valor Total do Item (`vItem`). PL_010 only — emitted inside `<det>` when IBS/CBS exists.
+    /// When `None` and IBS/CBS is present, the builder auto-calculates from item values.
+    pub v_item: Option<Cents>,
     /// PIS-ST (substituição tributária) data for this item. Optional.
     pub pis_st: Option<crate::tax_pis_cofins_ipi::PisStData>,
     /// COFINS-ST (substituição tributária) data for this item. Optional.
@@ -2769,6 +2775,7 @@ impl InvoiceItemData {
             cest_ind_escala: None,
             cest_cnpj_fab: None,
             c_benef: None,
+            tp_cred_pres_ibs_zfm: None,
             g_cred: Vec::new(),
             extipi: None,
             x_ped: None,
@@ -2843,6 +2850,7 @@ impl InvoiceItemData {
             v_tot_trib: None,
             is_data: None,
             ibs_cbs: None,
+            v_item: None,
             pis_st: None,
             cofins_st: None,
         }
@@ -2908,6 +2916,11 @@ impl InvoiceItemData {
     /// Set the tax benefit code (`cBenef`).
     pub fn c_benef(mut self, v: impl Into<String>) -> Self {
         self.c_benef = Some(v.into());
+        self
+    }
+    /// Set the IBS ZFM credit classification (`tpCredPresIBSZFM`). PL_010 only.
+    pub fn tp_cred_pres_ibs_zfm(mut self, v: impl Into<String>) -> Self {
+        self.tp_cred_pres_ibs_zfm = Some(v.into());
         self
     }
     /// Set crédito presumido ICMS entries (`gCred`). Up to 4 per item.
@@ -3255,6 +3268,12 @@ impl InvoiceItemData {
     /// Set IBS/CBS data.
     pub fn ibs_cbs(mut self, v: crate::tax_ibs_cbs::IbsCbsData) -> Self {
         self.ibs_cbs = Some(v);
+        self
+    }
+    /// Set the total item value (`vItem`). PL_010 only.
+    /// When not set and IBS/CBS data exists, the builder auto-calculates this value.
+    pub fn v_item(mut self, v: Cents) -> Self {
+        self.v_item = Some(v);
         self
     }
     /// Set PIS-ST (substituição tributária) data.
