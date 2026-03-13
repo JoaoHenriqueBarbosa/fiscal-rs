@@ -714,6 +714,7 @@ fn bench_build_address_fields(bencher: divan::Bencher) {
             divan::black_box("PR"),
             divan::black_box(Some("80000000")),
             divan::black_box(true),
+            divan::black_box(None),
         )
     });
 }
@@ -728,6 +729,11 @@ fn bench_build_total(bencher: divan::Bencher) {
         v_pis: 165,
         v_cofins: 760,
         v_ii: 0,
+        v_frete: 0,
+        v_seg: 0,
+        v_desc: 0,
+        v_outro: 0,
+        v_tot_trib: 0,
     };
     bencher.bench(|| {
         build_total(
