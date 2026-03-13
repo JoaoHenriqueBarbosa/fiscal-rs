@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use sha1::{Digest, Sha1};
 
 use crate::FiscalError;
@@ -96,8 +97,8 @@ pub fn put_qr_tag(params: &PutQRTagParams) -> Result<String, FiscalError> {
     let v_icms = extract_xml_tag_value(xml, "vICMS").unwrap_or_else(|| "0.00".into());
     let digest_value = extract_xml_tag_value(xml, "DigestValue").unwrap_or_default();
 
-    // Determine destination document from <dest> block
-    let c_dest = extract_dest_document(xml);
+    // Determine destination document and id type from <dest> block
+    let (c_dest, tp_id_dest) = extract_dest_info(xml);
 
     // Build QR Code URL
     let environment = match tp_amb.as_str() {
@@ -133,7 +134,12 @@ pub fn put_qr_tag(params: &PutQRTagParams) -> Result<String, FiscalError> {
         } else {
             Some(c_dest)
         },
-        dest_id_type: None,
+        dest_id_type: if tp_id_dest.is_empty() {
+            None
+        } else {
+            Some(tp_id_dest)
+        },
+        sign_fn: None,
     };
 
     let qrcode = build_nfce_qr_code_url(&qr_params)?;
@@ -228,7 +234,11 @@ fn build_v200(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalErro
 
 // ── Version 300 (NT 2025.001) ───────────────────────────────────────────────
 
-/// Build a v300 QR Code URL (online only; offline requires certificate signing).
+/// Build a v300 QR Code URL (online or offline with certificate signing).
+///
+/// Online mode produces a simple URL with access key, version, and environment.
+/// Offline mode (`tpEmis=9`) includes additional fields and an RSA signature
+/// encoded as base64, matching PHP sped-nfe `QRCode::get300()`.
 fn build_v300(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalError> {
     if params.emission_type != EmissionType::Offline {
         // Online mode -- very simple, no CSC needed
@@ -239,11 +249,44 @@ fn build_v300(url: &str, params: &NfceQrCodeParams) -> Result<String, FiscalErro
         ));
     }
 
-    // Offline v300 requires certificate signing which is not supported in
-    // this synchronous API. Return an error for now.
-    Err(FiscalError::XmlGeneration(
-        "v300 offline QR Code requires certificate signing (not supported)".into(),
-    ))
+    // Offline v300 -- requires certificate signing (NT 2025.001)
+    let issued_at =
+        params
+            .issued_at
+            .as_deref()
+            .ok_or_else(|| FiscalError::MissingRequiredField {
+                field: "issued_at".into(),
+            })?;
+    let total_value =
+        params
+            .total_value
+            .as_deref()
+            .ok_or_else(|| FiscalError::MissingRequiredField {
+                field: "total_value".into(),
+            })?;
+    let sign_fn = params
+        .sign_fn
+        .as_ref()
+        .ok_or_else(|| FiscalError::MissingRequiredField {
+            field: "sign_fn (RSA signer for v300 offline)".into(),
+        })?;
+
+    let day = extract_day(issued_at);
+    let valor = format_value(total_value);
+    let tp_id_dest = params.dest_id_type.as_deref().unwrap_or("");
+    let c_dest_raw = params.dest_document.as_deref().unwrap_or("");
+    // Per PHP: "Caso Destinatário estrangeiro ou não identificado, informar apenas o separador"
+    let c_dest = if tp_id_dest == "3" { "" } else { c_dest_raw };
+
+    let data_to_sign = format!(
+        "{key}|3|{env}|{day}|{valor}|{tp_id_dest}|{c_dest}",
+        key = params.access_key,
+        env = params.environment.as_str(),
+    );
+    let signature_bytes = sign_fn(data_to_sign.as_bytes())?;
+    let signature_b64 = base64::engine::general_purpose::STANDARD.encode(&signature_bytes);
+
+    Ok(format!("{url}{data_to_sign}|{signature_b64}"))
 }
 
 // ── Utility functions ───────────────────────────────────────────────────────
@@ -318,26 +361,29 @@ fn extract_xml_tag_attr(xml: &str, tag_name: &str, attr_name: &str) -> Option<St
     Some(attr_rest[..attr_end].to_string())
 }
 
-/// Extract destination document (CNPJ, CPF, or idEstrangeiro) from the `<dest>` block.
-fn extract_dest_document(xml: &str) -> String {
+/// Extract destination document and id type from the `<dest>` block.
+///
+/// Returns `(document, id_type)` where id_type is `"1"` for CNPJ, `"2"` for CPF,
+/// `"3"` for idEstrangeiro, or `""` if no dest block is found.
+fn extract_dest_info(xml: &str) -> (String, String) {
     let dest_start = match xml.find("<dest>") {
         Some(pos) => pos,
-        None => return String::new(),
+        None => return (String::new(), String::new()),
     };
     let dest_end = match xml[dest_start..].find("</dest>") {
         Some(pos) => dest_start + pos + 7,
-        None => return String::new(),
+        None => return (String::new(), String::new()),
     };
     let dest_block = &xml[dest_start..dest_end];
 
-    for tag in &["CNPJ", "CPF", "idEstrangeiro"] {
-        if let Some(val) = extract_xml_tag_value(dest_block, tag) {
+    for (tag_name, id_type) in &[("CNPJ", "1"), ("CPF", "2"), ("idEstrangeiro", "3")] {
+        if let Some(val) = extract_xml_tag_value(dest_block, tag_name) {
             if !val.is_empty() {
-                return val;
+                return (val, id_type.to_string());
             }
         }
     }
-    String::new()
+    (String::new(), String::new())
 }
 
 #[cfg(test)]
@@ -398,14 +444,111 @@ mod tests {
     }
 
     #[test]
-    fn extract_dest_document_cnpj() {
+    fn extract_dest_info_cnpj() {
         let xml = "<NFe><dest><CNPJ>12345678000199</CNPJ></dest></NFe>";
-        assert_eq!(extract_dest_document(xml), "12345678000199");
+        let (doc, tp) = extract_dest_info(xml);
+        assert_eq!(doc, "12345678000199");
+        assert_eq!(tp, "1");
     }
 
     #[test]
-    fn extract_dest_document_empty_when_no_dest() {
+    fn extract_dest_info_cpf() {
+        let xml = "<NFe><dest><CPF>12345678901</CPF></dest></NFe>";
+        let (doc, tp) = extract_dest_info(xml);
+        assert_eq!(doc, "12345678901");
+        assert_eq!(tp, "2");
+    }
+
+    #[test]
+    fn extract_dest_info_empty_when_no_dest() {
         let xml = "<NFe><ide></ide></NFe>";
-        assert_eq!(extract_dest_document(xml), "");
+        let (doc, tp) = extract_dest_info(xml);
+        assert_eq!(doc, "");
+        assert_eq!(tp, "");
+    }
+
+    #[test]
+    fn v300_online_produces_simple_url() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Normal,
+            "https://www.fazenda.pr.gov.br/nfce/qrcode",
+        );
+        let url = build_nfce_qr_code_url(&params).expect("should build v300 online");
+        assert_eq!(
+            url,
+            "https://www.fazenda.pr.gov.br/nfce/qrcode?p=41260304123456000190650010000001231123456780|3|2"
+        );
+    }
+
+    #[test]
+    fn v300_offline_produces_signed_url() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://www.fazenda.pr.gov.br/nfce/qrcode",
+        )
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .total_value("200.50")
+        .dest_id_type("1")
+        .dest_document("12345678000199")
+        .sign_fn(|data: &[u8]| {
+            // Dummy signer: just return the data reversed
+            Ok(data.iter().rev().copied().collect())
+        });
+
+        let url = build_nfce_qr_code_url(&params).expect("should build v300 offline");
+        assert!(url.starts_with("https://www.fazenda.pr.gov.br/nfce/qrcode?p="));
+        assert!(url.contains("|3|2|15|200.50|1|12345678000199|"));
+        // Must end with base64-encoded signature
+        let parts: Vec<&str> = url.split('|').collect();
+        let last = parts.last().expect("has parts");
+        // Verify it's valid base64
+        assert!(
+            base64::engine::general_purpose::STANDARD
+                .decode(last)
+                .is_ok(),
+            "last segment must be valid base64"
+        );
+    }
+
+    #[test]
+    fn v300_offline_missing_sign_fn_returns_error() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Homologation,
+            EmissionType::Offline,
+            "https://www.fazenda.pr.gov.br/nfce/qrcode",
+        )
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .total_value("200.50");
+
+        let err = build_nfce_qr_code_url(&params).unwrap_err();
+        assert!(err.to_string().contains("sign_fn"));
+    }
+
+    #[test]
+    fn v300_offline_foreign_dest_omits_cdest() {
+        let params = NfceQrCodeParams::new(
+            "41260304123456000190650010000001231123456780",
+            QrCodeVersion::V300,
+            SefazEnvironment::Production,
+            EmissionType::Offline,
+            "https://www.fazenda.pr.gov.br/nfce/qrcode",
+        )
+        .issued_at("2026-03-15T10:30:00-03:00")
+        .total_value("100.00")
+        .dest_id_type("3")
+        .dest_document("FOREIGN123")
+        .sign_fn(|data: &[u8]| Ok(data.to_vec()));
+
+        let url = build_nfce_qr_code_url(&params).expect("should build v300 offline");
+        // When dest is foreign (type 3), cDest should be empty
+        assert!(url.contains("|3||"));
     }
 }

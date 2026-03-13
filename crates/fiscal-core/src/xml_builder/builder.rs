@@ -93,6 +93,9 @@ pub struct InvoiceBuilder<State = Draft> {
     export: Option<ExportData>,
     issqn_tot: Option<IssqnTotData>,
     cana: Option<CanaData>,
+    agropecuario: Option<AgropecuarioData>,
+    compra_gov: Option<CompraGovData>,
+    pag_antecipado: Option<PagAntecipadoData>,
     is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
 
@@ -156,6 +159,9 @@ impl InvoiceBuilder<Draft> {
             export: None,
             issqn_tot: None,
             cana: None,
+            agropecuario: None,
+            compra_gov: None,
+            pag_antecipado: None,
             is_tot: None,
             ibs_cbs_tot: None,
             result_xml: None,
@@ -383,6 +389,24 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Set agropecuário data (guia de trânsito or defensivos).
+    pub fn agropecuario(mut self, a: AgropecuarioData) -> Self {
+        self.agropecuario = Some(a);
+        self
+    }
+
+    /// Set compra governamental data (gCompraGov, PL_010+).
+    pub fn compra_gov(mut self, c: CompraGovData) -> Self {
+        self.compra_gov = Some(c);
+        self
+    }
+
+    /// Set pagamento antecipado data (gPagAntecipado, PL_010+).
+    pub fn pag_antecipado(mut self, p: PagAntecipadoData) -> Self {
+        self.pag_antecipado = Some(p);
+        self
+    }
+
     /// Set IS (Imposto Seletivo) total data.
     pub fn is_tot(mut self, t: crate::tax_ibs_cbs::IsTotData) -> Self {
         self.is_tot = Some(t);
@@ -442,6 +466,9 @@ impl InvoiceBuilder<Draft> {
             export: self.export,
             issqn_tot: self.issqn_tot,
             cana: self.cana,
+            agropecuario: self.agropecuario,
+            compra_gov: self.compra_gov,
+            pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
         };
@@ -487,6 +514,9 @@ impl InvoiceBuilder<Draft> {
             export: data.export,
             issqn_tot: data.issqn_tot,
             cana: data.cana,
+            agropecuario: data.agropecuario,
+            compra_gov: data.compra_gov,
+            pag_antecipado: data.pag_antecipado,
             is_tot: data.is_tot,
             ibs_cbs_tot: data.ibs_cbs_tot,
             result_xml: Some(result.xml),
@@ -589,6 +619,9 @@ impl InvoiceBuilder<Built> {
             export: self.export,
             issqn_tot: self.issqn_tot,
             cana: self.cana,
+            agropecuario: self.agropecuario,
+            compra_gov: self.compra_gov,
+            pag_antecipado: self.pag_antecipado,
             is_tot: self.is_tot,
             ibs_cbs_tot: self.ibs_cbs_tot,
             result_xml: self.result_xml,

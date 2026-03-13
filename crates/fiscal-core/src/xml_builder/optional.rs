@@ -332,6 +332,69 @@ pub fn build_cana(cana: &CanaData) -> String {
     tag("cana", &[], TagContent::Children(children))
 }
 
+/// Build `<agropecuario>` element (Grupo ZF01).
+///
+/// Contains either a `<guiaTransito>` or up to 20 `<defensivo>` entries.
+/// Positioned inside `<infNFe>` after `<infRespTec>`.
+pub fn build_agropecuario(data: &AgropecuarioData) -> String {
+    let children = match data {
+        AgropecuarioData::Guia(guia) => {
+            let mut kids = vec![tag("tpGuia", &[], TagContent::Text(&guia.tp_guia))];
+            if let Some(ref uf) = guia.uf_guia {
+                kids.push(tag("UFGuia", &[], TagContent::Text(uf)));
+            }
+            if let Some(ref serie) = guia.serie_guia {
+                kids.push(tag("serieGuia", &[], TagContent::Text(serie)));
+            }
+            kids.push(tag("nGuia", &[], TagContent::Text(&guia.n_guia)));
+            vec![tag("guiaTransito", &[], TagContent::Children(kids))]
+        }
+        AgropecuarioData::Defensivos(defs) => defs
+            .iter()
+            .take(20)
+            .map(|d| {
+                tag(
+                    "defensivo",
+                    &[],
+                    TagContent::Children(vec![
+                        tag("nReceituario", &[], TagContent::Text(&d.n_receituario)),
+                        tag("CPFRespTec", &[], TagContent::Text(&d.cpf_resp_tec)),
+                    ]),
+                )
+            })
+            .collect(),
+    };
+
+    tag("agropecuario", &[], TagContent::Children(children))
+}
+
+/// Build `<gCompraGov>` element (Grupo B31, PL_010+).
+///
+/// Placed inside `<ide>` after `<NFref>` elements.
+pub fn build_compra_gov(data: &CompraGovData) -> String {
+    tag(
+        "gCompraGov",
+        &[],
+        TagContent::Children(vec![
+            tag("tpEnteGov", &[], TagContent::Text(&data.tp_ente_gov)),
+            tag("pRedutor", &[], TagContent::Text(&data.p_redutor)),
+            tag("tpOperGov", &[], TagContent::Text(&data.tp_oper_gov)),
+        ]),
+    )
+}
+
+/// Build `<gPagAntecipado>` element (Grupo B34, PL_010+).
+///
+/// Placed inside `<ide>` after `<gCompraGov>`.
+pub fn build_pag_antecipado(data: &PagAntecipadoData) -> String {
+    let children: Vec<String> = data
+        .ref_nfe
+        .iter()
+        .map(|key| tag("refNFe", &[], TagContent::Text(key)))
+        .collect();
+    tag("gPagAntecipado", &[], TagContent::Children(children))
+}
+
 /// Build `<autXML>` element.
 pub fn build_aut_xml(entry: &AuthorizedXml) -> String {
     let tid = TaxId::new(&entry.tax_id);
@@ -484,5 +547,127 @@ mod tests {
         // Count deduc occurrences — should be capped at 10
         let count = xml.matches("<deduc>").count();
         assert_eq!(count, 10, "deduc entries must be capped at 10");
+    }
+
+    // ── Agropecuário tests ──────────────────────────────────────────────
+
+    #[test]
+    fn build_agropecuario_guia() {
+        let guia = AgropecuarioGuiaData::new("1", "12345")
+            .uf_guia("SP")
+            .serie_guia("A");
+        let data = AgropecuarioData::Guia(guia);
+        let xml = build_agropecuario(&data);
+
+        assert_eq!(
+            xml,
+            "<agropecuario>\
+                <guiaTransito>\
+                    <tpGuia>1</tpGuia>\
+                    <UFGuia>SP</UFGuia>\
+                    <serieGuia>A</serieGuia>\
+                    <nGuia>12345</nGuia>\
+                </guiaTransito>\
+            </agropecuario>"
+        );
+    }
+
+    #[test]
+    fn build_agropecuario_guia_minimal() {
+        let guia = AgropecuarioGuiaData::new("2", "99999");
+        let data = AgropecuarioData::Guia(guia);
+        let xml = build_agropecuario(&data);
+
+        assert_eq!(
+            xml,
+            "<agropecuario>\
+                <guiaTransito>\
+                    <tpGuia>2</tpGuia>\
+                    <nGuia>99999</nGuia>\
+                </guiaTransito>\
+            </agropecuario>"
+        );
+    }
+
+    #[test]
+    fn build_agropecuario_defensivos() {
+        let defs = vec![
+            AgropecuarioDefensivoData::new("REC001", "12345678901"),
+            AgropecuarioDefensivoData::new("REC002", "98765432109"),
+        ];
+        let data = AgropecuarioData::Defensivos(defs);
+        let xml = build_agropecuario(&data);
+
+        assert_eq!(
+            xml,
+            "<agropecuario>\
+                <defensivo>\
+                    <nReceituario>REC001</nReceituario>\
+                    <CPFRespTec>12345678901</CPFRespTec>\
+                </defensivo>\
+                <defensivo>\
+                    <nReceituario>REC002</nReceituario>\
+                    <CPFRespTec>98765432109</CPFRespTec>\
+                </defensivo>\
+            </agropecuario>"
+        );
+    }
+
+    #[test]
+    fn build_agropecuario_defensivos_capped_at_20() {
+        let defs: Vec<AgropecuarioDefensivoData> = (0..25)
+            .map(|i| AgropecuarioDefensivoData::new(format!("REC{i:03}"), "12345678901"))
+            .collect();
+        let data = AgropecuarioData::Defensivos(defs);
+        let xml = build_agropecuario(&data);
+
+        let count = xml.matches("<defensivo>").count();
+        assert_eq!(count, 20, "defensivo entries must be capped at 20");
+    }
+
+    // ── Compra Governamental tests ──────────────────────────────────────
+
+    #[test]
+    fn build_compra_gov_all_fields() {
+        let cg = CompraGovData::new("1", "10.5000", "2");
+        let xml = build_compra_gov(&cg);
+
+        assert_eq!(
+            xml,
+            "<gCompraGov>\
+                <tpEnteGov>1</tpEnteGov>\
+                <pRedutor>10.5000</pRedutor>\
+                <tpOperGov>2</tpOperGov>\
+            </gCompraGov>"
+        );
+    }
+
+    // ── Pagamento Antecipado tests ──────────────────────────────────────
+
+    #[test]
+    fn build_pag_antecipado_single_ref() {
+        let pa = PagAntecipadoData::new(vec![
+            "41260304123456000190550010000001231123456780".to_string(),
+        ]);
+        let xml = build_pag_antecipado(&pa);
+
+        assert_eq!(
+            xml,
+            "<gPagAntecipado>\
+                <refNFe>41260304123456000190550010000001231123456780</refNFe>\
+            </gPagAntecipado>"
+        );
+    }
+
+    #[test]
+    fn build_pag_antecipado_multiple_refs() {
+        let pa = PagAntecipadoData::new(vec![
+            "41260304123456000190550010000001231123456780".to_string(),
+            "41260304123456000190550010000001241123456781".to_string(),
+        ]);
+        let xml = build_pag_antecipado(&pa);
+
+        assert!(xml.contains("<gPagAntecipado>"));
+        assert_eq!(xml.matches("<refNFe>").count(), 2);
     }
 }

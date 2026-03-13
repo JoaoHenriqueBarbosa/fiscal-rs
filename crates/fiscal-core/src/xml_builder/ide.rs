@@ -105,6 +105,15 @@ pub(crate) fn build_ide(
     }
 
     children.extend(ref_elements);
+
+    // gCompraGov and gPagAntecipado (PL_010+) go inside <ide> after NFref
+    if let Some(ref cg) = data.compra_gov {
+        children.push(super::optional::build_compra_gov(cg));
+    }
+    if let Some(ref pa) = data.pag_antecipado {
+        children.push(super::optional::build_pag_antecipado(pa));
+    }
+
     tag("ide", &[], TagContent::Children(children))
 }
 

@@ -177,6 +177,9 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     if let Some(ref tech) = data.tech_responsible {
         inf_children.push(optional::build_tech_responsible_with_key(tech, &access_key));
     }
+    if let Some(ref agro) = data.agropecuario {
+        inf_children.push(optional::build_agropecuario(agro));
+    }
 
     // Matches PHP sped-nfe: no xmlns on infNFe (inherited from NFe parent),
     // Id before versao (same order as PHP's DOMDocument setAttribute calls)

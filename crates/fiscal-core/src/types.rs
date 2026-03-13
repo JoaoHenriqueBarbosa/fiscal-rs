@@ -3019,6 +3019,9 @@ pub(crate) struct InvoiceBuildData {
     pub export: Option<ExportData>,
     pub issqn_tot: Option<IssqnTotData>,
     pub cana: Option<CanaData>,
+    pub agropecuario: Option<AgropecuarioData>,
+    pub compra_gov: Option<CompraGovData>,
+    pub pag_antecipado: Option<PagAntecipadoData>,
     pub is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
     pub ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
 }
@@ -3050,7 +3053,6 @@ pub(crate) struct InvoiceXmlResult {
 /// Parameters for building an NFC-e QR Code URL.
 ///
 /// Pass to [`crate::qrcode::build_nfce_qr_code_url`].
-#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct NfceQrCodeParams {
     /// 44-digit NFC-e access key.
@@ -3077,8 +3079,35 @@ pub struct NfceQrCodeParams {
     pub digest_value: Option<String>,
     /// CNPJ, CPF, or foreign ID of the destination. Optional.
     pub dest_document: Option<String>,
-    /// Destination ID type indicator. Optional.
+    /// Destination ID type indicator (`1`=CNPJ, `2`=CPF, `3`=foreign). Optional.
     pub dest_id_type: Option<String>,
+    /// RSA signing function for v300 offline QR Code.
+    ///
+    /// Receives the data to sign as bytes and must return the raw signature.
+    /// Only required for v300 offline emission (`tpEmis=9`).
+    #[cfg_attr(not(doc), allow(clippy::type_complexity))]
+    pub sign_fn: Option<Box<dyn Fn(&[u8]) -> Result<Vec<u8>, crate::FiscalError> + Send + Sync>>,
+}
+
+impl std::fmt::Debug for NfceQrCodeParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NfceQrCodeParams")
+            .field("access_key", &self.access_key)
+            .field("version", &self.version)
+            .field("environment", &self.environment)
+            .field("emission_type", &self.emission_type)
+            .field("qr_code_base_url", &self.qr_code_base_url)
+            .field("csc_token", &self.csc_token)
+            .field("csc_id", &self.csc_id)
+            .field("issued_at", &self.issued_at)
+            .field("total_value", &self.total_value)
+            .field("total_icms", &self.total_icms)
+            .field("digest_value", &self.digest_value)
+            .field("dest_document", &self.dest_document)
+            .field("dest_id_type", &self.dest_id_type)
+            .field("sign_fn", &self.sign_fn.as_ref().map(|_| "<fn>"))
+            .finish()
+    }
 }
 
 impl NfceQrCodeParams {
@@ -3104,6 +3133,7 @@ impl NfceQrCodeParams {
             digest_value: None,
             dest_document: None,
             dest_id_type: None,
+            sign_fn: None,
         }
     }
 
@@ -3145,6 +3175,19 @@ impl NfceQrCodeParams {
     /// Set the destination ID type.
     pub fn dest_id_type(mut self, v: impl Into<String>) -> Self {
         self.dest_id_type = Some(v.into());
+        self
+    }
+
+    /// Set the RSA signing function for v300 offline QR Code.
+    ///
+    /// The function receives the data string as bytes and must return the raw
+    /// RSA signature bytes. The caller must use the same private key from the
+    /// digital certificate used to sign the NF-e.
+    pub fn sign_fn<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&[u8]) -> Result<Vec<u8>, crate::FiscalError> + Send + Sync + 'static,
+    {
+        self.sign_fn = Some(Box::new(f));
         self
     }
 }
@@ -3296,5 +3339,132 @@ impl CanaData {
     pub fn deducoes(mut self, d: Vec<DeducData>) -> Self {
         self.deducoes = Some(d);
         self
+    }
+}
+
+// ── Agropecuário (Grupo ZF01) ──────────────────────────────────────────────
+
+/// Guia de trânsito agropecuário (`<guiaTransito>`, Grupo ZF04).
+///
+/// Informações de produtos da agricultura, pecuária e produção florestal.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct AgropecuarioGuiaData {
+    /// Tipo da guia (tpGuia).
+    pub tp_guia: String,
+    /// UF de emissão (UFGuia, opcional).
+    pub uf_guia: Option<String>,
+    /// Série da guia (serieGuia, opcional).
+    pub serie_guia: Option<String>,
+    /// Número da guia (nGuia).
+    pub n_guia: String,
+}
+
+impl AgropecuarioGuiaData {
+    /// Create a new guia de trânsito.
+    pub fn new(tp_guia: impl Into<String>, n_guia: impl Into<String>) -> Self {
+        Self {
+            tp_guia: tp_guia.into(),
+            uf_guia: None,
+            serie_guia: None,
+            n_guia: n_guia.into(),
+        }
+    }
+
+    /// Set the UF (state code) of the guia.
+    pub fn uf_guia(mut self, v: impl Into<String>) -> Self {
+        self.uf_guia = Some(v.into());
+        self
+    }
+
+    /// Set the series of the guia.
+    pub fn serie_guia(mut self, v: impl Into<String>) -> Self {
+        self.serie_guia = Some(v.into());
+        self
+    }
+}
+
+/// Defensivo agrícola (`<defensivo>`, Grupo ZF02).
+///
+/// Informação de receituário de agrotóxico/defensivo agrícola.
+/// Up to 20 entries allowed.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct AgropecuarioDefensivoData {
+    /// Número da receita ou receituário (nReceituario).
+    pub n_receituario: String,
+    /// CPF do responsável técnico (CPFRespTec).
+    pub cpf_resp_tec: String,
+}
+
+impl AgropecuarioDefensivoData {
+    /// Create a new defensivo entry.
+    pub fn new(n_receituario: impl Into<String>, cpf_resp_tec: impl Into<String>) -> Self {
+        Self {
+            n_receituario: n_receituario.into(),
+            cpf_resp_tec: cpf_resp_tec.into(),
+        }
+    }
+}
+
+/// Agropecuário data wrapper.
+///
+/// Contains either a guia de trânsito or a list of defensivos (up to 20).
+/// Placed inside `<infNFe>` after `<infRespTec>`.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum AgropecuarioData {
+    /// Guia de trânsito (guiaTransito).
+    Guia(AgropecuarioGuiaData),
+    /// Lista de defensivos (defensivo), up to 20 entries.
+    Defensivos(Vec<AgropecuarioDefensivoData>),
+}
+
+// ── Compra governamental (Grupo B31 / PL_010) ──────────────────────────────
+
+/// Informação de compras governamentais (`<gCompraGov>`, Grupo B31).
+///
+/// Placed inside `<ide>` after `<NFref>` elements (PL_010+).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct CompraGovData {
+    /// Tipo de ente governamental (tpEnteGov).
+    pub tp_ente_gov: String,
+    /// Percentual de redução de alíquota (pRedutor, 4 decimal places).
+    pub p_redutor: String,
+    /// Tipo de operação com o ente governamental (tpOperGov).
+    pub tp_oper_gov: String,
+}
+
+impl CompraGovData {
+    /// Create a new `CompraGovData`.
+    pub fn new(
+        tp_ente_gov: impl Into<String>,
+        p_redutor: impl Into<String>,
+        tp_oper_gov: impl Into<String>,
+    ) -> Self {
+        Self {
+            tp_ente_gov: tp_ente_gov.into(),
+            p_redutor: p_redutor.into(),
+            tp_oper_gov: tp_oper_gov.into(),
+        }
+    }
+}
+
+/// Pagamento antecipado (`<gPagAntecipado>`, Grupo B34).
+///
+/// Contém chave(s) de acesso da NF-e de antecipação de pagamento.
+/// Placed inside `<ide>` after `<gCompraGov>` (PL_010+).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct PagAntecipadoData {
+    /// Chave(s) de acesso da NF-e de antecipação (refNFe).
+    pub ref_nfe: Vec<String>,
+}
+
+impl PagAntecipadoData {
+    /// Create a new `PagAntecipadoData` with one or more access keys.
+    pub fn new(ref_nfe: Vec<String>) -> Self {
+        Self { ref_nfe }
     }
 }

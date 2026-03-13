@@ -37,10 +37,11 @@ use fiscal::tax_pis_cofins_ipi::{
     build_cofins_xml, build_ii_xml, build_ipi_xml, build_pis_st_xml, build_pis_xml,
 };
 use fiscal::types::{
-    AccessKeyParams, AuthorizedXml, BillingData, BillingInvoice, ContingencyType, EmissionType,
+    AccessKeyParams, AgropecuarioData, AgropecuarioDefensivoData, AgropecuarioGuiaData,
+    AuthorizedXml, BillingData, BillingInvoice, CompraGovData, ContingencyType, EmissionType,
     ExportData, Installment, IntermediaryData, InvoiceItemData, InvoiceModel, IssuerData,
-    LocationData, NfceQrCodeParams, PaymentData, PurchaseData, PutQRTagParams, QrCodeVersion,
-    RecipientData, SefazEnvironment, TaxRegime, TechResponsibleData,
+    LocationData, NfceQrCodeParams, PagAntecipadoData, PaymentData, PurchaseData, PutQRTagParams,
+    QrCodeVersion, RecipientData, SefazEnvironment, TaxRegime, TechResponsibleData,
 };
 use fiscal::xml_builder::InvoiceBuilder;
 use fiscal::xml_builder::access_key::{
@@ -49,13 +50,16 @@ use fiscal::xml_builder::access_key::{
 use fiscal::xml_builder::emit::build_address_fields;
 use fiscal::xml_builder::ide::format_datetime_nfe;
 use fiscal::xml_builder::optional::{
-    build_aut_xml, build_cobr, build_delivery, build_export, build_intermediary, build_purchase,
-    build_tech_responsible, build_withdrawal,
+    build_agropecuario, build_aut_xml, build_cobr, build_compra_gov, build_delivery, build_export,
+    build_intermediary, build_pag_antecipado, build_purchase, build_tech_responsible,
+    build_withdrawal,
 };
 use fiscal::xml_builder::pag::build_pag;
 use fiscal::xml_builder::tax_id::TaxId;
 use fiscal::xml_builder::total::{OtherTotals, build_total};
-use fiscal::xml_utils::{TagContent, escape_xml, extract_xml_tag_value, tag};
+use fiscal::xml_utils::{
+    TagContent, escape_xml, extract_xml_tag_value, pretty_print_xml, tag, validate_xml,
+};
 
 fn main() {
     divan::main();
@@ -1412,6 +1416,59 @@ fn bench_sign_xml(bencher: divan::Bencher) {
             divan::black_box(&cert_pem),
         )
     });
+}
+
+// ── Agropecuário / CompraGov / PagAntecipado ─────────────────────────────
+
+#[divan::bench]
+fn bench_build_agropecuario_guia(bencher: divan::Bencher) {
+    let guia = AgropecuarioGuiaData::new("1", "12345").uf_guia("SP");
+    let data = AgropecuarioData::Guia(guia);
+    bencher.bench(|| build_agropecuario(divan::black_box(&data)));
+}
+
+#[divan::bench]
+fn bench_build_agropecuario_defensivos(bencher: divan::Bencher) {
+    let defs = vec![
+        AgropecuarioDefensivoData::new("REC001", "12345678901"),
+        AgropecuarioDefensivoData::new("REC002", "98765432109"),
+    ];
+    let data = AgropecuarioData::Defensivos(defs);
+    bencher.bench(|| build_agropecuario(divan::black_box(&data)));
+}
+
+#[divan::bench]
+fn bench_build_compra_gov(bencher: divan::Bencher) {
+    let cg = CompraGovData::new("1", "10.5000", "2");
+    bencher.bench(|| build_compra_gov(divan::black_box(&cg)));
+}
+
+#[divan::bench]
+fn bench_build_pag_antecipado(bencher: divan::Bencher) {
+    let pa = PagAntecipadoData::new(vec![
+        "41260304123456000190550010000001231123456780".to_string(),
+    ]);
+    bencher.bench(|| build_pag_antecipado(divan::black_box(&pa)));
+}
+
+// ── Pretty Print / Validate ──────────────────────────────────────────────
+
+#[divan::bench]
+fn bench_pretty_print_xml(bencher: divan::Bencher) {
+    let xml = "<root><child>text</child><other><deep>value</deep></other></root>";
+    bencher.bench(|| pretty_print_xml(divan::black_box(xml)));
+}
+
+#[divan::bench]
+fn bench_validate_xml_valid(bencher: divan::Bencher) {
+    let xml = make_sample_signed_nfe_xml();
+    bencher.bench(|| validate_xml(divan::black_box(&xml)));
+}
+
+#[divan::bench]
+fn bench_validate_xml_invalid(bencher: divan::Bencher) {
+    let xml = "<root><something>val</something></root>";
+    bencher.bench(|| validate_xml(divan::black_box(xml)));
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
