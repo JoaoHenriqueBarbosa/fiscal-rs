@@ -235,3 +235,118 @@ fn calculate_imposto_devol(p_devol: i64, v_ipi_devol: i64) -> TaxElement {
 pub fn build_imposto_devol(p_devol: i64, v_ipi_devol: i64) -> String {
     serialize_tax_element(&calculate_imposto_devol(p_devol, v_ipi_devol))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn issqn_xml_required_fields_only() {
+        let data = IssqnData::new(10000, 500, 500, "3550308", "14.01");
+        let xml = build_issqn_xml(&data);
+
+        assert_eq!(
+            xml,
+            "<ISSQN>\
+                <vBC>100.00</vBC>\
+                <vAliq>5.0000</vAliq>\
+                <vISSQN>5.00</vISSQN>\
+                <cMunFG>3550308</cMunFG>\
+                <cListServ>14.01</cListServ>\
+            </ISSQN>"
+        );
+    }
+
+    #[test]
+    fn issqn_xml_with_all_optional_fields() {
+        let data = IssqnData::new(20000, 300, 600, "3304557", "07.02")
+            .v_deducao(1000)
+            .v_outro(500)
+            .v_desc_incond(200)
+            .v_desc_cond(100)
+            .v_iss_ret(300)
+            .ind_iss("1")
+            .c_servico("1234")
+            .c_mun("3304557")
+            .c_pais("1058")
+            .n_processo("PROC-2026")
+            .ind_incentivo("2");
+
+        let xml = build_issqn_xml(&data);
+
+        assert_eq!(
+            xml,
+            "<ISSQN>\
+                <vBC>200.00</vBC>\
+                <vAliq>3.0000</vAliq>\
+                <vISSQN>6.00</vISSQN>\
+                <cMunFG>3304557</cMunFG>\
+                <cListServ>07.02</cListServ>\
+                <vDeducao>10.00</vDeducao>\
+                <vOutro>5.00</vOutro>\
+                <vDescIncond>2.00</vDescIncond>\
+                <vDescCond>1.00</vDescCond>\
+                <vISSRet>3.00</vISSRet>\
+                <indISS>1</indISS>\
+                <cServico>1234</cServico>\
+                <cMun>3304557</cMun>\
+                <cPais>1058</cPais>\
+                <nProcesso>PROC-2026</nProcesso>\
+                <indIncentivo>2</indIncentivo>\
+            </ISSQN>"
+        );
+    }
+
+    #[test]
+    fn issqn_totals_accumulate_when_vbc_positive() {
+        let mut totals = create_issqn_totals();
+
+        let data1 = IssqnData::new(10000, 500, 500, "3550308", "14.01")
+            .v_iss_ret(100)
+            .v_deducao(200)
+            .v_outro(50)
+            .v_desc_incond(30)
+            .v_desc_cond(20);
+        let _ = build_issqn_xml_with_totals(&data1, &mut totals);
+
+        let data2 = IssqnData::new(20000, 300, 600, "3304557", "07.02")
+            .v_iss_ret(150)
+            .v_deducao(100);
+        let _ = build_issqn_xml_with_totals(&data2, &mut totals);
+
+        assert_eq!(totals.v_bc, 30000);
+        assert_eq!(totals.v_iss, 1100);
+        assert_eq!(totals.v_iss_ret, 250);
+        assert_eq!(totals.v_deducao, 300);
+        assert_eq!(totals.v_outro, 50);
+        assert_eq!(totals.v_desc_incond, 30);
+        assert_eq!(totals.v_desc_cond, 20);
+    }
+
+    #[test]
+    fn issqn_totals_skip_when_vbc_is_zero() {
+        let mut totals = create_issqn_totals();
+
+        let data = IssqnData::new(0, 500, 0, "3550308", "14.01").v_iss_ret(100);
+        let _ = build_issqn_xml_with_totals(&data, &mut totals);
+
+        assert_eq!(totals.v_bc, 0);
+        assert_eq!(totals.v_iss, 0);
+        assert_eq!(totals.v_iss_ret, 0);
+    }
+
+    #[test]
+    fn imposto_devol_xml() {
+        let xml = build_imposto_devol(10000, 5000);
+
+        assert_eq!(
+            xml,
+            "<impostoDevol>\
+                <pDevol>100.00</pDevol>\
+                <IPI>\
+                    <vIPIDevol>50.00</vIPIDevol>\
+                </IPI>\
+            </impostoDevol>"
+        );
+    }
+}

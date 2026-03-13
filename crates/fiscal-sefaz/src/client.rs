@@ -470,6 +470,309 @@ impl SefazClient {
         response_parsers::parse_cadastro_response(&raw)
     }
 
+    /// Submit an EPEC (Evento Prévio de Emissão em Contingência) event
+    /// (`RecepcaoEvento4`, tpEvento=110140).
+    ///
+    /// The EPEC event is sent to the Ambiente Nacional (AN) endpoint.
+    /// The NF-e XML data is extracted via [`request_builders::extract_epec_data`]
+    /// and assembled into an EPEC event request.
+    ///
+    /// # Arguments
+    ///
+    /// * `epec_data` — Pre-extracted NF-e data for the EPEC event.
+    /// * `environment` — SEFAZ environment (production or homologation).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn epec(
+        &self,
+        epec_data: &request_builders::EpecData,
+        environment: SefazEnvironment,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_epec_request(epec_data, environment);
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Cancel an NFC-e by substitution (`RecepcaoEvento4`, tpEvento=110112).
+    ///
+    /// Used exclusively for NFC-e (model 65). The event is sent to
+    /// `RecepcaoEvento` of the issuing state.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NFC-e being cancelled.
+    /// * `ref_access_key` — 44-digit access key of the replacement NFC-e.
+    /// * `protocol` — Authorization protocol of the original NFC-e.
+    /// * `justification` — Reason for cancellation.
+    /// * `ver_aplic` — Version of the issuing application.
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn cancel_substituicao(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        ref_access_key: &str,
+        protocol: &str,
+        justification: &str,
+        ver_aplic: &str,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancel_substituicao_request(
+            access_key,
+            ref_access_key,
+            protocol,
+            justification,
+            ver_aplic,
+            1,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_model(
+                SefazService::RecepcaoEvento,
+                uf,
+                environment,
+                &request_xml,
+                65,
+            )
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Register an interested actor for an NF-e (`RecepcaoEvento4`,
+    /// tpEvento=110150).
+    ///
+    /// Authorizes a transporter to access the NF-e. Sent to
+    /// Ambiente Nacional (AN).
+    ///
+    /// # Arguments
+    ///
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NF-e.
+    /// * `tp_autor` — Author type (1=emitente, 2=destinatario, 3=transportador).
+    /// * `ver_aplic` — Version of the issuing application.
+    /// * `authorized_cnpj` — Optional CNPJ to authorize.
+    /// * `authorized_cpf` — Optional CPF to authorize.
+    /// * `tp_autorizacao` — Authorization type (0=no subcontract, 1=allowed).
+    /// * `issuer_uf` — UF of the issuer.
+    /// * `seq` — Event sequence number.
+    /// * `tax_id` — CNPJ or CPF of the event sender.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn ator_interessado(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        tp_autor: u8,
+        ver_aplic: &str,
+        authorized_cnpj: Option<&str>,
+        authorized_cpf: Option<&str>,
+        tp_autorizacao: u8,
+        issuer_uf: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_ator_interessado_request(
+            access_key,
+            tp_autor,
+            ver_aplic,
+            authorized_cnpj,
+            authorized_cpf,
+            tp_autorizacao,
+            issuer_uf,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Register a delivery receipt for an NF-e (`RecepcaoEvento4`,
+    /// tpEvento=110130).
+    ///
+    /// Records proof of delivery. Sent to Ambiente Nacional (AN).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn comprovante_entrega(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        ver_aplic: &str,
+        delivery_date: &str,
+        doc_number: &str,
+        name: &str,
+        lat: Option<&str>,
+        long: Option<&str>,
+        hash: &str,
+        hash_date: &str,
+        issuer_uf: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_comprovante_entrega_request(
+            access_key,
+            ver_aplic,
+            delivery_date,
+            doc_number,
+            name,
+            lat,
+            long,
+            hash,
+            hash_date,
+            issuer_uf,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Cancel a delivery receipt event (`RecepcaoEvento4`,
+    /// tpEvento=110131).
+    ///
+    /// Cancels a previously registered delivery receipt. Sent to AN.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn cancel_comprovante_entrega(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        ver_aplic: &str,
+        event_protocol: &str,
+        issuer_uf: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancel_comprovante_entrega_request(
+            access_key,
+            ver_aplic,
+            event_protocol,
+            issuer_uf,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Register a delivery failure event (`RecepcaoEvento4`,
+    /// tpEvento=110192).
+    ///
+    /// Records a failed delivery attempt. Sent to Ambiente Nacional (AN).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn insucesso_entrega(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        ver_aplic: &str,
+        attempt_date: &str,
+        attempt_number: Option<u32>,
+        reason_type: u8,
+        reason_justification: Option<&str>,
+        lat: Option<&str>,
+        long: Option<&str>,
+        hash: &str,
+        hash_date: &str,
+        issuer_uf: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_insucesso_entrega_request(
+            access_key,
+            ver_aplic,
+            attempt_date,
+            attempt_number,
+            reason_type,
+            reason_justification,
+            lat,
+            long,
+            hash,
+            hash_date,
+            issuer_uf,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Cancel a delivery failure event (`RecepcaoEvento4`,
+    /// tpEvento=110193).
+    ///
+    /// Cancels a previously registered delivery failure. Sent to AN.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn cancel_insucesso_entrega(
+        &self,
+        environment: SefazEnvironment,
+        access_key: &str,
+        ver_aplic: &str,
+        event_protocol: &str,
+        issuer_uf: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancel_insucesso_entrega_request(
+            access_key,
+            ver_aplic,
+            event_protocol,
+            issuer_uf,
+            seq,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
     /// Send a request to the Ambiente Nacional (AN) endpoint.

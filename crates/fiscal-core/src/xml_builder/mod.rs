@@ -136,6 +136,7 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
             v_tot_trib: total_tot_trib,
         },
         data.ret_trib.as_ref(),
+        data.issqn_tot.as_ref(),
     ));
 
     inf_children.push(transp::build_transp(data));

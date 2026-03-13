@@ -4,8 +4,11 @@ use crate::FiscalError;
 use crate::format_utils::{format_cents, format_decimal};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_icms::{self, IcmsCsosn, IcmsCst, IcmsTotals, IcmsVariant};
+use crate::tax_issqn;
 use crate::tax_pis_cofins_ipi::{self, CofinsData, IiData, IpiData, PisData};
-use crate::types::{InvoiceBuildData, InvoiceItemData, InvoiceModel, SefazEnvironment, TaxRegime};
+use crate::types::{
+    CombData, InvoiceBuildData, InvoiceItemData, InvoiceModel, SefazEnvironment, TaxRegime,
+};
 use crate::xml_utils::{TagContent, tag};
 
 /// Constant used when emitting NFC-e in homologation environment (first item only).
@@ -39,6 +42,8 @@ pub struct DetResult {
     pub ind_tot: u8,
     /// Approximate total tax for this item (`vTotTrib`). Optional.
     pub v_tot_trib: i64,
+    /// Whether this item uses ISSQN instead of ICMS.
+    pub has_issqn: bool,
 }
 
 /// Map an invoice item's ICMS fields to the correct typed [`IcmsVariant`].
@@ -417,10 +422,23 @@ pub(crate) fn build_det(
         TaxRegime::SimplesNacional | TaxRegime::SimplesExcess
     );
 
-    // Build ICMS
-    let icms_variant = build_icms_variant(item, is_simples)?;
+    let has_issqn = item.issqn.is_some();
+
+    // Build ICMS (skipped when item has ISSQN)
     let mut icms_totals = IcmsTotals::default();
-    let icms_xml = tax_icms::build_icms_xml(&icms_variant, &mut icms_totals)?;
+    let icms_xml = if has_issqn {
+        String::new()
+    } else {
+        let icms_variant = build_icms_variant(item, is_simples)?;
+        tax_icms::build_icms_xml(&icms_variant, &mut icms_totals)?
+    };
+
+    // Build ISSQN (optional — only when item.issqn is set)
+    let issqn_xml = if let Some(ref issqn_data) = item.issqn {
+        tax_issqn::build_issqn_xml(issqn_data)
+    } else {
+        String::new()
+    };
 
     // Build PIS
     let pis_xml = tax_pis_cofins_ipi::build_pis_xml(&PisData {
@@ -472,14 +490,17 @@ pub(crate) fn build_det(
         v_ii = item.ii_v_ii.map(|c| c.0).unwrap_or(0);
     }
 
-    // Build prod options (rastro, veicProd, med, arma, nRECOPI)
+    // Build prod options (rastro, veicProd, med, arma, comb, nRECOPI)
     let prod_options = build_prod_options(item);
 
     // Build det-level extras (infAdProd, obsItem, DFeReferenciado)
     let det_extras = build_det_extras(item);
 
     // Assemble imposto
-    let mut imposto_children: Vec<String> = vec![icms_xml];
+    let mut imposto_children: Vec<String> = Vec::new();
+    if !icms_xml.is_empty() {
+        imposto_children.push(icms_xml);
+    }
     if !ipi_xml.is_empty() {
         imposto_children.push(ipi_xml);
     }
@@ -487,6 +508,9 @@ pub(crate) fn build_det(
     imposto_children.push(cofins_xml);
     if !ii_xml.is_empty() {
         imposto_children.push(ii_xml);
+    }
+    if !issqn_xml.is_empty() {
+        imposto_children.push(issqn_xml);
     }
 
     // Assemble prod
@@ -603,6 +627,7 @@ pub(crate) fn build_det(
         v_outro: item.v_outro.map(|c| c.0).unwrap_or(0),
         ind_tot: item.ind_tot.unwrap_or(1),
         v_tot_trib: item.v_tot_trib.map(|c| c.0).unwrap_or(0),
+        has_issqn,
     })
 }
 
@@ -690,7 +715,86 @@ fn build_prod_options(item: &InvoiceItemData) -> Vec<String> {
         }
     }
 
+    // comb — fuel product data (after the CHOICE group, per NF-e schema order)
+    if let Some(ref comb) = item.comb {
+        opts.push(build_comb_xml(comb));
+    }
+
     opts
+}
+
+/// Build the `<comb>` element for fuel products.
+///
+/// Follows the PHP sped-nfe `tagcomb` / `tagencerrante` / `tagorigComb`
+/// structure exactly: cProdANP, descANP, pGLP, pGNn, pGNi, vPart, CODIF,
+/// qTemp, UFCons, CIDE, encerrante, pBio, origComb[].
+fn build_comb_xml(comb: &CombData) -> String {
+    let mut children = vec![
+        tag("cProdANP", &[], TagContent::Text(&comb.c_prod_anp)),
+        tag("descANP", &[], TagContent::Text(&comb.desc_anp)),
+    ];
+
+    if let Some(ref v) = comb.p_glp {
+        children.push(tag("pGLP", &[], TagContent::Text(v)));
+    }
+    if let Some(ref v) = comb.p_gn_n {
+        children.push(tag("pGNn", &[], TagContent::Text(v)));
+    }
+    if let Some(ref v) = comb.p_gn_i {
+        children.push(tag("pGNi", &[], TagContent::Text(v)));
+    }
+    if let Some(ref v) = comb.v_part {
+        children.push(tag("vPart", &[], TagContent::Text(v)));
+    }
+    if let Some(ref v) = comb.codif {
+        children.push(tag("CODIF", &[], TagContent::Text(v)));
+    }
+    if let Some(ref v) = comb.q_temp {
+        children.push(tag("qTemp", &[], TagContent::Text(v)));
+    }
+
+    children.push(tag("UFCons", &[], TagContent::Text(&comb.uf_cons)));
+
+    // CIDE (conditional — only when qBCProd is present)
+    if let Some(ref cide) = comb.cide {
+        let cide_children = vec![
+            tag("qBCProd", &[], TagContent::Text(&cide.q_bc_prod)),
+            tag("vAliqProd", &[], TagContent::Text(&cide.v_aliq_prod)),
+            tag("vCIDE", &[], TagContent::Text(&cide.v_cide)),
+        ];
+        children.push(tag("CIDE", &[], TagContent::Children(cide_children)));
+    }
+
+    // encerrante
+    if let Some(ref enc) = comb.encerrante {
+        let mut enc_children = vec![tag("nBico", &[], TagContent::Text(&enc.n_bico))];
+        if let Some(ref bomba) = enc.n_bomba {
+            enc_children.push(tag("nBomba", &[], TagContent::Text(bomba)));
+        }
+        enc_children.push(tag("nTanque", &[], TagContent::Text(&enc.n_tanque)));
+        enc_children.push(tag("vEncIni", &[], TagContent::Text(&enc.v_enc_ini)));
+        enc_children.push(tag("vEncFin", &[], TagContent::Text(&enc.v_enc_fin)));
+        children.push(tag("encerrante", &[], TagContent::Children(enc_children)));
+    }
+
+    // pBio
+    if let Some(ref v) = comb.p_bio {
+        children.push(tag("pBio", &[], TagContent::Text(v)));
+    }
+
+    // origComb (may be multiple)
+    if let Some(ref origins) = comb.orig_comb {
+        for orig in origins {
+            let orig_children = vec![
+                tag("indImport", &[], TagContent::Text(&orig.ind_import)),
+                tag("cUFOrig", &[], TagContent::Text(&orig.c_uf_orig)),
+                tag("pOrig", &[], TagContent::Text(&orig.p_orig)),
+            ];
+            children.push(tag("origComb", &[], TagContent::Children(orig_children)));
+        }
+    }
+
+    tag("comb", &[], TagContent::Children(children))
 }
 
 fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
@@ -732,4 +836,432 @@ fn build_det_extras(item: &InvoiceItemData) -> Vec<String> {
     }
 
     extras
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::newtypes::{Cents, IbgeCode, Rate};
+    use crate::tax_issqn::IssqnData as TaxIssqnData;
+    use crate::types::{
+        CideData, CombData, EncerranteData, InvoiceItemData, InvoiceModel, IssuerData,
+        OrigCombData, SefazEnvironment, TaxRegime,
+    };
+
+    fn sample_build_data() -> InvoiceBuildData {
+        let issuer = IssuerData::new(
+            "12345678000199",
+            "123456789",
+            "Test Company",
+            TaxRegime::SimplesNacional,
+            "SP",
+            IbgeCode("3550308".to_string()),
+            "Sao Paulo",
+            "Av Paulista",
+            "1000",
+            "Bela Vista",
+            "01310100",
+        );
+
+        InvoiceBuildData {
+            model: InvoiceModel::Nfe,
+            series: 1,
+            number: 1,
+            emission_type: crate::types::EmissionType::Normal,
+            environment: SefazEnvironment::Homologation,
+            issued_at: chrono::Utc::now()
+                .with_timezone(&chrono::FixedOffset::west_opt(3 * 3600).expect("valid offset")),
+            operation_nature: "VENDA".to_string(),
+            issuer,
+            recipient: None,
+            items: Vec::new(),
+            payments: Vec::new(),
+            change_amount: None,
+            payment_card_details: None,
+            contingency: None,
+            operation_type: None,
+            purpose_code: None,
+            intermediary_indicator: None,
+            emission_process: None,
+            consumer_type: None,
+            buyer_presence: None,
+            print_format: None,
+            references: None,
+            transport: None,
+            billing: None,
+            withdrawal: None,
+            delivery: None,
+            authorized_xml: None,
+            additional_info: None,
+            intermediary: None,
+            ret_trib: None,
+            tech_responsible: None,
+            purchase: None,
+            export: None,
+            issqn_tot: None,
+        }
+    }
+
+    fn sample_item() -> InvoiceItemData {
+        InvoiceItemData::new(
+            1,
+            "001",
+            "Gasolina Comum",
+            "27101259",
+            "5102",
+            "LT",
+            50.0,
+            Cents(599),
+            Cents(29950),
+            "102",
+            Rate(0),
+            Cents(0),
+            "99",
+            "99",
+        )
+    }
+
+    // ── Combustíveis ────────────────────────────────────────────────────────
+
+    #[test]
+    fn comb_minimal_produces_correct_xml() {
+        let comb = CombData::new("210203001", "GLP", "SP");
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>210203001</cProdANP>\
+                <descANP>GLP</descANP>\
+                <UFCons>SP</UFCons>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_glp_percentages() {
+        let comb = CombData::new("210203001", "GLP", "SP")
+            .p_glp("60.0000")
+            .p_gn_n("25.0000")
+            .p_gn_i("15.0000")
+            .v_part("3.50");
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>210203001</cProdANP>\
+                <descANP>GLP</descANP>\
+                <pGLP>60.0000</pGLP>\
+                <pGNn>25.0000</pGNn>\
+                <pGNi>15.0000</pGNi>\
+                <vPart>3.50</vPart>\
+                <UFCons>SP</UFCons>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_codif_and_qtemp() {
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "PR")
+            .codif("123456789")
+            .q_temp("1000.0000");
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <CODIF>123456789</CODIF>\
+                <qTemp>1000.0000</qTemp>\
+                <UFCons>PR</UFCons>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_cide() {
+        let cide = CideData::new("1000.0000", "0.0700", "70.00");
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "SP").cide(cide);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <UFCons>SP</UFCons>\
+                <CIDE>\
+                    <qBCProd>1000.0000</qBCProd>\
+                    <vAliqProd>0.0700</vAliqProd>\
+                    <vCIDE>70.00</vCIDE>\
+                </CIDE>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_encerrante() {
+        let enc = EncerranteData::new("1", "1", "1234.567", "1284.567").n_bomba("2");
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "SP").encerrante(enc);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <UFCons>SP</UFCons>\
+                <encerrante>\
+                    <nBico>1</nBico>\
+                    <nBomba>2</nBomba>\
+                    <nTanque>1</nTanque>\
+                    <vEncIni>1234.567</vEncIni>\
+                    <vEncFin>1284.567</vEncFin>\
+                </encerrante>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_encerrante_without_bomba() {
+        let enc = EncerranteData::new("3", "2", "5000.000", "5050.000");
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "RJ").encerrante(enc);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <UFCons>RJ</UFCons>\
+                <encerrante>\
+                    <nBico>3</nBico>\
+                    <nTanque>2</nTanque>\
+                    <vEncIni>5000.000</vEncIni>\
+                    <vEncFin>5050.000</vEncFin>\
+                </encerrante>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_pbio() {
+        let comb = CombData::new("810102001", "OLEO DIESEL B S10", "SP").p_bio("15.0000");
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>810102001</cProdANP>\
+                <descANP>OLEO DIESEL B S10</descANP>\
+                <UFCons>SP</UFCons>\
+                <pBio>15.0000</pBio>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_orig_comb_single() {
+        let orig = OrigCombData::new("0", "35", "100.0000");
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "SP").orig_comb(vec![orig]);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <UFCons>SP</UFCons>\
+                <origComb>\
+                    <indImport>0</indImport>\
+                    <cUFOrig>35</cUFOrig>\
+                    <pOrig>100.0000</pOrig>\
+                </origComb>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_with_orig_comb_multiple() {
+        let orig1 = OrigCombData::new("0", "35", "70.0000");
+        let orig2 = OrigCombData::new("1", "99", "30.0000");
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "SP").orig_comb(vec![orig1, orig2]);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>320102001</cProdANP>\
+                <descANP>GASOLINA COMUM</descANP>\
+                <UFCons>SP</UFCons>\
+                <origComb>\
+                    <indImport>0</indImport>\
+                    <cUFOrig>35</cUFOrig>\
+                    <pOrig>70.0000</pOrig>\
+                </origComb>\
+                <origComb>\
+                    <indImport>1</indImport>\
+                    <cUFOrig>99</cUFOrig>\
+                    <pOrig>30.0000</pOrig>\
+                </origComb>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_full_with_all_fields() {
+        let cide = CideData::new("500.0000", "0.0700", "35.00");
+        let enc = EncerranteData::new("1", "1", "10000.000", "10050.000").n_bomba("1");
+        let orig = OrigCombData::new("0", "35", "100.0000");
+
+        let comb = CombData::new("210203001", "GLP", "SP")
+            .p_glp("60.0000")
+            .p_gn_n("25.0000")
+            .p_gn_i("15.0000")
+            .v_part("3.50")
+            .codif("999888777")
+            .q_temp("500.0000")
+            .cide(cide)
+            .encerrante(enc)
+            .p_bio("12.0000")
+            .orig_comb(vec![orig]);
+
+        let xml = build_comb_xml(&comb);
+
+        assert_eq!(
+            xml,
+            "<comb>\
+                <cProdANP>210203001</cProdANP>\
+                <descANP>GLP</descANP>\
+                <pGLP>60.0000</pGLP>\
+                <pGNn>25.0000</pGNn>\
+                <pGNi>15.0000</pGNi>\
+                <vPart>3.50</vPart>\
+                <CODIF>999888777</CODIF>\
+                <qTemp>500.0000</qTemp>\
+                <UFCons>SP</UFCons>\
+                <CIDE>\
+                    <qBCProd>500.0000</qBCProd>\
+                    <vAliqProd>0.0700</vAliqProd>\
+                    <vCIDE>35.00</vCIDE>\
+                </CIDE>\
+                <encerrante>\
+                    <nBico>1</nBico>\
+                    <nBomba>1</nBomba>\
+                    <nTanque>1</nTanque>\
+                    <vEncIni>10000.000</vEncIni>\
+                    <vEncFin>10050.000</vEncFin>\
+                </encerrante>\
+                <pBio>12.0000</pBio>\
+                <origComb>\
+                    <indImport>0</indImport>\
+                    <cUFOrig>35</cUFOrig>\
+                    <pOrig>100.0000</pOrig>\
+                </origComb>\
+            </comb>"
+        );
+    }
+
+    #[test]
+    fn comb_in_det_xml() {
+        let comb = CombData::new("320102001", "GASOLINA COMUM", "SP");
+        let item = sample_item().comb(comb);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        // <comb> appears inside <prod>
+        let prod_start = result.xml.find("<prod>").expect("<prod> must exist");
+        let prod_end = result.xml.find("</prod>").expect("</prod> must exist");
+        let prod_section = &result.xml[prod_start..prod_end];
+
+        assert!(prod_section.contains("<comb>"));
+        assert!(prod_section.contains("<cProdANP>320102001</cProdANP>"));
+        assert!(prod_section.contains("<descANP>GASOLINA COMUM</descANP>"));
+        assert!(prod_section.contains("<UFCons>SP</UFCons>"));
+        assert!(prod_section.contains("</comb>"));
+    }
+
+    // ── ISSQN ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn issqn_item_produces_issqn_tag_not_icms() {
+        let issqn_data = TaxIssqnData::new(10000, 500, 500, "3550308", "14.01")
+            .ind_iss("1")
+            .ind_incentivo("2");
+        let item = sample_item().issqn(issqn_data);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        // ISSQN tag present inside <imposto>
+        assert!(result.xml.contains("<ISSQN>"));
+        assert!(result.xml.contains("<vBC>100.00</vBC>"));
+        assert!(result.xml.contains("<vAliq>5.0000</vAliq>"));
+        assert!(result.xml.contains("<vISSQN>5.00</vISSQN>"));
+        assert!(result.xml.contains("<cMunFG>3550308</cMunFG>"));
+        assert!(result.xml.contains("<cListServ>14.01</cListServ>"));
+        assert!(result.xml.contains("<indISS>1</indISS>"));
+        assert!(result.xml.contains("<indIncentivo>2</indIncentivo>"));
+        assert!(result.xml.contains("</ISSQN>"));
+
+        // ICMS should NOT be present for ISSQN items
+        assert!(!result.xml.contains("<ICMS>"));
+        assert!(!result.xml.contains("</ICMS>"));
+        assert!(result.has_issqn);
+    }
+
+    #[test]
+    fn issqn_item_with_all_optional_fields() {
+        let issqn_data = TaxIssqnData::new(20000, 300, 600, "3304557", "07.02")
+            .v_deducao(1000)
+            .v_outro(500)
+            .v_desc_incond(200)
+            .v_desc_cond(100)
+            .v_iss_ret(300)
+            .ind_iss("1")
+            .c_servico("1234")
+            .c_mun("3304557")
+            .c_pais("1058")
+            .n_processo("ABC123")
+            .ind_incentivo("1");
+
+        let item = sample_item().issqn(issqn_data);
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<vBC>200.00</vBC>"));
+        assert!(result.xml.contains("<vAliq>3.0000</vAliq>"));
+        assert!(result.xml.contains("<vISSQN>6.00</vISSQN>"));
+        assert!(result.xml.contains("<vDeducao>10.00</vDeducao>"));
+        assert!(result.xml.contains("<vOutro>5.00</vOutro>"));
+        assert!(result.xml.contains("<vDescIncond>2.00</vDescIncond>"));
+        assert!(result.xml.contains("<vDescCond>1.00</vDescCond>"));
+        assert!(result.xml.contains("<vISSRet>3.00</vISSRet>"));
+        assert!(result.xml.contains("<cServico>1234</cServico>"));
+        assert!(result.xml.contains("<cMun>3304557</cMun>"));
+        assert!(result.xml.contains("<cPais>1058</cPais>"));
+        assert!(result.xml.contains("<nProcesso>ABC123</nProcesso>"));
+        assert!(result.xml.contains("<indIncentivo>1</indIncentivo>"));
+        assert!(result.has_issqn);
+    }
+
+    #[test]
+    fn non_issqn_item_has_icms_and_no_issqn() {
+        let item = sample_item();
+        let data = sample_build_data();
+        let result = build_det(&item, &data).expect("build_det should succeed");
+
+        assert!(result.xml.contains("<ICMS"));
+        assert!(!result.xml.contains("<ISSQN>"));
+        assert!(!result.has_issqn);
+    }
 }

@@ -88,6 +88,7 @@ pub struct InvoiceBuilder<State = Draft> {
     tech_responsible: Option<TechResponsibleData>,
     purchase: Option<PurchaseData>,
     export: Option<ExportData>,
+    issqn_tot: Option<IssqnTotData>,
 
     // Present only after build
     result_xml: Option<String>,
@@ -144,6 +145,7 @@ impl InvoiceBuilder<Draft> {
             tech_responsible: None,
             purchase: None,
             export: None,
+            issqn_tot: None,
             result_xml: None,
             result_access_key: None,
             result_signed_xml: None,
@@ -339,6 +341,12 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Set ISSQN total data (ISSQNtot).
+    pub fn issqn_tot(mut self, t: IssqnTotData) -> Self {
+        self.issqn_tot = Some(t);
+        self
+    }
+
     /// Validate and build the XML, transitioning to [`Built`].
     ///
     /// # Errors
@@ -381,6 +389,7 @@ impl InvoiceBuilder<Draft> {
             tech_responsible: self.tech_responsible,
             purchase: self.purchase,
             export: self.export,
+            issqn_tot: self.issqn_tot,
         };
 
         let result = super::generate_xml(&data)?;
@@ -419,6 +428,7 @@ impl InvoiceBuilder<Draft> {
             tech_responsible: data.tech_responsible,
             purchase: data.purchase,
             export: data.export,
+            issqn_tot: data.issqn_tot,
             result_xml: Some(result.xml),
             result_access_key: Some(result.access_key),
             result_signed_xml: None,
@@ -514,6 +524,7 @@ impl InvoiceBuilder<Built> {
             tech_responsible: self.tech_responsible,
             purchase: self.purchase,
             export: self.export,
+            issqn_tot: self.issqn_tot,
             result_xml: self.result_xml,
             result_access_key: self.result_access_key,
             result_signed_xml: Some(signed_xml),

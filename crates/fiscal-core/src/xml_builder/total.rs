@@ -1,8 +1,9 @@
 //! Build the `<total>` group of the NF-e XML.
 
 use crate::format_utils::format_cents;
+use crate::newtypes::Cents;
 use crate::tax_icms::IcmsTotals;
-use crate::types::RetTribData;
+use crate::types::{IssqnTotData, RetTribData};
 use crate::xml_utils::{TagContent, tag};
 
 /// Accumulated non-ICMS totals for the invoice total calculation.
@@ -28,12 +29,13 @@ pub struct OtherTotals {
     pub v_tot_trib: i64,
 }
 
-/// Build the `<total>` element with ICMSTot, optional ISSQNTot, and retTrib.
+/// Build the `<total>` element with ICMSTot, optional ISSQNtot, and retTrib.
 pub fn build_total(
     total_products: i64,
     icms: &IcmsTotals,
     other: &OtherTotals,
     ret_trib: Option<&RetTribData>,
+    issqn_tot: Option<&IssqnTotData>,
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
@@ -119,6 +121,11 @@ pub fn build_total(
 
     let mut total_children = vec![icms_tot];
 
+    // ISSQNtot — emitted when the invoice has service items subject to ISSQN
+    if let Some(iqt) = issqn_tot {
+        total_children.push(build_issqn_tot(iqt));
+    }
+
     if let Some(rt) = ret_trib {
         let opt_tag = |name: &str, val: Option<crate::newtypes::Cents>| -> Option<String> {
             val.map(|v| tag(name, &[], TagContent::Text(&fc2(v.0))))
@@ -142,4 +149,189 @@ pub fn build_total(
     }
 
     tag("total", &[], TagContent::Children(total_children))
+}
+
+/// Build the `<ISSQNtot>` element.
+///
+/// Matches PHP sped-nfe `tagISSQNTot`: monetary fields are only emitted when > 0;
+/// `dCompet` is always emitted; `cRegTrib` is optional.
+fn build_issqn_tot(data: &IssqnTotData) -> String {
+    let fc2 = |c: i64| format_cents(c, 2);
+
+    // Helper: emit a tag only when the Cents value is > 0
+    let opt_cents = |name: &str, val: Option<Cents>| -> Option<String> {
+        val.and_then(|c| {
+            if c.0 > 0 {
+                Some(tag(name, &[], TagContent::Text(&fc2(c.0))))
+            } else {
+                None
+            }
+        })
+    };
+
+    let mut children: Vec<String> = Vec::new();
+
+    if let Some(t) = opt_cents("vServ", data.v_serv) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vBC", data.v_bc) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vISS", data.v_iss) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vPIS", data.v_pis) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vCOFINS", data.v_cofins) {
+        children.push(t);
+    }
+
+    // dCompet is always present (required)
+    children.push(tag("dCompet", &[], TagContent::Text(&data.d_compet)));
+
+    if let Some(t) = opt_cents("vDeducao", data.v_deducao) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vOutro", data.v_outro) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vDescIncond", data.v_desc_incond) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vDescCond", data.v_desc_cond) {
+        children.push(t);
+    }
+    if let Some(t) = opt_cents("vISSRet", data.v_iss_ret) {
+        children.push(t);
+    }
+
+    if let Some(ref reg) = data.c_reg_trib {
+        children.push(tag("cRegTrib", &[], TagContent::Text(reg)));
+    }
+
+    tag("ISSQNtot", &[], TagContent::Children(children))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::newtypes::Cents;
+    use crate::tax_icms::IcmsTotals;
+    use crate::types::IssqnTotData;
+
+    fn zero_icms() -> IcmsTotals {
+        IcmsTotals::default()
+    }
+
+    fn zero_other() -> OtherTotals {
+        OtherTotals {
+            v_ipi: 0,
+            v_pis: 0,
+            v_cofins: 0,
+            v_ii: 0,
+            v_frete: 0,
+            v_seg: 0,
+            v_desc: 0,
+            v_outro: 0,
+            v_tot_trib: 0,
+        }
+    }
+
+    #[test]
+    fn issqn_tot_minimal_only_dcompet() {
+        let data = IssqnTotData::new("2026-03-12");
+        let xml = build_issqn_tot(&data);
+
+        assert_eq!(xml, "<ISSQNtot><dCompet>2026-03-12</dCompet></ISSQNtot>");
+    }
+
+    #[test]
+    fn issqn_tot_with_all_positive_values() {
+        let data = IssqnTotData::new("2026-03-12")
+            .v_serv(Cents(100000))
+            .v_bc(Cents(100000))
+            .v_iss(Cents(5000))
+            .v_pis(Cents(1650))
+            .v_cofins(Cents(7600))
+            .v_deducao(Cents(2000))
+            .v_outro(Cents(500))
+            .v_desc_incond(Cents(300))
+            .v_desc_cond(Cents(200))
+            .v_iss_ret(Cents(1000))
+            .c_reg_trib("6");
+
+        let xml = build_issqn_tot(&data);
+
+        assert_eq!(
+            xml,
+            "<ISSQNtot>\
+                <vServ>1000.00</vServ>\
+                <vBC>1000.00</vBC>\
+                <vISS>50.00</vISS>\
+                <vPIS>16.50</vPIS>\
+                <vCOFINS>76.00</vCOFINS>\
+                <dCompet>2026-03-12</dCompet>\
+                <vDeducao>20.00</vDeducao>\
+                <vOutro>5.00</vOutro>\
+                <vDescIncond>3.00</vDescIncond>\
+                <vDescCond>2.00</vDescCond>\
+                <vISSRet>10.00</vISSRet>\
+                <cRegTrib>6</cRegTrib>\
+            </ISSQNtot>"
+        );
+    }
+
+    #[test]
+    fn issqn_tot_zero_values_omitted() {
+        let data = IssqnTotData::new("2026-01-01")
+            .v_serv(Cents(0))
+            .v_bc(Cents(0))
+            .v_iss(Cents(0));
+
+        let xml = build_issqn_tot(&data);
+
+        // Zero values should NOT appear (matching PHP behavior)
+        assert_eq!(xml, "<ISSQNtot><dCompet>2026-01-01</dCompet></ISSQNtot>");
+    }
+
+    #[test]
+    fn issqn_tot_in_total_element() {
+        let data = IssqnTotData::new("2026-03-12")
+            .v_serv(Cents(50000))
+            .v_bc(Cents(50000))
+            .v_iss(Cents(2500));
+
+        let xml = build_total(0, &zero_icms(), &zero_other(), None, Some(&data));
+
+        // ISSQNtot should appear after ICMSTot
+        let icms_end = xml.find("</ICMSTot>").expect("</ICMSTot> must exist");
+        let issqn_start = xml.find("<ISSQNtot>").expect("<ISSQNtot> must exist");
+        assert!(issqn_start > icms_end, "ISSQNtot must come after ICMSTot");
+
+        assert!(xml.contains("<vServ>500.00</vServ>"));
+        assert!(xml.contains("<vBC>500.00</vBC>"));
+        assert!(xml.contains("<vISS>25.00</vISS>"));
+        assert!(xml.contains("<dCompet>2026-03-12</dCompet>"));
+    }
+
+    #[test]
+    fn no_issqn_tot_when_none() {
+        let xml = build_total(0, &zero_icms(), &zero_other(), None, None);
+        assert!(!xml.contains("<ISSQNtot>"));
+    }
+
+    #[test]
+    fn issqn_tot_creg_trib_without_monetary_values() {
+        let data = IssqnTotData::new("2026-06-15").c_reg_trib("1");
+        let xml = build_issqn_tot(&data);
+
+        assert_eq!(
+            xml,
+            "<ISSQNtot>\
+                <dCompet>2026-06-15</dCompet>\
+                <cRegTrib>1</cRegTrib>\
+            </ISSQNtot>"
+        );
+    }
 }

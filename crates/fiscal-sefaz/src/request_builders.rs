@@ -1,6 +1,7 @@
 use fiscal_core::constants::{NFE_NAMESPACE, NFE_VERSION};
 use fiscal_core::state_codes::get_state_code;
 use fiscal_core::types::SefazEnvironment;
+use fiscal_core::xml_utils::extract_xml_tag_value;
 
 /// Event type constants (`tpEvento`) matching the SEFAZ specification.
 pub mod event_types {
@@ -8,6 +9,18 @@ pub mod event_types {
     pub const CCE: u32 = 110110;
     /// Cancellation event, code `110111`.
     pub const CANCELLATION: u32 = 110111;
+    /// Cancelamento por substituição (NFC-e only), code `110112`.
+    pub const CANCEL_SUBSTITUICAO: u32 = 110112;
+    /// Comprovante de entrega da NF-e, code `110130`.
+    pub const COMPROVANTE_ENTREGA: u32 = 110130;
+    /// Cancelamento do comprovante de entrega da NF-e, code `110131`.
+    pub const CANCEL_COMPROVANTE_ENTREGA: u32 = 110131;
+    /// Ator interessado na NF-e, code `110150`.
+    pub const ATOR_INTERESSADO: u32 = 110150;
+    /// Insucesso na entrega da NF-e, code `110192`.
+    pub const INSUCESSO_ENTREGA: u32 = 110192;
+    /// Cancelamento do insucesso na entrega da NF-e, code `110193`.
+    pub const CANCEL_INSUCESSO_ENTREGA: u32 = 110193;
     /// Recipient confirms operation, code `210200`.
     pub const CONFIRMATION: u32 = 210200;
     /// Recipient is aware of operation, code `210210`.
@@ -16,6 +29,8 @@ pub mod event_types {
     pub const UNKNOWN_OPERATION: u32 = 210220;
     /// Recipient confirms operation was not performed, code `210240`.
     pub const OPERATION_NOT_PERFORMED: u32 = 210240;
+    /// EPEC — Evento Prévio de Emissão em Contingência, code `110140`.
+    pub const EPEC: u32 = 110140;
 }
 
 /// Event descriptions matching the SEFAZ specification.
@@ -455,6 +470,634 @@ pub fn build_cadastro_request(uf: &str, search_type: &str, search_value: &str) -
     )
 }
 
+/// Build a SEFAZ cancellation-by-substitution event request XML
+/// (`tpEvento=110112`).
+///
+/// Used exclusively for NFC-e (model 65). Sends the event to
+/// `RecepcaoEvento` of the issuing state (cOrgao from access key).
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NFC-e being cancelled.
+/// * `ref_access_key` - The 44-digit access key of the replacement NFC-e.
+/// * `protocol` - The authorization protocol of the original NFC-e.
+/// * `justification` - Reason for cancellation (max 255 chars).
+/// * `ver_aplic` - Version of the issuing application.
+/// * `seq` - Event sequence number (usually 1).
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the issuer.
+#[allow(clippy::too_many_arguments)]
+pub fn build_cancel_substituicao_request(
+    access_key: &str,
+    ref_access_key: &str,
+    protocol: &str,
+    justification: &str,
+    ver_aplic: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    assert!(
+        !justification.is_empty(),
+        "Cancellation justification (xJust) is required"
+    );
+    assert!(
+        !ref_access_key.is_empty(),
+        "Reference access key (chNFeRef) is required"
+    );
+    assert!(
+        !ver_aplic.is_empty(),
+        "Application version (verAplic) is required"
+    );
+
+    let c_orgao = &access_key[..2];
+    let additional = format!(
+        "<cOrgaoAutor>{c_orgao}</cOrgaoAutor>\
+         <tpAutor>1</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <nProt>{protocol}</nProt>\
+         <xJust>{justification}</xJust>\
+         <chNFeRef>{ref_access_key}</chNFeRef>"
+    );
+
+    // Cancelamento por substituição goes to state endpoint (cOrgao from key)
+    build_event_xml(
+        access_key,
+        event_types::CANCEL_SUBSTITUICAO,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+    )
+}
+
+/// Build a SEFAZ ator interessado event request XML (`tpEvento=110150`).
+///
+/// Authorizes a transporter (or subcontracted transporters) to access the
+/// NF-e. Sent to the Ambiente Nacional (AN, cOrgao=91).
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NF-e.
+/// * `tp_autor` - Author type (1=emitente, 2=destinatário, 3=transportador).
+/// * `ver_aplic` - Version of the issuing application.
+/// * `authorized_cnpj` - Optional CNPJ to authorize (mutually exclusive with `authorized_cpf`).
+/// * `authorized_cpf` - Optional CPF to authorize (mutually exclusive with `authorized_cnpj`).
+/// * `tp_autorizacao` - Authorization type (0=not allowed to subcontract, 1=allowed).
+/// * `issuer_uf` - UF of the issuer (for cOrgaoAutor).
+/// * `seq` - Event sequence number.
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the event sender.
+#[allow(clippy::too_many_arguments)]
+pub fn build_ator_interessado_request(
+    access_key: &str,
+    tp_autor: u8,
+    ver_aplic: &str,
+    authorized_cnpj: Option<&str>,
+    authorized_cpf: Option<&str>,
+    tp_autorizacao: u8,
+    issuer_uf: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let c_uf = get_state_code(issuer_uf).expect("Invalid state code");
+
+    let auth_tag = if let Some(cnpj) = authorized_cnpj {
+        format!("<CNPJ>{cnpj}</CNPJ>")
+    } else if let Some(cpf) = authorized_cpf {
+        format!("<CPF>{cpf}</CPF>")
+    } else {
+        panic!("Either authorized_cnpj or authorized_cpf must be provided");
+    };
+
+    let mut additional = format!(
+        "<cOrgaoAutor>{c_uf}</cOrgaoAutor>\
+         <tpAutor>{tp_autor}</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <autXML>{auth_tag}</autXML>\
+         <tpAutorizacao>{tp_autorizacao}</tpAutorizacao>"
+    );
+
+    if tp_autorizacao == 1 {
+        let x_cond_uso = concat!(
+            "O emitente ou destinatario da NF-e, declara que permite o ",
+            "transportador declarado no campo CNPJ/CPF deste evento a ",
+            "autorizar os transportadores subcontratados ou redespachados a ",
+            "terem acesso ao download da NF-e"
+        );
+        additional.push_str(&format!("<xCondUso>{x_cond_uso}</xCondUso>"));
+    }
+
+    // Ator interessado always goes to AN (cOrgao=91)
+    build_event_xml_with_org(
+        access_key,
+        event_types::ATOR_INTERESSADO,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
+}
+
+/// Build a SEFAZ comprovante de entrega event request XML
+/// (`tpEvento=110130`).
+///
+/// Records proof of delivery for an NF-e. Sent to Ambiente Nacional (AN).
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NF-e.
+/// * `ver_aplic` - Version of the issuing application.
+/// * `delivery_date` - Date/time of delivery (ISO 8601 format).
+/// * `doc_number` - Document number of the receiver.
+/// * `name` - Name of the receiver.
+/// * `lat` - Optional GPS latitude.
+/// * `long` - Optional GPS longitude.
+/// * `hash` - Base64-encoded SHA-1 hash of the delivery proof.
+/// * `hash_date` - Date/time of the hash generation (ISO 8601 format).
+/// * `issuer_uf` - UF of the issuer (for cOrgaoAutor).
+/// * `seq` - Event sequence number.
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the event sender.
+#[allow(clippy::too_many_arguments)]
+pub fn build_comprovante_entrega_request(
+    access_key: &str,
+    ver_aplic: &str,
+    delivery_date: &str,
+    doc_number: &str,
+    name: &str,
+    lat: Option<&str>,
+    long: Option<&str>,
+    hash: &str,
+    hash_date: &str,
+    issuer_uf: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let c_uf = get_state_code(issuer_uf).expect("Invalid state code");
+
+    let mut additional = format!(
+        "<cOrgaoAutor>{c_uf}</cOrgaoAutor>\
+         <tpAutor>1</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <dhEntrega>{delivery_date}</dhEntrega>\
+         <nDoc>{doc_number}</nDoc>\
+         <xNome>{name}</xNome>"
+    );
+
+    if let (Some(lat_val), Some(long_val)) = (lat, long) {
+        if !lat_val.is_empty() && !long_val.is_empty() {
+            additional.push_str(&format!(
+                "<latGPS>{lat_val}</latGPS><longGPS>{long_val}</longGPS>"
+            ));
+        }
+    }
+
+    additional.push_str(&format!(
+        "<hashComprovante>{hash}</hashComprovante>\
+         <dhHashComprovante>{hash_date}</dhHashComprovante>"
+    ));
+
+    // Comprovante de entrega goes to AN (cOrgao=91)
+    build_event_xml_with_org(
+        access_key,
+        event_types::COMPROVANTE_ENTREGA,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
+}
+
+/// Build a SEFAZ cancelamento do comprovante de entrega event request XML
+/// (`tpEvento=110131`).
+///
+/// Cancels a previously registered delivery receipt. Sent to AN.
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NF-e.
+/// * `ver_aplic` - Version of the issuing application.
+/// * `event_protocol` - Protocol number of the delivery receipt event being cancelled.
+/// * `issuer_uf` - UF of the issuer (for cOrgaoAutor).
+/// * `seq` - Event sequence number.
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the event sender.
+#[allow(clippy::too_many_arguments)]
+pub fn build_cancel_comprovante_entrega_request(
+    access_key: &str,
+    ver_aplic: &str,
+    event_protocol: &str,
+    issuer_uf: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let c_uf = get_state_code(issuer_uf).expect("Invalid state code");
+
+    let additional = format!(
+        "<cOrgaoAutor>{c_uf}</cOrgaoAutor>\
+         <tpAutor>1</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <nProtEvento>{event_protocol}</nProtEvento>"
+    );
+
+    build_event_xml_with_org(
+        access_key,
+        event_types::CANCEL_COMPROVANTE_ENTREGA,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
+}
+
+/// Build a SEFAZ insucesso na entrega event request XML
+/// (`tpEvento=110192`).
+///
+/// Records a failed delivery attempt. Sent to Ambiente Nacional (AN).
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NF-e.
+/// * `ver_aplic` - Version of the issuing application.
+/// * `attempt_date` - Date/time of the delivery attempt (ISO 8601 format).
+/// * `attempt_number` - Optional attempt number.
+/// * `reason_type` - Reason code (1=recusado, 2=ausente, 3=não localizado, 4=outros).
+/// * `reason_justification` - Required when reason_type=4.
+/// * `lat` - Optional GPS latitude.
+/// * `long` - Optional GPS longitude.
+/// * `hash` - Base64-encoded SHA-1 hash of the attempt proof.
+/// * `hash_date` - Date/time of the hash generation (ISO 8601 format).
+/// * `issuer_uf` - UF of the issuer (for cOrgaoAutor).
+/// * `seq` - Event sequence number.
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the event sender.
+#[allow(clippy::too_many_arguments)]
+pub fn build_insucesso_entrega_request(
+    access_key: &str,
+    ver_aplic: &str,
+    attempt_date: &str,
+    attempt_number: Option<u32>,
+    reason_type: u8,
+    reason_justification: Option<&str>,
+    lat: Option<&str>,
+    long: Option<&str>,
+    hash: &str,
+    hash_date: &str,
+    issuer_uf: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let c_uf = get_state_code(issuer_uf).expect("Invalid state code");
+
+    let mut additional = format!(
+        "<cOrgaoAutor>{c_uf}</cOrgaoAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <dhTentativaEntrega>{attempt_date}</dhTentativaEntrega>"
+    );
+
+    if let Some(n) = attempt_number {
+        if n > 0 {
+            additional.push_str(&format!("<nTentativa>{n}</nTentativa>"));
+        }
+    }
+
+    additional.push_str(&format!("<tpMotivo>{reason_type}</tpMotivo>"));
+
+    if reason_type == 4 {
+        if let Some(just) = reason_justification {
+            if !just.is_empty() {
+                additional.push_str(&format!("<xJustMotivo>{just}</xJustMotivo>"));
+            }
+        }
+    }
+
+    if let (Some(lat_val), Some(long_val)) = (lat, long) {
+        if !lat_val.is_empty() && !long_val.is_empty() {
+            additional.push_str(&format!(
+                "<latGPS>{lat_val}</latGPS><longGPS>{long_val}</longGPS>"
+            ));
+        }
+    }
+
+    additional.push_str(&format!(
+        "<hashTentativaEntrega>{hash}</hashTentativaEntrega>\
+         <dhHashTentativaEntrega>{hash_date}</dhHashTentativaEntrega>"
+    ));
+
+    // Insucesso na entrega goes to AN (cOrgao=91)
+    build_event_xml_with_org(
+        access_key,
+        event_types::INSUCESSO_ENTREGA,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
+}
+
+/// Build a SEFAZ cancelamento do insucesso de entrega event request XML
+/// (`tpEvento=110193`).
+///
+/// Cancels a previously registered delivery failure event. Sent to AN.
+///
+/// # Arguments
+///
+/// * `access_key` - The 44-digit access key of the NF-e.
+/// * `ver_aplic` - Version of the issuing application.
+/// * `event_protocol` - Protocol number of the delivery failure event being cancelled.
+/// * `issuer_uf` - UF of the issuer (for cOrgaoAutor).
+/// * `seq` - Event sequence number.
+/// * `environment` - SEFAZ environment.
+/// * `tax_id` - CNPJ or CPF of the event sender.
+#[allow(clippy::too_many_arguments)]
+pub fn build_cancel_insucesso_entrega_request(
+    access_key: &str,
+    ver_aplic: &str,
+    event_protocol: &str,
+    issuer_uf: &str,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    let c_uf = get_state_code(issuer_uf).expect("Invalid state code");
+
+    let additional = format!(
+        "<cOrgaoAutor>{c_uf}</cOrgaoAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <nProtEvento>{event_protocol}</nProtEvento>"
+    );
+
+    build_event_xml_with_org(
+        access_key,
+        event_types::CANCEL_INSUCESSO_ENTREGA,
+        seq,
+        tax_id,
+        environment,
+        &additional,
+        Some("91"),
+    )
+}
+
+/// Data extracted from an NF-e XML for building an EPEC event request.
+///
+/// All fields are extracted from the signed NF-e XML. The struct is used
+/// as input to [`build_epec_request`] to avoid a long parameter list.
+#[derive(Debug, Clone)]
+pub struct EpecData {
+    /// 44-digit NF-e access key (from `infNFe@Id`, without "NFe" prefix).
+    pub access_key: String,
+    /// IBGE code of the issuer's state (first 2 digits of the access key).
+    pub c_orgao_autor: String,
+    /// Application version string (from `<verProc>` or caller override).
+    pub ver_aplic: String,
+    /// Emission date-time (from `<dhEmi>`).
+    pub dh_emi: String,
+    /// Fiscal operation type (from `<tpNF>`): 0=entrada, 1=saída.
+    pub tp_nf: String,
+    /// Issuer's state tax registration (from `<emit><IE>`).
+    pub emit_ie: String,
+    /// Recipient's state abbreviation (from `<dest><UF>`).
+    pub dest_uf: String,
+    /// Recipient's tax ID XML fragment: `<CNPJ>...</CNPJ>`, `<CPF>...</CPF>`,
+    /// or `<idEstrangeiro>...</idEstrangeiro>`.
+    pub dest_id_tag: String,
+    /// Recipient's state tax registration (from `<dest><IE>`), if any.
+    pub dest_ie: Option<String>,
+    /// Total NF-e value (from `<total><ICMSTot><vNF>`).
+    pub v_nf: String,
+    /// Total ICMS value (from `<total><ICMSTot><vICMS>`).
+    pub v_icms: String,
+    /// Total ICMS-ST value (from `<total><ICMSTot><vST>`).
+    pub v_st: String,
+    /// CNPJ or CPF of the issuer (for the event envelope).
+    pub tax_id: String,
+}
+
+/// Extract [`EpecData`] from a signed NF-e XML string.
+///
+/// Parses the XML to extract all fields needed by the EPEC event. The
+/// `ver_aplic_override` parameter, when `Some`, overrides the `<verProc>`
+/// value from the XML (matching the PHP behavior where `$this->verAplic`
+/// can override).
+///
+/// # Errors
+///
+/// Returns [`fiscal_core::FiscalError::XmlParsing`] if required tags are missing.
+pub fn extract_epec_data(
+    nfe_xml: &str,
+    ver_aplic_override: Option<&str>,
+) -> Result<EpecData, fiscal_core::FiscalError> {
+    use fiscal_core::FiscalError;
+
+    // Extract access key from infNFe@Id
+    let inf_nfe_start = nfe_xml
+        .find("<infNFe")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <infNFe> in NF-e XML".into()))?;
+    let inf_nfe_header_end = nfe_xml[inf_nfe_start..]
+        .find('>')
+        .ok_or_else(|| FiscalError::XmlParsing("Malformed <infNFe> tag".into()))?
+        + inf_nfe_start;
+    let inf_nfe_header = &nfe_xml[inf_nfe_start..inf_nfe_header_end];
+
+    let id_pattern = "Id=\"";
+    let id_start = inf_nfe_header
+        .find(id_pattern)
+        .ok_or_else(|| FiscalError::XmlParsing("Missing Id attribute in <infNFe>".into()))?
+        + id_pattern.len();
+    let id_end = inf_nfe_header[id_start..]
+        .find('"')
+        .ok_or_else(|| FiscalError::XmlParsing("Malformed Id attribute in <infNFe>".into()))?
+        + id_start;
+    let id_value = &inf_nfe_header[id_start..id_end];
+
+    let access_key = id_value.strip_prefix("NFe").unwrap_or(id_value).to_string();
+    if access_key.len() != 44 {
+        return Err(FiscalError::XmlParsing(format!(
+            "Invalid access key length: expected 44, got {}",
+            access_key.len()
+        )));
+    }
+
+    let c_orgao_autor = access_key[..2].to_string();
+
+    // Extract emit section for IE
+    let emit_section = extract_section(nfe_xml, "emit")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <emit> section in NF-e XML".into()))?;
+    let emit_ie = extract_xml_tag_value(&emit_section, "IE")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <IE> in <emit>".into()))?;
+
+    // Extract tax_id from emit (CNPJ or CPF)
+    let tax_id = extract_xml_tag_value(&emit_section, "CNPJ")
+        .or_else(|| extract_xml_tag_value(&emit_section, "CPF"))
+        .ok_or_else(|| FiscalError::XmlParsing("Missing CNPJ/CPF in <emit>".into()))?;
+
+    // Extract dest section
+    let dest_section = extract_section(nfe_xml, "dest")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <dest> section in NF-e XML".into()))?;
+    let dest_uf = extract_xml_tag_value(&dest_section, "UF")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <UF> in <dest>".into()))?;
+
+    // Dest ID: try CNPJ, then CPF, then idEstrangeiro (same order as PHP)
+    let dest_id_tag = if let Some(cnpj) = extract_xml_tag_value(&dest_section, "CNPJ") {
+        format!("<CNPJ>{cnpj}</CNPJ>")
+    } else if let Some(cpf) = extract_xml_tag_value(&dest_section, "CPF") {
+        format!("<CPF>{cpf}</CPF>")
+    } else if let Some(id_est) = extract_xml_tag_value(&dest_section, "idEstrangeiro") {
+        format!("<idEstrangeiro>{id_est}</idEstrangeiro>")
+    } else {
+        return Err(FiscalError::XmlParsing(
+            "Missing CNPJ/CPF/idEstrangeiro in <dest>".into(),
+        ));
+    };
+
+    // Dest IE (optional)
+    let dest_ie = extract_xml_tag_value(&dest_section, "IE").filter(|v| !v.is_empty());
+
+    // Extract total section
+    let total_section = extract_section(nfe_xml, "total")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <total> section in NF-e XML".into()))?;
+    let v_nf = extract_xml_tag_value(&total_section, "vNF")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <vNF> in <total>".into()))?;
+    let v_icms = extract_xml_tag_value(&total_section, "vICMS")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <vICMS> in <total>".into()))?;
+    let v_st = extract_xml_tag_value(&total_section, "vST")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <vST> in <total>".into()))?;
+
+    // Other fields
+    let ver_proc = extract_xml_tag_value(nfe_xml, "verProc").unwrap_or_default();
+    let ver_aplic = match ver_aplic_override {
+        Some(v) if !v.is_empty() => v.to_string(),
+        _ => ver_proc,
+    };
+
+    let dh_emi = extract_xml_tag_value(nfe_xml, "dhEmi")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <dhEmi> in NF-e XML".into()))?;
+    let tp_nf = extract_xml_tag_value(nfe_xml, "tpNF")
+        .ok_or_else(|| FiscalError::XmlParsing("Missing <tpNF> in NF-e XML".into()))?;
+
+    Ok(EpecData {
+        access_key,
+        c_orgao_autor,
+        ver_aplic,
+        dh_emi,
+        tp_nf,
+        emit_ie,
+        dest_uf,
+        dest_id_tag,
+        dest_ie,
+        v_nf,
+        v_icms,
+        v_st,
+        tax_id,
+    })
+}
+
+/// Build a SEFAZ EPEC (Evento Prévio de Emissão em Contingência) event
+/// request XML (`tpEvento=110140`).
+///
+/// The EPEC event is sent to the Ambiente Nacional (AN) with `cOrgao`
+/// set to the IBGE code of the issuer's state. This matches the PHP
+/// `Tools::sefazEPEC()` behavior.
+///
+/// # Arguments
+///
+/// * `epec_data` - Pre-extracted NF-e data (see [`extract_epec_data`]).
+/// * `environment` - SEFAZ environment (production or homologation).
+///
+/// # Example
+///
+/// ```no_run
+/// use fiscal_sefaz::request_builders::{build_epec_request, extract_epec_data};
+/// use fiscal_core::types::SefazEnvironment;
+///
+/// let nfe_xml = "...signed NF-e XML...";
+/// let data = extract_epec_data(nfe_xml, None).unwrap();
+/// let request = build_epec_request(&data, SefazEnvironment::Homologation);
+/// ```
+pub fn build_epec_request(epec_data: &EpecData, environment: SefazEnvironment) -> String {
+    // Build the EPEC-specific additional tags (detEvento content after descEvento)
+    let dest_ie_tag = match &epec_data.dest_ie {
+        Some(ie) => format!("<IE>{ie}</IE>"),
+        None => String::new(),
+    };
+
+    let additional = format!(
+        "<cOrgaoAutor>{c_orgao}</cOrgaoAutor>\
+         <tpAutor>1</tpAutor>\
+         <verAplic>{ver_aplic}</verAplic>\
+         <dhEmi>{dh_emi}</dhEmi>\
+         <tpNF>{tp_nf}</tpNF>\
+         <IE>{emit_ie}</IE>\
+         <dest>\
+         <UF>{dest_uf}</UF>\
+         {dest_id}\
+         {dest_ie}\
+         <vNF>{v_nf}</vNF>\
+         <vICMS>{v_icms}</vICMS>\
+         <vST>{v_st}</vST>\
+         </dest>",
+        c_orgao = epec_data.c_orgao_autor,
+        ver_aplic = epec_data.ver_aplic,
+        dh_emi = epec_data.dh_emi,
+        tp_nf = epec_data.tp_nf,
+        emit_ie = epec_data.emit_ie,
+        dest_uf = epec_data.dest_uf,
+        dest_id = epec_data.dest_id_tag,
+        dest_ie = dest_ie_tag,
+        v_nf = epec_data.v_nf,
+        v_icms = epec_data.v_icms,
+        v_st = epec_data.v_st,
+    );
+
+    // EPEC always goes to AN (cOrgao in the evento envelope = IBGE code of issuer's UF)
+    // PHP: $this->sefazEvento('AN', $chNFe, self::EVT_EPEC, 1, $tagAdic, null, null)
+    // In sefazEvento, when uf='AN', cOrgao = UFList::getCodeByUF('AN') = 91
+    // But $ignore = $tpEvento == self::EVT_EPEC skips the servico() call's UF validation
+    // The actual cOrgao in the evento XML is derived from the access key's first 2 digits
+    // when not in the special list, BUT for EPEC the PHP calls:
+    //   $cOrgao = UFList::getCodeByUF($uf)  where $uf = 'AN'
+    // So cOrgao = 91 for EPEC events.
+    build_event_xml_with_org(
+        &epec_data.access_key,
+        event_types::EPEC,
+        1, // nSeqEvento = 1 always for EPEC
+        &epec_data.tax_id,
+        environment,
+        &additional,
+        Some("91"), // AN = 91
+    )
+}
+
+/// Extract a named section from XML (e.g., `<emit>...</emit>`).
+///
+/// Returns the full content between the opening and closing tags, inclusive.
+fn extract_section(xml: &str, tag_name: &str) -> Option<String> {
+    let open = format!("<{tag_name}");
+    let close = format!("</{tag_name}>");
+
+    let start = xml.find(&open)?;
+    // Verify delimiter
+    let after_open = start + open.len();
+    if after_open < xml.len() {
+        let next = xml.as_bytes()[after_open];
+        if next != b' ' && next != b'>' && next != b'/' && next != b'\n' && next != b'\t' {
+            return None;
+        }
+    }
+
+    let end = xml[start..].find(&close)? + start + close.len();
+    Some(xml[start..end].to_string())
+}
+
 // ── Internal helpers ────────────────────────────────────────────────────────
 
 /// Build a generic SEFAZ event XML (`<envEvento>` with a single `<evento>`).
@@ -785,5 +1428,432 @@ mod tests {
     fn event_id_seq_padding() {
         let id = build_event_id(110111, TEST_KEY, 3);
         assert_eq!(id, format!("ID110111{TEST_KEY}03"));
+    }
+
+    // ── EPEC request ─────────────────────────────────────────────────
+
+    /// Sample NF-e XML for EPEC extraction tests.
+    fn sample_nfe_xml() -> String {
+        format!(
+            concat!(
+                r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+                r#"<infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>1</tpNF><dhEmi>2026-03-12T10:00:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>123456789</IE></emit>"#,
+                r#"<dest><CNPJ>98765432000188</CNPJ><UF>RJ</UF><IE>987654321</IE></dest>"#,
+                r#"<total><ICMSTot><vNF>1500.00</vNF><vICMS>270.00</vICMS><vST>0.00</vST></ICMSTot></total>"#,
+                r#"<infAdic/>"#,
+                r#"<infRespTec><verProc>fiscal-rs 0.1.0</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        )
+    }
+
+    #[test]
+    fn extract_epec_data_from_nfe_xml() {
+        let xml = sample_nfe_xml();
+        let data = extract_epec_data(&xml, None).unwrap();
+
+        assert_eq!(data.access_key, TEST_KEY);
+        assert_eq!(data.c_orgao_autor, "35");
+        assert_eq!(data.ver_aplic, "fiscal-rs 0.1.0");
+        assert_eq!(data.dh_emi, "2026-03-12T10:00:00-03:00");
+        assert_eq!(data.tp_nf, "1");
+        assert_eq!(data.emit_ie, "123456789");
+        assert_eq!(data.dest_uf, "RJ");
+        assert_eq!(data.dest_id_tag, "<CNPJ>98765432000188</CNPJ>");
+        assert_eq!(data.dest_ie.as_deref(), Some("987654321"));
+        assert_eq!(data.v_nf, "1500.00");
+        assert_eq!(data.v_icms, "270.00");
+        assert_eq!(data.v_st, "0.00");
+        assert_eq!(data.tax_id, "12345678000199");
+    }
+
+    #[test]
+    fn extract_epec_data_with_ver_aplic_override() {
+        let xml = sample_nfe_xml();
+        let data = extract_epec_data(&xml, Some("MyApp 2.0")).unwrap();
+        assert_eq!(data.ver_aplic, "MyApp 2.0");
+    }
+
+    #[test]
+    fn extract_epec_data_with_cpf_dest() {
+        let xml = format!(
+            concat!(
+                r#"<NFe><infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>1</tpNF><dhEmi>2026-03-12T10:00:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>123456789</IE></emit>"#,
+                r#"<dest><CPF>12345678909</CPF><UF>SP</UF></dest>"#,
+                r#"<total><ICMSTot><vNF>100.00</vNF><vICMS>18.00</vICMS><vST>0.00</vST></ICMSTot></total>"#,
+                r#"<infRespTec><verProc>test</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        );
+        let data = extract_epec_data(&xml, None).unwrap();
+        assert_eq!(data.dest_id_tag, "<CPF>12345678909</CPF>");
+        assert_eq!(data.dest_ie, None);
+    }
+
+    #[test]
+    fn extract_epec_data_with_id_estrangeiro() {
+        let xml = format!(
+            concat!(
+                r#"<NFe><infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>1</tpNF><dhEmi>2026-03-12T10:00:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>123456789</IE></emit>"#,
+                r#"<dest><idEstrangeiro>ABC123</idEstrangeiro><UF>EX</UF></dest>"#,
+                r#"<total><ICMSTot><vNF>500.00</vNF><vICMS>0.00</vICMS><vST>0.00</vST></ICMSTot></total>"#,
+                r#"<infRespTec><verProc>test</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        );
+        let data = extract_epec_data(&xml, None).unwrap();
+        assert_eq!(data.dest_id_tag, "<idEstrangeiro>ABC123</idEstrangeiro>");
+    }
+
+    #[test]
+    fn extract_epec_data_rejects_missing_inf_nfe() {
+        let xml = "<NFe><ide/></NFe>";
+        let err = extract_epec_data(xml, None).unwrap_err();
+        assert!(matches!(err, fiscal_core::FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn build_epec_request_structure() {
+        let xml = sample_nfe_xml();
+        let data = extract_epec_data(&xml, None).unwrap();
+        let request = build_epec_request(&data, SefazEnvironment::Homologation);
+
+        // Event type
+        assert!(
+            request.contains("<tpEvento>110140</tpEvento>"),
+            "EPEC must have tpEvento=110140"
+        );
+        // Description
+        assert!(
+            request.contains("<descEvento>EPEC</descEvento>"),
+            "EPEC must have descEvento=EPEC"
+        );
+        // cOrgao in envelope should be 91 (AN)
+        assert!(
+            request.contains("<cOrgao>91</cOrgao>"),
+            "EPEC envelope must use cOrgao=91 (AN)"
+        );
+        // cOrgaoAutor in detEvento should be the issuer's UF code
+        assert!(
+            request.contains("<cOrgaoAutor>35</cOrgaoAutor>"),
+            "EPEC detEvento must contain cOrgaoAutor from issuer UF"
+        );
+        // tpAutor=1
+        assert!(request.contains("<tpAutor>1</tpAutor>"));
+        // verAplic
+        assert!(request.contains("<verAplic>fiscal-rs 0.1.0</verAplic>"));
+        // dhEmi
+        assert!(request.contains("<dhEmi>2026-03-12T10:00:00-03:00</dhEmi>"));
+        // tpNF
+        assert!(request.contains("<tpNF>1</tpNF>"));
+        // Issuer IE
+        assert!(request.contains("<IE>123456789</IE>"));
+        // Dest section
+        assert!(request.contains("<dest>"));
+        assert!(request.contains("<UF>RJ</UF>"));
+        assert!(request.contains("<CNPJ>98765432000188</CNPJ>"));
+        assert!(
+            request.contains("<IE>987654321</IE>"),
+            "Dest IE should be present"
+        );
+        assert!(request.contains("<vNF>1500.00</vNF>"));
+        assert!(request.contains("<vICMS>270.00</vICMS>"));
+        assert!(request.contains("<vST>0.00</vST>"));
+        assert!(request.contains("</dest>"));
+        // nSeqEvento=1 always
+        assert!(request.contains("<nSeqEvento>1</nSeqEvento>"));
+        // envEvento wrapper
+        assert!(request.contains("<envEvento"));
+        assert!(request.contains("</envEvento>"));
+        // Access key
+        assert!(request.contains(&format!("<chNFe>{TEST_KEY}</chNFe>")));
+        // Event ID
+        assert!(request.contains(&format!("Id=\"ID110140{TEST_KEY}01\"")));
+        // tpAmb=2 (homologation)
+        assert!(request.contains("<tpAmb>2</tpAmb>"));
+        // Issuer tax ID in envelope
+        assert!(request.contains("<CNPJ>12345678000199</CNPJ>"));
+    }
+
+    #[test]
+    fn build_epec_request_without_dest_ie() {
+        let xml = format!(
+            concat!(
+                r#"<NFe><infNFe versao="4.00" Id="NFe{key}">"#,
+                r#"<ide><tpNF>0</tpNF><dhEmi>2026-01-01T08:00:00-03:00</dhEmi></ide>"#,
+                r#"<emit><CNPJ>12345678000199</CNPJ><IE>111222333</IE></emit>"#,
+                r#"<dest><CPF>12345678909</CPF><UF>MG</UF></dest>"#,
+                r#"<total><ICMSTot><vNF>200.00</vNF><vICMS>36.00</vICMS><vST>5.00</vST></ICMSTot></total>"#,
+                r#"<infRespTec><verProc>test</verProc></infRespTec>"#,
+                r#"</infNFe></NFe>"#,
+            ),
+            key = TEST_KEY
+        );
+        let data = extract_epec_data(&xml, None).unwrap();
+        let request = build_epec_request(&data, SefazEnvironment::Production);
+
+        // Should NOT contain dest IE (CPF dest, no IE)
+        // The dest section should have CPF but no IE
+        assert!(request.contains("<CPF>12345678909</CPF>"));
+        assert!(request.contains("<tpAmb>1</tpAmb>")); // Production
+        assert!(request.contains("<tpNF>0</tpNF>")); // Entrada
+        assert!(request.contains("<vST>5.00</vST>"));
+    }
+
+    // ── Cancelamento por substituição (110112) ────────────────────
+
+    #[test]
+    fn cancel_substituicao_request_structure() {
+        let ref_key = "35240112345678000195650010000000021000000028";
+        let xml = build_cancel_substituicao_request(
+            TEST_KEY,
+            ref_key,
+            "135220000009921",
+            "Erro na emissao da NFCe",
+            "FISCAL-RS-1.0",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpEvento>110112</tpEvento>"));
+        assert!(xml.contains("<descEvento>Cancelamento por substituicao</descEvento>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<tpAutor>1</tpAutor>"));
+        assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
+        assert!(xml.contains("<nProt>135220000009921</nProt>"));
+        assert!(xml.contains("<xJust>Erro na emissao da NFCe</xJust>"));
+        assert!(xml.contains(&format!("<chNFeRef>{ref_key}</chNFeRef>")));
+        assert!(xml.contains("<cOrgao>35</cOrgao>"));
+    }
+
+    #[test]
+    fn cancel_substituicao_event_id_format() {
+        let xml = build_cancel_substituicao_request(
+            TEST_KEY,
+            "35240112345678000195650010000000021000000028",
+            "135220000009921",
+            "Justificativa teste",
+            "APP-1.0",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        let expected_id = format!("ID110112{TEST_KEY}01");
+        assert!(xml.contains(&format!("Id=\"{expected_id}\"")));
+    }
+
+    // ── Ator interessado (110150) ─────────────────────────────────
+
+    #[test]
+    fn ator_interessado_request_with_cnpj() {
+        let xml = build_ator_interessado_request(
+            TEST_KEY,
+            1,
+            "FISCAL-RS-1.0",
+            Some("12345678000199"),
+            None,
+            0,
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(xml.contains("<tpEvento>110150</tpEvento>"));
+        assert!(xml.contains("<descEvento>Ator interessado na NF-e</descEvento>"));
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<tpAutor>1</tpAutor>"));
+        assert!(xml.contains("<autXML><CNPJ>12345678000199</CNPJ></autXML>"));
+        assert!(xml.contains("<tpAutorizacao>0</tpAutorizacao>"));
+        assert!(!xml.contains("<xCondUso>"));
+    }
+
+    #[test]
+    fn ator_interessado_request_with_cpf_and_cond_uso() {
+        let xml = build_ator_interessado_request(
+            TEST_KEY,
+            2,
+            "APP-2.0",
+            None,
+            Some("12345678901"),
+            1,
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+        assert!(xml.contains("<autXML><CPF>12345678901</CPF></autXML>"));
+        assert!(xml.contains("<tpAutorizacao>1</tpAutorizacao>"));
+        assert!(xml.contains("<xCondUso>"));
+        assert!(xml.contains("transportador declarado no campo CNPJ/CPF"));
+    }
+
+    // ── Comprovante de entrega (110130) ───────────────────────────
+
+    #[test]
+    fn comprovante_entrega_request_structure() {
+        let xml = build_comprovante_entrega_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            "2024-01-15T10:30:00-03:00",
+            "12345678901",
+            "Joao da Silva",
+            Some("-23.5505"),
+            Some("-46.6333"),
+            "abc123hashbase64==",
+            "2024-01-15T10:31:00-03:00",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpEvento>110130</tpEvento>"));
+        assert!(xml.contains("<descEvento>Comprovante de Entrega da NF-e</descEvento>"));
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<tpAutor>1</tpAutor>"));
+        assert!(xml.contains("<dhEntrega>2024-01-15T10:30:00-03:00</dhEntrega>"));
+        assert!(xml.contains("<nDoc>12345678901</nDoc>"));
+        assert!(xml.contains("<xNome>Joao da Silva</xNome>"));
+        assert!(xml.contains("<latGPS>-23.5505</latGPS>"));
+        assert!(xml.contains("<longGPS>-46.6333</longGPS>"));
+        assert!(xml.contains("<hashComprovante>abc123hashbase64==</hashComprovante>"));
+        assert!(xml.contains("<dhHashComprovante>2024-01-15T10:31:00-03:00</dhHashComprovante>"));
+    }
+
+    #[test]
+    fn comprovante_entrega_without_gps() {
+        let xml = build_comprovante_entrega_request(
+            TEST_KEY,
+            "APP-1.0",
+            "2024-01-15T10:30:00-03:00",
+            "12345678901",
+            "Maria Santos",
+            None,
+            None,
+            "hashvalue==",
+            "2024-01-15T10:31:00-03:00",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(!xml.contains("<latGPS>"));
+        assert!(!xml.contains("<longGPS>"));
+        assert!(xml.contains("<hashComprovante>hashvalue==</hashComprovante>"));
+    }
+
+    // ── Cancelamento comprovante de entrega (110131) ──────────────
+
+    #[test]
+    fn cancel_comprovante_entrega_request_structure() {
+        let xml = build_cancel_comprovante_entrega_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            "135220000009999",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpEvento>110131</tpEvento>"));
+        assert!(
+            xml.contains("<descEvento>Cancelamento Comprovante de Entrega da NF-e</descEvento>")
+        );
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<tpAutor>1</tpAutor>"));
+        assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
+        assert!(xml.contains("<nProtEvento>135220000009999</nProtEvento>"));
+    }
+
+    // ── Insucesso na entrega (110192) ─────────────────────────────
+
+    #[test]
+    fn insucesso_entrega_request_structure() {
+        let xml = build_insucesso_entrega_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            "2024-01-15T14:00:00-03:00",
+            Some(3),
+            1,
+            None,
+            Some("-23.5505"),
+            Some("-46.6333"),
+            "hashinsucesso==",
+            "2024-01-15T14:01:00-03:00",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpEvento>110192</tpEvento>"));
+        assert!(xml.contains("<descEvento>Insucesso na Entrega da NF-e</descEvento>"));
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<dhTentativaEntrega>2024-01-15T14:00:00-03:00</dhTentativaEntrega>"));
+        assert!(xml.contains("<nTentativa>3</nTentativa>"));
+        assert!(xml.contains("<tpMotivo>1</tpMotivo>"));
+        assert!(!xml.contains("<xJustMotivo>"));
+        assert!(xml.contains("<latGPS>-23.5505</latGPS>"));
+        assert!(xml.contains("<longGPS>-46.6333</longGPS>"));
+        assert!(xml.contains("<hashTentativaEntrega>hashinsucesso==</hashTentativaEntrega>"));
+        assert!(xml.contains(
+            "<dhHashTentativaEntrega>2024-01-15T14:01:00-03:00</dhHashTentativaEntrega>"
+        ));
+    }
+
+    #[test]
+    fn insucesso_entrega_with_reason_type_4_includes_justification() {
+        let xml = build_insucesso_entrega_request(
+            TEST_KEY,
+            "APP-1.0",
+            "2024-01-15T14:00:00-03:00",
+            None,
+            4,
+            Some("Destinatario mudou de endereco"),
+            None,
+            None,
+            "hashval==",
+            "2024-01-15T14:01:00-03:00",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpMotivo>4</tpMotivo>"));
+        assert!(xml.contains("<xJustMotivo>Destinatario mudou de endereco</xJustMotivo>"));
+        assert!(!xml.contains("<nTentativa>"));
+        assert!(!xml.contains("<latGPS>"));
+    }
+
+    // ── Cancelamento insucesso entrega (110193) ───────────────────
+
+    #[test]
+    fn cancel_insucesso_entrega_request_structure() {
+        let xml = build_cancel_insucesso_entrega_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            "135220000009888",
+            "SP",
+            1,
+            SefazEnvironment::Homologation,
+            "12345678000199",
+        );
+        assert!(xml.contains("<tpEvento>110193</tpEvento>"));
+        assert!(xml.contains("<descEvento>Cancelamento Insucesso na Entrega da NF-e</descEvento>"));
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        assert!(xml.contains("<cOrgaoAutor>35</cOrgaoAutor>"));
+        assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
+        assert!(xml.contains("<nProtEvento>135220000009888</nProtEvento>"));
     }
 }

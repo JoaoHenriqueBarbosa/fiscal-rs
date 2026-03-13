@@ -1773,6 +1773,316 @@ impl DFeReferenciadoData {
     }
 }
 
+// ── Combustíveis (comb) ──────────────────────────────────────────────────────
+
+/// CIDE data for fuel products (`<CIDE>` inside `<comb>`).
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct CideData {
+    /// BC da CIDE (`qBCProd`) — quantity base, formatted with 4 decimal places.
+    pub q_bc_prod: String,
+    /// Alíquota da CIDE (`vAliqProd`) — formatted with 4 decimal places.
+    pub v_aliq_prod: String,
+    /// Valor da CIDE (`vCIDE`) — formatted with 2 decimal places.
+    pub v_cide: String,
+}
+
+impl CideData {
+    /// Create a new `CideData` with all required fields.
+    pub fn new(
+        q_bc_prod: impl Into<String>,
+        v_aliq_prod: impl Into<String>,
+        v_cide: impl Into<String>,
+    ) -> Self {
+        Self {
+            q_bc_prod: q_bc_prod.into(),
+            v_aliq_prod: v_aliq_prod.into(),
+            v_cide: v_cide.into(),
+        }
+    }
+}
+
+/// Encerrante (meter reading) data for fuel pump operations (`<encerrante>` inside `<comb>`).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct EncerranteData {
+    /// Número do bico (`nBico`).
+    pub n_bico: String,
+    /// Número da bomba (`nBomba`). Optional.
+    pub n_bomba: Option<String>,
+    /// Número do tanque (`nTanque`).
+    pub n_tanque: String,
+    /// Valor do encerrante no início do abastecimento (`vEncIni`) — 3 decimal places.
+    pub v_enc_ini: String,
+    /// Valor do encerrante no final do abastecimento (`vEncFin`) — 3 decimal places.
+    pub v_enc_fin: String,
+}
+
+impl EncerranteData {
+    /// Create a new `EncerranteData` with required fields.
+    pub fn new(
+        n_bico: impl Into<String>,
+        n_tanque: impl Into<String>,
+        v_enc_ini: impl Into<String>,
+        v_enc_fin: impl Into<String>,
+    ) -> Self {
+        Self {
+            n_bico: n_bico.into(),
+            n_bomba: None,
+            n_tanque: n_tanque.into(),
+            v_enc_ini: v_enc_ini.into(),
+            v_enc_fin: v_enc_fin.into(),
+        }
+    }
+
+    /// Set the pump number (`nBomba`).
+    pub fn n_bomba(mut self, v: impl Into<String>) -> Self {
+        self.n_bomba = Some(v.into());
+        self
+    }
+}
+
+/// Origin of fuel indicator (`<origComb>` inside `<comb>`).
+///
+/// NT2023_0001_v1.10: may appear multiple times per `<comb>`.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct OrigCombData {
+    /// Indicador de importação (`indImport`): `"0"` nacional, `"1"` importado.
+    pub ind_import: String,
+    /// Código da UF de origem (`cUFOrig`).
+    pub c_uf_orig: String,
+    /// Percentual originário para a UF (`pOrig`) — 4 decimal places.
+    pub p_orig: String,
+}
+
+impl OrigCombData {
+    /// Create a new `OrigCombData` with all required fields.
+    pub fn new(
+        ind_import: impl Into<String>,
+        c_uf_orig: impl Into<String>,
+        p_orig: impl Into<String>,
+    ) -> Self {
+        Self {
+            ind_import: ind_import.into(),
+            c_uf_orig: c_uf_orig.into(),
+            p_orig: p_orig.into(),
+        }
+    }
+}
+
+/// Fuel product data (`<comb>` inside `<prod>`).
+///
+/// Represents the complete fuel detail group per NF-e layout 4.00 and
+/// NT2016_002_v1.30 / NT2023_0001_v1.10.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct CombData {
+    /// Código de produto da ANP (`cProdANP`) — 9 digits.
+    pub c_prod_anp: String,
+    /// Descrição do produto conforme ANP (`descANP`).
+    pub desc_anp: String,
+    /// Percentual do GLP derivado do petróleo (`pGLP`) — 4 decimal places. Optional.
+    pub p_glp: Option<String>,
+    /// Percentual de Gás Natural Nacional (`pGNn`) — 4 decimal places. Optional.
+    pub p_gn_n: Option<String>,
+    /// Percentual de Gás Natural Importado (`pGNi`) — 4 decimal places. Optional.
+    pub p_gn_i: Option<String>,
+    /// Valor de partida (`vPart`) — 2 decimal places. Optional.
+    pub v_part: Option<String>,
+    /// Código de autorização CODIF (`CODIF`). Optional.
+    pub codif: Option<String>,
+    /// Quantidade de combustível faturada à temperatura ambiente (`qTemp`) — 4 decimal places. Optional.
+    pub q_temp: Option<String>,
+    /// Sigla da UF de consumo (`UFCons`).
+    pub uf_cons: String,
+    /// Dados da CIDE (`CIDE`). Optional — present when `qBCProd` is non-empty.
+    pub cide: Option<CideData>,
+    /// Dados do encerrante (`encerrante`). Optional.
+    pub encerrante: Option<EncerranteData>,
+    /// Percentual do índice de mistura do Biodiesel (`pBio`) — 4 decimal places. Optional.
+    pub p_bio: Option<String>,
+    /// Origens do combustível (`origComb`). Optional — may contain multiple entries.
+    pub orig_comb: Option<Vec<OrigCombData>>,
+}
+
+impl CombData {
+    /// Create a new `CombData` with the required fields.
+    pub fn new(
+        c_prod_anp: impl Into<String>,
+        desc_anp: impl Into<String>,
+        uf_cons: impl Into<String>,
+    ) -> Self {
+        Self {
+            c_prod_anp: c_prod_anp.into(),
+            desc_anp: desc_anp.into(),
+            p_glp: None,
+            p_gn_n: None,
+            p_gn_i: None,
+            v_part: None,
+            codif: None,
+            q_temp: None,
+            uf_cons: uf_cons.into(),
+            cide: None,
+            encerrante: None,
+            p_bio: None,
+            orig_comb: None,
+        }
+    }
+
+    /// Set the GLP percentage (`pGLP`).
+    pub fn p_glp(mut self, v: impl Into<String>) -> Self {
+        self.p_glp = Some(v.into());
+        self
+    }
+    /// Set the national natural gas percentage (`pGNn`).
+    pub fn p_gn_n(mut self, v: impl Into<String>) -> Self {
+        self.p_gn_n = Some(v.into());
+        self
+    }
+    /// Set the imported natural gas percentage (`pGNi`).
+    pub fn p_gn_i(mut self, v: impl Into<String>) -> Self {
+        self.p_gn_i = Some(v.into());
+        self
+    }
+    /// Set the partida value (`vPart`).
+    pub fn v_part(mut self, v: impl Into<String>) -> Self {
+        self.v_part = Some(v.into());
+        self
+    }
+    /// Set the CODIF code.
+    pub fn codif(mut self, v: impl Into<String>) -> Self {
+        self.codif = Some(v.into());
+        self
+    }
+    /// Set the temperature-adjusted quantity (`qTemp`).
+    pub fn q_temp(mut self, v: impl Into<String>) -> Self {
+        self.q_temp = Some(v.into());
+        self
+    }
+    /// Set the CIDE data.
+    pub fn cide(mut self, v: CideData) -> Self {
+        self.cide = Some(v);
+        self
+    }
+    /// Set the encerrante data.
+    pub fn encerrante(mut self, v: EncerranteData) -> Self {
+        self.encerrante = Some(v);
+        self
+    }
+    /// Set the biodiesel percentage (`pBio`).
+    pub fn p_bio(mut self, v: impl Into<String>) -> Self {
+        self.p_bio = Some(v.into());
+        self
+    }
+    /// Set the fuel origin list (`origComb`).
+    pub fn orig_comb(mut self, v: Vec<OrigCombData>) -> Self {
+        self.orig_comb = Some(v);
+        self
+    }
+}
+
+// ── ISSQN total data ────────────────────────────────────────────────────────
+
+/// ISSQN total data (`<ISSQNtot>` inside `<total>`).
+///
+/// When the invoice has service items with ISSQN, this group is emitted
+/// after `<ICMSTot>`.
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct IssqnTotData {
+    /// Total services value (`vServ`) in cents. Optional — only emitted when > 0.
+    pub v_serv: Option<Cents>,
+    /// Total ISS base (`vBC`) in cents. Optional — only emitted when > 0.
+    pub v_bc: Option<Cents>,
+    /// Total ISS value (`vISS`) in cents. Optional — only emitted when > 0.
+    pub v_iss: Option<Cents>,
+    /// Total PIS on services (`vPIS`) in cents. Optional — only emitted when > 0.
+    pub v_pis: Option<Cents>,
+    /// Total COFINS on services (`vCOFINS`) in cents. Optional — only emitted when > 0.
+    pub v_cofins: Option<Cents>,
+    /// Service competence date (`dCompet`) in `YYYY-MM-DD` format.
+    pub d_compet: String,
+    /// Total deduction (`vDeducao`) in cents. Optional — only emitted when > 0.
+    pub v_deducao: Option<Cents>,
+    /// Total other retentions (`vOutro`) in cents. Optional — only emitted when > 0.
+    pub v_outro: Option<Cents>,
+    /// Total unconditional discount (`vDescIncond`) in cents. Optional — only emitted when > 0.
+    pub v_desc_incond: Option<Cents>,
+    /// Total conditional discount (`vDescCond`) in cents. Optional — only emitted when > 0.
+    pub v_desc_cond: Option<Cents>,
+    /// Total ISS retention (`vISSRet`) in cents. Optional — only emitted when > 0.
+    pub v_iss_ret: Option<Cents>,
+    /// Tax regime code (`cRegTrib`). Optional.
+    pub c_reg_trib: Option<String>,
+}
+
+impl IssqnTotData {
+    /// Create a new `IssqnTotData` with the required competence date.
+    pub fn new(d_compet: impl Into<String>) -> Self {
+        Self {
+            d_compet: d_compet.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Set the total services value.
+    pub fn v_serv(mut self, v: Cents) -> Self {
+        self.v_serv = Some(v);
+        self
+    }
+    /// Set the total ISS base.
+    pub fn v_bc(mut self, v: Cents) -> Self {
+        self.v_bc = Some(v);
+        self
+    }
+    /// Set the total ISS value.
+    pub fn v_iss(mut self, v: Cents) -> Self {
+        self.v_iss = Some(v);
+        self
+    }
+    /// Set the total PIS on services.
+    pub fn v_pis(mut self, v: Cents) -> Self {
+        self.v_pis = Some(v);
+        self
+    }
+    /// Set the total COFINS on services.
+    pub fn v_cofins(mut self, v: Cents) -> Self {
+        self.v_cofins = Some(v);
+        self
+    }
+    /// Set the total deduction.
+    pub fn v_deducao(mut self, v: Cents) -> Self {
+        self.v_deducao = Some(v);
+        self
+    }
+    /// Set the total other retentions.
+    pub fn v_outro(mut self, v: Cents) -> Self {
+        self.v_outro = Some(v);
+        self
+    }
+    /// Set the total unconditional discount.
+    pub fn v_desc_incond(mut self, v: Cents) -> Self {
+        self.v_desc_incond = Some(v);
+        self
+    }
+    /// Set the total conditional discount.
+    pub fn v_desc_cond(mut self, v: Cents) -> Self {
+        self.v_desc_cond = Some(v);
+        self
+    }
+    /// Set the total ISS retention.
+    pub fn v_iss_ret(mut self, v: Cents) -> Self {
+        self.v_iss_ret = Some(v);
+        self
+    }
+    /// Set the tax regime code (`cRegTrib`).
+    pub fn c_reg_trib(mut self, v: impl Into<String>) -> Self {
+        self.c_reg_trib = Some(v.into());
+        self
+    }
+}
+
 /// Complete data for a single invoice line item (`<det>`), including product
 /// identification, pricing, and all applicable taxes.
 ///
@@ -1934,8 +2244,13 @@ pub struct InvoiceItemData {
     pub med: Option<MedData>,
     /// Firearm / weapon details (`arma`). Optional.
     pub arma: Option<Vec<ArmaData>>,
+    /// Fuel product data (`comb`). Optional.
+    pub comb: Option<CombData>,
     /// RECOPI number for paper / printing sector products. Optional.
     pub n_recopi: Option<String>,
+    /// ISSQN data for service items. Optional.
+    /// When present, the `<ISSQN>` element is emitted inside `<imposto>` instead of ICMS.
+    pub issqn: Option<crate::tax_issqn::IssqnData>,
     /// Additional product information printed on the DANFE (`infAdProd`). Optional.
     pub inf_ad_prod: Option<String>,
     /// Per-item observations (`obsItem`). Optional.
@@ -2043,7 +2358,9 @@ impl InvoiceItemData {
             veic_prod: None,
             med: None,
             arma: None,
+            comb: None,
             n_recopi: None,
+            issqn: None,
             inf_ad_prod: None,
             obs_item: None,
             dfe_referenciado: None,
@@ -2348,9 +2665,19 @@ impl InvoiceItemData {
         self.arma = Some(v);
         self
     }
+    /// Set fuel product data.
+    pub fn comb(mut self, v: CombData) -> Self {
+        self.comb = Some(v);
+        self
+    }
     /// Set RECOPI number.
     pub fn n_recopi(mut self, v: impl Into<String>) -> Self {
         self.n_recopi = Some(v.into());
+        self
+    }
+    /// Set ISSQN data for service items.
+    pub fn issqn(mut self, v: crate::tax_issqn::IssqnData) -> Self {
+        self.issqn = Some(v);
         self
     }
     /// Set additional product info.
@@ -2421,6 +2748,7 @@ pub(crate) struct InvoiceBuildData {
     pub tech_responsible: Option<TechResponsibleData>,
     pub purchase: Option<PurchaseData>,
     pub export: Option<ExportData>,
+    pub issqn_tot: Option<IssqnTotData>,
 }
 
 /// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).
