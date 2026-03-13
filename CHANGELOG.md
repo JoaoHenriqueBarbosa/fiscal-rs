@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.2...fiscal-v0.4.3) - 2026-03-13
+
+### Other
+
+- *(skills)* renumber parity-check phases 1-8 and enforce task tracking
+- *(convert)* split monolithic convert.rs into 6 modules + expand TXT entity coverage
+
 ## [0.4.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.1...fiscal-v0.4.2) - 2026-03-13
 
 ### Fixed

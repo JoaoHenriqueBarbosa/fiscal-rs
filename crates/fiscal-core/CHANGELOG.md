@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.5.1...fiscal-core-v0.6.0) - 2026-03-13
+
+### Added
+
+- *(core)* add AccessKey::validate_uf for key-UF validation
+
+### Fixed
+
+- *(convert)* resolve 3 dead fields — emit gCompraGov, remove redundant n_item/icms_tag
+- *(clippy)* allow dead_code on fields parsed but not yet consumed by builders
+
+### Other
+
+- *(convert)* split builder into 7 focused modules + fix missing XML sections
+- *(convert)* split builder.rs into 7 focused modules
+- *(convert)* split monolithic convert.rs into 6 modules + expand TXT entity coverage
+
 ## [0.5.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.5.0...fiscal-core-v0.5.1) - 2026-03-13
 
 ### Fixed
