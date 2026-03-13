@@ -734,6 +734,7 @@ fn bench_build_total(bencher: divan::Bencher) {
         v_desc: 0,
         v_outro: 0,
         v_tot_trib: 0,
+        v_ipi_devol: 0,
     };
     bencher.bench(|| {
         build_total(
