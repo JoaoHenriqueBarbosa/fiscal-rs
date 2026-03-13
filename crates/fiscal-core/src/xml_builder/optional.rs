@@ -109,14 +109,14 @@ pub(crate) fn build_inf_adic(data: &InvoiceBuildData) -> String {
     // procRef (max 100)
     if let Some(procs) = add_info.and_then(|a| a.process_refs.as_ref()) {
         for p in procs.iter().take(100) {
-            children.push(tag(
-                "procRef",
-                &[],
-                TagContent::Children(vec![
-                    tag("nProc", &[], TagContent::Text(&p.number)),
-                    tag("indProc", &[], TagContent::Text(&p.origin)),
-                ]),
-            ));
+            let mut proc_children = vec![
+                tag("nProc", &[], TagContent::Text(&p.number)),
+                tag("indProc", &[], TagContent::Text(&p.origin)),
+            ];
+            if let Some(tp_ato) = &p.tp_ato {
+                proc_children.push(tag("tpAto", &[], TagContent::Text(tp_ato)));
+            }
+            children.push(tag("procRef", &[], TagContent::Children(proc_children)));
         }
     }
 

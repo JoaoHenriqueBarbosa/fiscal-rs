@@ -92,7 +92,28 @@ fn find_root_tag(xml: &str) -> Option<&'static str> {
 ///
 /// First validates that the XML is a recognised NFe document via
 /// [`identify_xml_type`], then converts the XML tree to a JSON object.
-/// Attributes are preserved with their original names (no prefix).
+///
+/// ## Attribute handling (difference from PHP)
+///
+/// The PHP `Standardize::toStd()` method uses `simplexml_load_string` +
+/// `json_encode`, which places XML attributes under an `@attributes` key
+/// (later renamed to `attributes`). This Rust implementation places
+/// attributes **inline** alongside child elements — e.g. an element
+/// `<infNFe versao="4.00" Id="NFe123">` produces `{"versao":"4.00",
+/// "Id":"NFe123", ...}` rather than `{"attributes":{"versao":"4.00",
+/// "Id":"NFe123"}, ...}`. This is a deliberate design decision: inline
+/// attributes are more ergonomic for JSON consumers and avoid the extra
+/// nesting level. Consumers that relied on the PHP `attributes` key
+/// should adapt their field lookups accordingly.
+///
+/// ## `infNFeSupl` / CDATA handling
+///
+/// The PHP `toStd()` has special post-processing for `infNFeSupl`: it
+/// re-extracts `qrCode` and `urlChave` via DOM because PHP's
+/// `simplexml_load_string` can corrupt CDATA sections. This Rust
+/// implementation uses `quick-xml`'s `Event::CData` handler, which
+/// correctly preserves CDATA content without mangling, so no special
+/// post-processing is needed.
 ///
 /// # Errors
 ///
@@ -277,5 +298,50 @@ mod tests {
         let json = xml_to_json(xml).unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v.get("NFe").is_some());
+    }
+
+    #[test]
+    fn xml_to_json_attributes_inline() {
+        // Verify that attributes are placed inline (not under "attributes" key)
+        let xml = r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00" Id="NFe123"><ide><cUF>35</cUF></ide></infNFe></NFe>"#;
+        let json = xml_to_json(xml).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let nfe = v.get("NFe").unwrap();
+        let inf_nfe = nfe.get("infNFe").unwrap();
+        // Attributes should be inline, not nested under "attributes"
+        assert_eq!(inf_nfe.get("versao").and_then(|v| v.as_str()), Some("4.00"));
+        assert_eq!(inf_nfe.get("Id").and_then(|v| v.as_str()), Some("NFe123"));
+        assert!(
+            inf_nfe.get("attributes").is_none(),
+            "should NOT have @attributes/attributes key"
+        );
+    }
+
+    #[test]
+    fn xml_to_json_cdata_in_qrcode() {
+        // Verify that CDATA content (common in qrCode) is preserved correctly.
+        // PHP needs special handling for this; Rust's quick-xml handles it natively.
+        let xml = concat!(
+            r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+            r#"<infNFe versao="4.00" Id="NFe123"><ide><cUF>35</cUF></ide></infNFe>"#,
+            r#"<infNFeSupl>"#,
+            r#"<qrCode><![CDATA[http://example.com/nfce?p=123&x=456]]></qrCode>"#,
+            r#"<urlChave>http://example.com/nfce/consulta</urlChave>"#,
+            r#"</infNFeSupl>"#,
+            r#"</NFe>"#,
+        );
+        let json = xml_to_json(xml).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let nfe = v.get("NFe").unwrap();
+        let supl = nfe.get("infNFeSupl").unwrap();
+        assert_eq!(
+            supl.get("qrCode").and_then(|v| v.as_str()),
+            Some("http://example.com/nfce?p=123&x=456"),
+            "CDATA content should be preserved without mangling"
+        );
+        assert_eq!(
+            supl.get("urlChave").and_then(|v| v.as_str()),
+            Some("http://example.com/nfce/consulta"),
+        );
     }
 }

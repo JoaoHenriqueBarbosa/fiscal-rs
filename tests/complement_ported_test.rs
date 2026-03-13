@@ -329,19 +329,18 @@ mod complements_ported_from_php {
 
     #[test]
     fn test_to_authorize_nfe_invalid_digest() {
-        // In PHP, Complements::toAuthorize throws DocumentsException when
-        // digest values do not match. The TS attachProtocol implementation
-        // falls back to single protNFe extraction without strict digest
-        // validation, so it does NOT throw. This test documents the
-        // behavioral difference: in TS the function succeeds even with
-        // mismatched digest, as long as the protNFe status is valid.
-        //
-        // The PHP test expected: $this->expectException(DocumentsException::class);
-        // The TS behavior: succeeds and returns the nfeProc XML.
-        let nfe_protocoled = attach_protocol(NFE_REQUEST, RET_ENVI_NFE_INVALID_DIGEST)
-            .expect("should succeed (TS behavior: best-effort, no strict digest check)");
-        // The function succeeds -- it falls back to extracting the single protNFe
-        assert!(nfe_protocoled.contains("143220000009921"));
+        // PHP behavior: Complements::toAuthorize throws DocumentsException when
+        // digest values do not match. Rust now matches PHP: returns Err.
+        let result = attach_protocol(NFE_REQUEST, RET_ENVI_NFE_INVALID_DIGEST);
+        assert!(
+            result.is_err(),
+            "should fail when digests do not match (PHP parity)"
+        );
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("digest"),
+            "error message should mention digest mismatch: {err_msg}"
+        );
     }
 
     #[test]

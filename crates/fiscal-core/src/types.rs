@@ -1020,6 +1020,8 @@ pub struct CarrierData {
     pub state_code: Option<String>,
     /// Full address string of the carrier (`xEnder`).
     pub address: Option<String>,
+    /// Municipality name of the carrier (`xMun`).
+    pub municipality: Option<String>,
 }
 
 impl CarrierData {
@@ -1055,6 +1057,12 @@ impl CarrierData {
     /// Set the address.
     pub fn address(mut self, v: impl Into<String>) -> Self {
         self.address = Some(v.into());
+        self
+    }
+
+    /// Set the municipality name (`xMun`).
+    pub fn municipality(mut self, v: impl Into<String>) -> Self {
+        self.municipality = Some(v.into());
         self
     }
 }
@@ -1157,6 +1165,8 @@ impl VolumeData {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct RetainedIcmsTransp {
+    /// Transport service value (`vServ`).
+    pub v_serv: Cents,
     /// ICMS calculation base for the retained amount (`vBCRet`).
     pub v_bc_ret: Cents,
     /// ICMS rate applied to the retained amount (`pICMSRet`).
@@ -1172,6 +1182,7 @@ pub struct RetainedIcmsTransp {
 impl RetainedIcmsTransp {
     /// Create a new `RetainedIcmsTransp` with all required fields.
     pub fn new(
+        v_serv: Cents,
         v_bc_ret: Cents,
         p_icms_ret: Rate,
         v_icms_ret: Cents,
@@ -1179,6 +1190,7 @@ impl RetainedIcmsTransp {
         city_code: IbgeCode,
     ) -> Self {
         Self {
+            v_serv,
             v_bc_ret,
             p_icms_ret,
             v_icms_ret,
@@ -1418,6 +1430,8 @@ pub struct ProcessRef {
     pub number: String,
     /// Process origin code (`indProc`): `"0"` (SEFAZ) through `"9"` (others).
     pub origin: String,
+    /// Type of act (`tpAto`). Optional.
+    pub tp_ato: Option<String>,
 }
 
 impl ProcessRef {
@@ -1426,6 +1440,20 @@ impl ProcessRef {
         Self {
             number: number.into(),
             origin: origin.into(),
+            tp_ato: None,
+        }
+    }
+
+    /// Create a new `ProcessRef` with a type of act (`tpAto`).
+    pub fn with_tp_ato(
+        number: impl Into<String>,
+        origin: impl Into<String>,
+        tp_ato: impl Into<String>,
+    ) -> Self {
+        Self {
+            number: number.into(),
+            origin: origin.into(),
+            tp_ato: Some(tp_ato.into()),
         }
     }
 }
@@ -2515,8 +2543,18 @@ pub struct InvoiceItemData {
     pub total_price: Cents,
     /// GTIN / EAN barcode for commercial units (`cEAN`). `None` = no barcode.
     pub c_ean: Option<String>,
+    /// Non-GTIN barcode for commercial units (`cBarra`). Optional.
+    pub c_barra: Option<String>,
     /// GTIN / EAN barcode for the taxation unit (`cEANTrib`). `None` = no barcode.
     pub c_ean_trib: Option<String>,
+    /// Non-GTIN barcode for the taxation unit (`cBarraTrib`). Optional.
+    pub c_barra_trib: Option<String>,
+    /// Taxable unit of measure (`uTrib`). When `None`, defaults to `unit_of_measure`.
+    pub taxable_unit: Option<String>,
+    /// Taxable quantity (`qTrib`). When `None`, defaults to `quantity`.
+    pub taxable_quantity: Option<f64>,
+    /// Taxable unit price (`vUnTrib`). When `None`, defaults to `unit_price`.
+    pub taxable_unit_price: Option<Cents>,
     /// CEST code for ST-subject products (`CEST`). Optional.
     pub cest: Option<String>,
     /// CEST scale indicator (`indEscala`). Optional — "S" or "N".
@@ -2675,6 +2713,8 @@ pub struct InvoiceItemData {
     /// Whether this item counts towards the invoice total (`indTot`).
     /// `1` (default) = included in total, `0` = not included.
     pub ind_tot: Option<u8>,
+    /// Indicator for used movable goods (`indBemMovelUsado`). Optional.
+    pub ind_bem_movel_usado: Option<bool>,
     /// Approximate total tax for this item (`vTotTrib`). Optional.
     pub v_tot_trib: Option<Cents>,
     /// IS (Imposto Seletivo) data for this item. Optional.
@@ -2719,7 +2759,12 @@ impl InvoiceItemData {
             unit_price,
             total_price,
             c_ean: None,
+            c_barra: None,
             c_ean_trib: None,
+            c_barra_trib: None,
+            taxable_unit: None,
+            taxable_quantity: None,
+            taxable_unit_price: None,
             cest: None,
             cest_ind_escala: None,
             cest_cnpj_fab: None,
@@ -2794,6 +2839,7 @@ impl InvoiceItemData {
             det_export: None,
             imposto_devol: None,
             ind_tot: None,
+            ind_bem_movel_usado: None,
             v_tot_trib: None,
             is_data: None,
             ibs_cbs: None,
@@ -2808,9 +2854,34 @@ impl InvoiceItemData {
         self.c_ean = Some(v.into());
         self
     }
+    /// Set the non-GTIN barcode for commercial units (`cBarra`).
+    pub fn c_barra(mut self, v: impl Into<String>) -> Self {
+        self.c_barra = Some(v.into());
+        self
+    }
     /// Set the tributary EAN code.
     pub fn c_ean_trib(mut self, v: impl Into<String>) -> Self {
         self.c_ean_trib = Some(v.into());
+        self
+    }
+    /// Set the non-GTIN barcode for the taxation unit (`cBarraTrib`).
+    pub fn c_barra_trib(mut self, v: impl Into<String>) -> Self {
+        self.c_barra_trib = Some(v.into());
+        self
+    }
+    /// Set the taxable unit of measure (`uTrib`). Defaults to `unit_of_measure` if not set.
+    pub fn taxable_unit(mut self, v: impl Into<String>) -> Self {
+        self.taxable_unit = Some(v.into());
+        self
+    }
+    /// Set the taxable quantity (`qTrib`). Defaults to `quantity` if not set.
+    pub fn taxable_quantity(mut self, v: f64) -> Self {
+        self.taxable_quantity = Some(v);
+        self
+    }
+    /// Set the taxable unit price (`vUnTrib`). Defaults to `unit_price` if not set.
+    pub fn taxable_unit_price(mut self, v: Cents) -> Self {
+        self.taxable_unit_price = Some(v);
         self
     }
     /// Add an NVE code (Nomenclatura de Valor Aduaneiro e Estatística).
@@ -3164,6 +3235,11 @@ impl InvoiceItemData {
     /// Set to `0` to exclude from invoice total.
     pub fn ind_tot(mut self, v: u8) -> Self {
         self.ind_tot = Some(v);
+        self
+    }
+    /// Set the used movable goods indicator (`indBemMovelUsado`).
+    pub fn ind_bem_movel_usado(mut self, v: bool) -> Self {
+        self.ind_bem_movel_usado = Some(v);
         self
     }
     /// Set the approximate total tax (`vTotTrib`).

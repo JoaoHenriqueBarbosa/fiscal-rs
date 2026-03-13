@@ -35,6 +35,9 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
         if let Some(ref addr) = c.address {
             carrier_children.push(tag("xEnder", &[], TagContent::Text(addr)));
         }
+        if let Some(ref mun) = c.municipality {
+            carrier_children.push(tag("xMun", &[], TagContent::Text(mun)));
+        }
         if let Some(ref uf) = c.state_code {
             carrier_children.push(tag("UF", &[], TagContent::Text(uf)));
         }
@@ -51,11 +54,7 @@ pub(crate) fn build_transp(data: &InvoiceBuildData) -> String {
             "retTransp",
             &[],
             TagContent::Children(vec![
-                tag(
-                    "vServ",
-                    &[],
-                    TagContent::Text(&format_cents(r.v_bc_ret.0, 2)),
-                ),
+                tag("vServ", &[], TagContent::Text(&format_cents(r.v_serv.0, 2))),
                 tag(
                     "vBCRet",
                     &[],

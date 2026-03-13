@@ -20,6 +20,8 @@ struct AuthorizerServices {
     csc_nfce: Option<ServiceUrls>,
     recepcao_epec: Option<ServiceUrls>,
     epec_status_servico: Option<ServiceUrls>,
+    nfe_consulta_dest: Option<ServiceUrls>,
+    nfe_download_nf: Option<ServiceUrls>,
 }
 
 impl AuthorizerServices {
@@ -82,6 +84,26 @@ impl AuthorizerServices {
                     if url.is_empty() { None } else { Some(url) }
                 });
             }
+            "NfeConsultaDest" => {
+                return self.nfe_consulta_dest.as_ref().and_then(|u| {
+                    let url = match env {
+                        SefazEnvironment::Production => u.production,
+                        SefazEnvironment::Homologation => u.homologation,
+                        _ => return None,
+                    };
+                    if url.is_empty() { None } else { Some(url) }
+                });
+            }
+            "NfeDownloadNF" => {
+                return self.nfe_download_nf.as_ref().and_then(|u| {
+                    let url = match env {
+                        SefazEnvironment::Production => u.production,
+                        SefazEnvironment::Homologation => u.homologation,
+                        _ => return None,
+                    };
+                    if url.is_empty() { None } else { Some(url) }
+                });
+            }
             _ => return None,
         };
         Some(match env {
@@ -125,6 +147,8 @@ static AM: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static BA: AuthorizerServices = AuthorizerServices {
@@ -160,6 +184,8 @@ static BA: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static GO: AuthorizerServices = AuthorizerServices {
@@ -195,6 +221,8 @@ static GO: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static MG: AuthorizerServices = AuthorizerServices {
@@ -230,6 +258,8 @@ static MG: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // Fix #1: MS homologation domain corrected from homologacao.nfe.ms.gov.br to hom.nfe.sefaz.ms.gov.br
@@ -266,6 +296,8 @@ static MS: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // Fix #2: MT RecepcaoEvento path corrected from NfeRecepcaoEvento4 to RecepcaoEvento4
@@ -302,6 +334,8 @@ static MT: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static PE: AuthorizerServices = AuthorizerServices {
@@ -337,6 +371,8 @@ static PE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static PR: AuthorizerServices = AuthorizerServices {
@@ -372,6 +408,8 @@ static PR: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static RS: AuthorizerServices = AuthorizerServices {
@@ -407,6 +445,8 @@ static RS: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static SP: AuthorizerServices = AuthorizerServices {
@@ -442,6 +482,8 @@ static SP: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // ── SVRS (Sefaz Virtual do RS) ──────────────────────────────────────────────
@@ -481,6 +523,8 @@ static SVRS: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // ── SVAN (Sefaz Virtual do Ambiente Nacional) — MA ──────────────────────────
@@ -516,6 +560,8 @@ static SVAN: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // ── Fix #5: AN (Ambiente Nacional) ──────────────────────────────────────────
@@ -523,7 +569,8 @@ static SVAN: AuthorizerServices = AuthorizerServices {
 static AN: AuthorizerServices = AuthorizerServices {
     // AN does not have these standard services, but we need to fill the struct.
     // Using empty strings that will never be matched since AN is only used for
-    // RecepcaoEvento and NfeDistribuicaoDFe lookups.
+    // RecepcaoEvento, NfeDistribuicaoDFe, RecepcaoEPEC, NfeConsultaDest, and
+    // NfeDownloadNF lookups.
     nfe_status_servico: ServiceUrls {
         production: "",
         homologation: "",
@@ -554,8 +601,19 @@ static AN: AuthorizerServices = AuthorizerServices {
         homologation: "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
     }),
     csc_nfce: None,
-    recepcao_epec: None,
+    recepcao_epec: Some(ServiceUrls {
+        production: "https://www.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx",
+        homologation: "https://hom.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx",
+    }),
     epec_status_servico: None,
+    nfe_consulta_dest: Some(ServiceUrls {
+        production: "https://www.nfe.fazenda.gov.br/NFeConsultaDest/NFeConsultaDest.asmx",
+        homologation: "https://hom.nfe.fazenda.gov.br/NFeConsultaDest/NFeConsultaDest.asmx",
+    }),
+    nfe_download_nf: Some(ServiceUrls {
+        production: "https://www.nfe.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx",
+        homologation: "https://hom.nfe.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx",
+    }),
 };
 
 // ── Fix #6: SVCAN (SVC-AN) — same URLs as SVAN ─────────────────────────────
@@ -590,6 +648,8 @@ static SVCAN: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // ── Fix #6: SVCRS (SVC-RS) — same URLs as SVRS ─────────────────────────────
@@ -627,6 +687,8 @@ static SVCRS: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // ── NFC-e authorizers (model 65) ──────────────────────────────────────────
@@ -666,6 +728,8 @@ static AM_NFCE: AuthorizerServices = AuthorizerServices {
     }),
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static GO_NFCE: AuthorizerServices = AuthorizerServices {
@@ -701,6 +765,8 @@ static GO_NFCE: AuthorizerServices = AuthorizerServices {
     }),
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static MG_NFCE: AuthorizerServices = AuthorizerServices {
@@ -733,6 +799,8 @@ static MG_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static MS_NFCE: AuthorizerServices = AuthorizerServices {
@@ -765,6 +833,8 @@ static MS_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static MT_NFCE: AuthorizerServices = AuthorizerServices {
@@ -797,6 +867,8 @@ static MT_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static RS_NFCE: AuthorizerServices = AuthorizerServices {
@@ -829,6 +901,8 @@ static RS_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static SP_NFCE: AuthorizerServices = AuthorizerServices {
@@ -867,6 +941,8 @@ static SP_NFCE: AuthorizerServices = AuthorizerServices {
         production: "https://nfce.epec.fazenda.sp.gov.br/EPECws/EPECStatusServico.asmx",
         homologation: "https://homologacao.nfce.epec.fazenda.sp.gov.br/EPECws/EPECStatusServico.asmx",
     }),
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 static PR_NFCE: AuthorizerServices = AuthorizerServices {
@@ -899,6 +975,8 @@ static PR_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 // Fix #4: SVRS NFC-e URLs corrected to match PHP exactly
@@ -932,6 +1010,8 @@ static SVRS_NFCE: AuthorizerServices = AuthorizerServices {
     csc_nfce: None,
     recepcao_epec: None,
     epec_status_servico: None,
+    nfe_consulta_dest: None,
+    nfe_download_nf: None,
 };
 
 /// Get the authorizer for a given state (NF-e model 55).
@@ -963,7 +1043,8 @@ fn get_state_authorizer(uf: &str) -> Option<&'static AuthorizerServices> {
 /// `"NfeStatusServico"`, `"NfeAutorizacao"`, `"NfeRetAutorizacao"`,
 /// `"NfeConsultaProtocolo"`, `"NfeInutilizacao"`, `"RecepcaoEvento"`,
 /// `"NfeConsultaCadastro"`, `"NfeDistribuicaoDFe"`, `"CscNFCe"`,
-/// `"RecepcaoEPEC"` (SP NFC-e only), `"EPECStatusServico"` (SP NFC-e only).
+/// `"RecepcaoEPEC"` (SP NFC-e only), `"EPECStatusServico"` (SP NFC-e only),
+/// `"NfeConsultaDest"` (AN only), `"NfeDownloadNF"` (AN only).
 ///
 /// # Errors
 ///
@@ -1005,7 +1086,8 @@ pub fn get_sefaz_url_for_model(
 
 /// Get the Ambiente Nacional (AN) service URL.
 ///
-/// AN provides RecepcaoEvento and NfeDistribuicaoDFe services.
+/// AN provides RecepcaoEvento, NfeDistribuicaoDFe, RecepcaoEPEC,
+/// NfeConsultaDest, and NfeDownloadNF services.
 pub fn get_an_url(environment: SefazEnvironment, service: &str) -> Result<String, FiscalError> {
     AN.get_url(service, environment)
         .map(|s| s.to_string())
@@ -1161,14 +1243,81 @@ pub fn get_nfce_consult_url(
 
 /// Get the NFC-e QR Code base URL for a given state and environment.
 ///
-/// This returns the same consultation URL used for QR Code generation.
+/// Returns the URL used for NFC-e QR Code generation (`NfeConsultaQR`).
+/// This is **different** from the consultation URL (`urlChave`) returned by
+/// [`get_nfce_consult_url`].
 ///
 /// # Errors
 ///
 /// Returns [`FiscalError::InvalidStateCode`] if `uf` is not a valid Brazilian
 /// state abbreviation.
 pub fn get_nfce_qr_url(uf: &str, environment: SefazEnvironment) -> Result<String, FiscalError> {
-    get_nfce_consult_url(uf, environment)
+    let url = match environment {
+        SefazEnvironment::Production => match uf {
+            "AC" => "http://www.sefaznet.ac.gov.br/nfce/qrcode",
+            "AL" => "http://nfce.sefaz.al.gov.br/QRCode/consultarNFCe.jsp",
+            "AM" => "https://sistemas.sefaz.am.gov.br/nfceweb/consultarNFCe.jsp",
+            "AP" => "https://www.sefaz.ap.gov.br/nfce/nfcep.php",
+            "BA" => "http://nfe.sefaz.ba.gov.br/servicos/nfce/qrcode.aspx",
+            "CE" => "http://nfce.sefaz.ce.gov.br/pages/ShowNFCe.html",
+            "DF" => "http://www.fazenda.df.gov.br/nfce/qrcode",
+            "ES" => "http://app.sefaz.es.gov.br/ConsultaNFCe/qrcode.aspx",
+            "GO" => "https://nfeweb.sefaz.go.gov.br/nfeweb/sites/nfce/danfeNFCe",
+            "MA" => "http://www.nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp",
+            "MG" => "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml",
+            "MS" => "http://www.dfe.ms.gov.br/nfce/qrcode",
+            "MT" => "http://www.sefaz.mt.gov.br/nfce/consultanfce",
+            "PA" => "https://appnfc.sefa.pa.gov.br/portal/view/consultas/nfce/nfceForm.seam",
+            "PB" => "http://www.sefaz.pb.gov.br/nfce",
+            "PE" => "http://nfce.sefaz.pe.gov.br/nfce/consulta",
+            "PI" => "http://www.sefaz.pi.gov.br/nfce/qrcode",
+            "PR" => "http://www.fazenda.pr.gov.br/nfce/qrcode",
+            "RJ" => "https://consultadfe.fazenda.rj.gov.br/consultaNFCe/QRCode",
+            "RN" => "http://nfce.set.rn.gov.br/consultarNFCe.aspx",
+            "RO" => "http://www.nfce.sefin.ro.gov.br/consultanfce/consulta.jsp",
+            "RR" => "https://www.sefaz.rr.gov.br/servlet/qrcode",
+            "RS" => "https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx",
+            "SC" => "https://sat.sef.sc.gov.br/nfce/consulta",
+            "SE" => "http://www.nfce.se.gov.br/nfce/qrcode",
+            "SP" => "https://www.nfce.fazenda.sp.gov.br/qrcode",
+            "TO" => "http://www.sefaz.to.gov.br/nfce/qrcode",
+            _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
+        },
+        SefazEnvironment::Homologation => match uf {
+            "AC" => "http://www.hml.sefaznet.ac.gov.br/nfce/qrcode",
+            "AL" => "http://nfce.sefaz.al.gov.br/QRCode/consultarNFCe.jsp",
+            "AM" => "https://sistemas.sefaz.am.gov.br/nfceweb-hom/consultarNFCe.jsp",
+            "AP" => "https://www.sefaz.ap.gov.br/nfcehml/nfce.php",
+            "BA" => "http://hnfe.sefaz.ba.gov.br/servicos/nfce/qrcode.aspx",
+            "CE" => "http://nfceh.sefaz.ce.gov.br/pages/ShowNFCe.html",
+            "DF" => "http://dec.fazenda.df.gov.br/ConsultarNFCe.aspx",
+            "ES" => "http://homologacao.sefaz.es.gov.br/ConsultaNFCe/qrcode.aspx",
+            "GO" => "https://nfewebhomolog.sefaz.go.gov.br/nfeweb/sites/nfce/danfeNFCe",
+            "MA" => "http://www.hom.nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp",
+            "MG" => "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml",
+            "MS" => "http://www.dfe.ms.gov.br/nfce/qrcode",
+            "MT" => "http://homologacao.sefaz.mt.gov.br/nfce/consultanfce",
+            "PA" => {
+                "https://appnfc.sefa.pa.gov.br/portal-homologacao/view/consultas/nfce/nfceForm.seam"
+            }
+            "PB" => "http://www.sefaz.pb.gov.br/nfcehom",
+            "PE" => "http://nfcehomolog.sefaz.pe.gov.br/nfce/consulta",
+            "PI" => "http://www.sefaz.pi.gov.br/nfce/qrcode",
+            "PR" => "http://www.fazenda.pr.gov.br/nfce/qrcode",
+            "RJ" => "http://www4.fazenda.rj.gov.br/consultaNFCe/QRCode",
+            "RN" => "http://hom.nfce.set.rn.gov.br/consultarNFCe.aspx",
+            "RO" => "http://www.nfce.sefin.ro.gov.br/consultanfce/consulta.jsp",
+            "RR" => "http://200.174.88.103:8080/nfce/servlet/qrcode",
+            "RS" => "https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx",
+            "SC" => "https://hom.sat.sef.sc.gov.br/nfce/consulta",
+            "SE" => "http://www.hom.nfe.se.gov.br/nfce/qrcode",
+            "SP" => "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode",
+            "TO" => "http://homologacao.sefaz.to.gov.br/nfce/qrcode",
+            _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
+        },
+        _ => return Err(FiscalError::InvalidStateCode(uf.to_string())),
+    };
+    Ok(url.to_string())
 }
 
 #[cfg(test)]
@@ -1243,5 +1392,85 @@ mod tests {
         let result =
             get_sefaz_url_for_model("SP", SefazEnvironment::Production, "EPECStatusServico", 55);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn qr_url_differs_from_consult_url_sp() {
+        // QR Code URL and consultation URL (urlChave) must be different for SP.
+        let qr = get_nfce_qr_url("SP", SefazEnvironment::Production).unwrap();
+        let consult = get_nfce_consult_url("SP", SefazEnvironment::Production).unwrap();
+        assert_ne!(qr, consult);
+        assert_eq!(qr, "https://www.nfce.fazenda.sp.gov.br/qrcode");
+    }
+
+    #[test]
+    fn qr_url_sp_homologation() {
+        let qr = get_nfce_qr_url("SP", SefazEnvironment::Homologation).unwrap();
+        assert_eq!(qr, "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode");
+    }
+
+    #[test]
+    fn qr_url_all_27_states_production() {
+        // Verify all 27 UFs return Ok for production QR Code URLs.
+        let ufs = [
+            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
+            "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+        ];
+        for uf in &ufs {
+            let result = get_nfce_qr_url(uf, SefazEnvironment::Production);
+            assert!(result.is_ok(), "QR URL production failed for {uf}");
+        }
+    }
+
+    #[test]
+    fn qr_url_all_27_states_homologation() {
+        // Verify all 27 UFs return Ok for homologation QR Code URLs.
+        let ufs = [
+            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
+            "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+        ];
+        for uf in &ufs {
+            let result = get_nfce_qr_url(uf, SefazEnvironment::Homologation);
+            assert!(result.is_ok(), "QR URL homologation failed for {uf}");
+        }
+    }
+
+    #[test]
+    fn qr_url_invalid_state() {
+        let result = get_nfce_qr_url("XX", SefazEnvironment::Production);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn qr_url_specific_states_match_php() {
+        // Spot-check several states against the PHP source of truth.
+        assert_eq!(
+            get_nfce_qr_url("AM", SefazEnvironment::Production).unwrap(),
+            "https://sistemas.sefaz.am.gov.br/nfceweb/consultarNFCe.jsp"
+        );
+        assert_eq!(
+            get_nfce_qr_url("AM", SefazEnvironment::Homologation).unwrap(),
+            "https://sistemas.sefaz.am.gov.br/nfceweb-hom/consultarNFCe.jsp"
+        );
+        assert_eq!(
+            get_nfce_qr_url("GO", SefazEnvironment::Production).unwrap(),
+            "https://nfeweb.sefaz.go.gov.br/nfeweb/sites/nfce/danfeNFCe"
+        );
+        assert_eq!(
+            get_nfce_qr_url("RR", SefazEnvironment::Homologation).unwrap(),
+            "http://200.174.88.103:8080/nfce/servlet/qrcode"
+        );
+        assert_eq!(
+            get_nfce_qr_url("RS", SefazEnvironment::Production).unwrap(),
+            "https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx"
+        );
+        assert_eq!(
+            get_nfce_qr_url("MG", SefazEnvironment::Production).unwrap(),
+            "https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml"
+        );
+        assert_eq!(
+            get_nfce_qr_url("PA", SefazEnvironment::Homologation).unwrap(),
+            "https://appnfc.sefa.pa.gov.br/portal-homologacao/view/consultas/nfce/nfceForm.seam"
+        );
     }
 }

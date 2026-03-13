@@ -53,6 +53,10 @@ pub enum SefazService {
     RecepcaoEpecNfce,
     /// `EPECStatusServico` — check EPEC NFC-e service status (SP only).
     EpecNfceStatusServico,
+    /// `NfeConsultaDest` — query NF-e destined to a taxpayer (AN only).
+    NfeConsultaDest,
+    /// `NfeDownloadNF` — download NF-e XML (AN only).
+    NfeDownloadNF,
 }
 
 impl SefazService {
@@ -135,6 +139,16 @@ impl SefazService {
                 operation: "NfeStatusServico2",
                 version: "4.00",
             },
+            Self::NfeConsultaDest => ServiceMeta {
+                method: "nfeConsultaNFDest",
+                operation: "NfeConsultaDest",
+                version: "1.01",
+            },
+            Self::NfeDownloadNF => ServiceMeta {
+                method: "nfeDownloadNF",
+                operation: "NfeDownloadNF",
+                version: "4.00",
+            },
         }
     }
 
@@ -154,6 +168,8 @@ impl SefazService {
             Self::EPECStatusServico => "EPECStatusServico",
             Self::RecepcaoEpecNfce => "RecepcaoEPEC",
             Self::EpecNfceStatusServico => "EPECStatusServico",
+            Self::NfeConsultaDest => "NfeConsultaDest",
+            Self::NfeDownloadNF => "NfeDownloadNF",
         }
     }
 }
@@ -178,6 +194,8 @@ mod tests {
             SefazService::EPECStatusServico,
             SefazService::RecepcaoEpecNfce,
             SefazService::EpecNfceStatusServico,
+            SefazService::NfeConsultaDest,
+            SefazService::NfeDownloadNF,
         ];
         for svc in services {
             let meta = svc.meta();

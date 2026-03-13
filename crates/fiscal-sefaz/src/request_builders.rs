@@ -97,23 +97,35 @@ fn event_description(event_type: u32) -> &'static str {
         110192 => "Insucesso na Entrega da NF-e",
         110193 => "Cancelamento Insucesso na Entrega da NF-e",
         110750 => "ECONF",
-        110751 => "Cancelamento Conciliacao Financeira",
-        // RTC events
+        110751 => "Cancelamento Conciliação Financeira",
+        // RTC events — descriptions must match PHP sped-nfe exactly
         110001 => "Cancelamento de Evento",
-        112110 => "Informacao de Pagamento Integral",
-        112120 => "Importacao ZFM nao convertida em isencao",
-        112130 => "Perecimento Perda Roubo Furto Transporte Fornecedor",
-        112140 => "Fornecimento nao realizado",
-        112150 => "Atualizacao da Data de Previsao de Entrega",
-        211110 => "Solicitacao de Apropriacao de Credito Presumido",
-        211120 => "Destinacao de Item para Consumo Pessoal",
-        211124 => "Perecimento Perda Roubo Furto Transporte Adquirente",
-        211128 => "Aceite de Debito na Apuracao",
-        211130 => "Imobilizacao de Item",
-        211140 => "Apropriacao de Credito de Combustivel",
-        211150 => "Apropriacao de Credito para Bens e Servicos",
-        212110 => "Manifestacao Transferencia de Credito IBS",
-        212120 => "Manifestacao Transferencia de Credito CBS",
+        112110 => {
+            "Informação de efetivo pagamento integral para liberar crédito presumido do adquirente"
+        }
+        112120 => "Importação em ALC/ZFM não convertida em isenção",
+        112130 => {
+            "Perecimento, perda, roubo ou furto durante o transporte contratado pelo fornecedor"
+        }
+        112140 => "Fornecimento não realizado com pagamento antecipado",
+        112150 => "Atualização da Data de Previsão de Entrega",
+        211110 => "Solicitação de Apropriação de crédito presumido",
+        211120 => "Destinação de item para consumo pessoal",
+        211124 => {
+            "Perecimento, perda, roubo ou furto durante o transporte contratado pelo adquirente"
+        }
+        211128 => "Aceite de débito na apuração por emissão de nota de crédito",
+        211130 => "Imobilização de Item",
+        211140 => "Solicitação de Apropriação de Crédito de Combustível",
+        211150 => {
+            "Solicitação de Apropriação de Crédito para bens e serviços que dependem de atividade do adquirente"
+        }
+        212110 => {
+            "Manifestação sobre Pedido de Transferência de Crédito de IBS em Operação de Sucessão"
+        }
+        212120 => {
+            "Manifestação sobre Pedido de Transferência de Crédito de CBS em Operação de Sucessão"
+        }
         _ => "",
     }
 }
@@ -1699,6 +1711,7 @@ pub fn build_conciliacao_request(
     seq: u32,
     environment: SefazEnvironment,
     tax_id: &str,
+    org_code_override: Option<&str>,
 ) -> String {
     if cancel {
         let protocol = cancel_protocol.unwrap_or("");
@@ -1706,13 +1719,14 @@ pub fn build_conciliacao_request(
             "<verAplic>{ver_aplic}</verAplic>\
              <nProtEvento>{protocol}</nProtEvento>"
         );
-        build_event_xml(
+        build_event_xml_with_org(
             access_key,
             event_types::CANCEL_CONCILIACAO,
             seq,
             tax_id,
             environment,
             &additional,
+            org_code_override,
         )
     } else {
         let mut additional = format!("<verAplic>{ver_aplic}</verAplic>");
@@ -1746,13 +1760,14 @@ pub fn build_conciliacao_request(
             }
             additional.push_str("</detPag>");
         }
-        build_event_xml(
+        build_event_xml_with_org(
             access_key,
             event_types::CONCILIACAO,
             seq,
             tax_id,
             environment,
             &additional,
+            org_code_override,
         )
     }
 }
@@ -1880,6 +1895,7 @@ pub fn build_rtc_info_pagto_integral(
     tax_id: &str,
     c_uf: &str,
     ver_aplic: &str,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -1890,17 +1906,19 @@ pub fn build_rtc_info_pagto_integral(
          <verAplic>{ver_aplic}</verAplic>\
          <indQuitacao>1</indQuitacao>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_INFO_PAGTO_INTEGRAL,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Solicitação de apropriação de crédito presumido (tpEvento=211110).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_sol_aprop_cred_presumido(
     access_key: &str,
     seq: u32,
@@ -1909,6 +1927,7 @@ pub fn build_rtc_sol_aprop_cred_presumido(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcCredPresItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -1942,13 +1961,14 @@ pub fn build_rtc_sol_aprop_cred_presumido(
         }
         additional.push_str("</gCredPres>");
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_SOL_APROP_CRED_PRESUMIDO,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
@@ -1963,6 +1983,7 @@ pub fn build_rtc_destino_consumo_pessoal(
     tp_autor: u8,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -1987,17 +2008,19 @@ pub fn build_rtc_destino_consumo_pessoal(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_DESTINO_CONSUMO_PESSOAL,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Aceite de débito na apuração (tpEvento=211128).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_aceite_debito(
     access_key: &str,
     seq: u32,
@@ -2006,6 +2029,7 @@ pub fn build_rtc_aceite_debito(
     c_uf: &str,
     ver_aplic: &str,
     ind_aceitacao: u8,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2016,17 +2040,19 @@ pub fn build_rtc_aceite_debito(
          <verAplic>{ver_aplic}</verAplic>\
          <indAceitacao>{ind_aceitacao}</indAceitacao>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_ACEITE_DEBITO,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Imobilização de item (tpEvento=211130).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_imobilizacao_item(
     access_key: &str,
     seq: u32,
@@ -2035,6 +2061,7 @@ pub fn build_rtc_imobilizacao_item(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2056,17 +2083,19 @@ pub fn build_rtc_imobilizacao_item(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_IMOBILIZACAO_ITEM,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Apropriação de crédito combustível (tpEvento=211140).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_apropriacao_credito_comb(
     access_key: &str,
     seq: u32,
@@ -2075,6 +2104,7 @@ pub fn build_rtc_apropriacao_credito_comb(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2096,17 +2126,19 @@ pub fn build_rtc_apropriacao_credito_comb(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_APROPRIACAO_CREDITO_COMB,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Apropriação de crédito bens/serviços (tpEvento=211150).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_apropriacao_credito_bens(
     access_key: &str,
     seq: u32,
@@ -2115,6 +2147,7 @@ pub fn build_rtc_apropriacao_credito_bens(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2132,17 +2165,19 @@ pub fn build_rtc_apropriacao_credito_bens(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_APROPRIACAO_CREDITO_BENS,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Manifestação transferência crédito IBS (tpEvento=212110).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_manif_transf_cred_ibs(
     access_key: &str,
     seq: u32,
@@ -2151,6 +2186,7 @@ pub fn build_rtc_manif_transf_cred_ibs(
     c_uf: &str,
     ver_aplic: &str,
     ind_aceitacao: u8,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2161,17 +2197,19 @@ pub fn build_rtc_manif_transf_cred_ibs(
          <verAplic>{ver_aplic}</verAplic>\
          <indAceitacao>{ind_aceitacao}</indAceitacao>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_MANIF_TRANSF_CRED_IBS,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Manifestação transferência crédito CBS (tpEvento=212120).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_manif_transf_cred_cbs(
     access_key: &str,
     seq: u32,
@@ -2180,6 +2218,7 @@ pub fn build_rtc_manif_transf_cred_cbs(
     c_uf: &str,
     ver_aplic: &str,
     ind_aceitacao: u8,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2190,13 +2229,14 @@ pub fn build_rtc_manif_transf_cred_cbs(
          <verAplic>{ver_aplic}</verAplic>\
          <indAceitacao>{ind_aceitacao}</indAceitacao>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_MANIF_TRANSF_CRED_CBS,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
@@ -2211,6 +2251,7 @@ pub fn build_rtc_cancela_evento(
     ver_aplic: &str,
     tp_evento_aut: &str,
     n_prot_evento: &str,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2221,17 +2262,19 @@ pub fn build_rtc_cancela_evento(
          <tpEventoAut>{tp_evento_aut}</tpEventoAut>\
          <nProtEvento>{n_prot_evento}</nProtEvento>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_CANCELA_EVENTO,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Importação ZFM não convertida em isenção (tpEvento=112120).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_importacao_zfm(
     access_key: &str,
     seq: u32,
@@ -2240,6 +2283,7 @@ pub fn build_rtc_importacao_zfm(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2261,17 +2305,19 @@ pub fn build_rtc_importacao_zfm(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_IMPORTACAO_ZFM,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Perecimento/roubo transporte adquirente (tpEvento=211124).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_roubo_perda_adquirente(
     access_key: &str,
     seq: u32,
@@ -2280,6 +2326,7 @@ pub fn build_rtc_roubo_perda_adquirente(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2301,17 +2348,19 @@ pub fn build_rtc_roubo_perda_adquirente(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_ROUBO_PERDA_ADQUIRENTE,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Perecimento/roubo transporte fornecedor (tpEvento=112130).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_roubo_perda_fornecedor(
     access_key: &str,
     seq: u32,
@@ -2320,6 +2369,7 @@ pub fn build_rtc_roubo_perda_fornecedor(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2344,17 +2394,19 @@ pub fn build_rtc_roubo_perda_fornecedor(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_ROUBO_PERDA_FORNECEDOR,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Fornecimento não realizado (tpEvento=112140).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_fornecimento_nao_realizado(
     access_key: &str,
     seq: u32,
@@ -2363,6 +2415,7 @@ pub fn build_rtc_fornecimento_nao_realizado(
     c_uf: &str,
     ver_aplic: &str,
     itens: &[RtcItem],
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2384,17 +2437,19 @@ pub fn build_rtc_fornecimento_nao_realizado(
             item.item
         ));
     }
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_FORNECIMENTO_NAO_REALIZADO,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
 /// Build RTC event: Atualização da data de previsão de entrega (tpEvento=112150).
+#[allow(clippy::too_many_arguments)]
 pub fn build_rtc_atualizacao_data_entrega(
     access_key: &str,
     seq: u32,
@@ -2403,6 +2458,7 @@ pub fn build_rtc_atualizacao_data_entrega(
     c_uf: &str,
     ver_aplic: &str,
     data_prevista: &str,
+    org_code_override: Option<&str>,
 ) -> String {
     let c_orgao = get_state_code(c_uf)
         .map(|c| c.to_string())
@@ -2413,13 +2469,14 @@ pub fn build_rtc_atualizacao_data_entrega(
          <verAplic>{ver_aplic}</verAplic>\
          <dPrevEntrega>{data_prevista}</dPrevEntrega>"
     );
-    build_event_xml(
+    build_event_xml_with_org(
         access_key,
         event_types::RTC_ATUALIZACAO_DATA_ENTREGA,
         seq,
         tax_id,
         environment,
         &additional,
+        org_code_override,
     )
 }
 
@@ -3522,6 +3579,7 @@ mod tests {
             1,
             SefazEnvironment::Homologation,
             TEST_CNPJ,
+            None,
         );
 
         assert!(xml.contains("<tpEvento>110750</tpEvento>"));
@@ -3562,6 +3620,7 @@ mod tests {
             1,
             SefazEnvironment::Production,
             TEST_CNPJ,
+            None,
         );
 
         assert!(xml.contains("<tPag>03</tPag>"));
@@ -3586,10 +3645,11 @@ mod tests {
             1,
             SefazEnvironment::Homologation,
             TEST_CNPJ,
+            None,
         );
 
         assert!(xml.contains("<tpEvento>110751</tpEvento>"));
-        assert!(xml.contains("<descEvento>Cancelamento Conciliacao Financeira</descEvento>"));
+        assert!(xml.contains("<descEvento>Cancelamento Conciliação Financeira</descEvento>"));
         assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
         assert!(xml.contains("<nProtEvento>135220000009999</nProtEvento>"));
         assert!(!xml.contains("<detPag>"));
@@ -3636,6 +3696,7 @@ mod tests {
             1,
             SefazEnvironment::Homologation,
             TEST_CNPJ,
+            None,
         );
 
         let det_pag_count = xml.matches("<detPag>").count();

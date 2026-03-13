@@ -75,16 +75,16 @@ mod attach_protocol_tests {
     }
 
     #[test]
-    fn produces_nfe_proc_even_with_mismatched_protocol() {
+    fn rejects_mismatched_digest() {
         let mismatch_protocol = SAMPLE_PROTOCOL_XML
             .replace(
                 "35260112345678000199650010000000011123456780",
                 "99999999999999999999999999999999999999999999",
             )
             .replace("abc123digest==", "wrongdigest==");
-        // Should still wrap in nfeProc (uses first available protNFe)
-        let result = attach_protocol(SAMPLE_NFE_XML, &mismatch_protocol).expect("should succeed");
-        assert!(result.contains("<nfeProc"));
+        // PHP parity: rejects when digest values do not match
+        let result = attach_protocol(SAMPLE_NFE_XML, &mismatch_protocol);
+        assert!(result.is_err(), "should fail when digests do not match");
     }
 }
 

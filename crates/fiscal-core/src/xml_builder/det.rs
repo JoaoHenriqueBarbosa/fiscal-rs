@@ -633,23 +633,26 @@ pub(crate) fn build_det(
             &[],
             TagContent::Text(item.c_ean.as_deref().unwrap_or("SEM GTIN")),
         ),
-        tag(
-            "xProd",
-            &[],
-            TagContent::Text(
-                // PHP substitutes xProd for item 1 of NFC-e in homologation
-                if item.item_number == 1
-                    && data.environment == SefazEnvironment::Homologation
-                    && data.model == InvoiceModel::Nfce
-                {
-                    HOMOLOGATION_XPROD
-                } else {
-                    &item.description
-                },
-            ),
-        ),
-        tag("NCM", &[], TagContent::Text(&item.ncm)),
     ];
+    if let Some(ref cb) = item.c_barra {
+        prod_children.push(tag("cBarra", &[], TagContent::Text(cb)));
+    }
+    prod_children.push(tag(
+        "xProd",
+        &[],
+        TagContent::Text(
+            // PHP substitutes xProd for item 1 of NFC-e in homologation
+            if item.item_number == 1
+                && data.environment == SefazEnvironment::Homologation
+                && data.model == InvoiceModel::Nfce
+            {
+                HOMOLOGATION_XPROD
+            } else {
+                &item.description
+            },
+        ),
+    ));
+    prod_children.push(tag("NCM", &[], TagContent::Text(&item.ncm)));
     for nve_code in &item.nve {
         prod_children.push(tag("NVE", &[], TagContent::Text(nve_code)));
     }
@@ -696,9 +699,23 @@ pub(crate) fn build_det(
             &[],
             TagContent::Text(item.c_ean_trib.as_deref().unwrap_or("SEM GTIN")),
         ),
-        tag("uTrib", &[], TagContent::Text(&item.unit_of_measure)),
-        tag("qTrib", &[], TagContent::Text(&fd4(item.quantity))),
-        tag("vUnTrib", &[], TagContent::Text(&fc10(item.unit_price.0))),
+    ]);
+    if let Some(ref cbt) = item.c_barra_trib {
+        prod_children.push(tag("cBarraTrib", &[], TagContent::Text(cbt)));
+    }
+    let u_trib = item
+        .taxable_unit
+        .as_deref()
+        .unwrap_or(&item.unit_of_measure);
+    let q_trib = item.taxable_quantity.unwrap_or(item.quantity);
+    let v_un_trib = item
+        .taxable_unit_price
+        .map(|c| c.0)
+        .unwrap_or(item.unit_price.0);
+    prod_children.extend([
+        tag("uTrib", &[], TagContent::Text(u_trib)),
+        tag("qTrib", &[], TagContent::Text(&fd4(q_trib))),
+        tag("vUnTrib", &[], TagContent::Text(&fc10(v_un_trib))),
     ]);
     if let Some(v) = item.v_frete {
         prod_children.push(tag("vFrete", &[], TagContent::Text(&fc2(v.0))));
@@ -717,6 +734,9 @@ pub(crate) fn build_det(
         None => "1".to_string(),
     };
     prod_children.push(tag("indTot", &[], TagContent::Text(&ind_tot_str)));
+    if item.ind_bem_movel_usado == Some(true) {
+        prod_children.push(tag("indBemMovelUsado", &[], TagContent::Text("1")));
+    }
     // DI (Declaração de Importação) — after indTot, before detExport
     if let Some(ref dis) = item.di {
         for di in dis.iter().take(100) {

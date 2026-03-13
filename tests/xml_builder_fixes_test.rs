@@ -345,6 +345,7 @@ fn transp_order_transporta_before_ret_transp() {
         .tax_id("12345678000199")
         .name("Carrier Co");
     let retained = RetainedIcmsTransp::new(
+        Cents(15000),
         Cents(10000),
         Rate(1200),
         Cents(1200),

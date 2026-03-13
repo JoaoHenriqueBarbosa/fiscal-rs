@@ -51,6 +51,12 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 /// SEFAZ authorization can be slow; 90 s accommodates peak-hour latency.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
 
+/// NT 2024.002 / NT 2025.002: when sending conciliação or RTC events via SVRS,
+/// `cOrgao` must be set to 92 instead of deriving from the access key.
+fn svrs_org_override(uf: &str) -> Option<&'static str> {
+    if uf == "SVRS" { Some("92") } else { None }
+}
+
 /// Async SEFAZ web service client with mTLS authentication.
 ///
 /// Holds a pre-configured [`reqwest::Client`] with the emitter's digital
@@ -1153,6 +1159,14 @@ impl SefazClient {
         seq: u32,
         tax_id: &str,
     ) -> Result<CancellationResponse, FiscalError> {
+        // NT 2024.002: model 55 uses SVRS, model 65 uses state endpoint
+        let effective_uf = if model == 55 { "SVRS" } else { uf };
+        // NT 2024.002 / NT 2025.002: cOrgao=92 when sending via SVRS
+        let org_override = if effective_uf == "SVRS" {
+            Some("92")
+        } else {
+            None
+        };
         let request_xml = request_builders::build_conciliacao_request(
             access_key,
             ver_aplic,
@@ -1162,9 +1176,8 @@ impl SefazClient {
             seq,
             environment,
             tax_id,
+            org_override,
         );
-        // NT 2024.002: model 55 uses SVRS, model 65 uses state endpoint
-        let effective_uf = if model == 55 { "SVRS" } else { uf };
         let raw = self
             .send(
                 SefazService::RecepcaoEvento,
@@ -1202,6 +1215,7 @@ impl SefazClient {
         tax_id: &str,
         ver_aplic: &str,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_info_pagto_integral(
             access_key,
             seq,
@@ -1209,6 +1223,7 @@ impl SefazClient {
             tax_id,
             uf,
             ver_aplic,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1225,6 +1240,7 @@ impl SefazClient {
         ver_aplic: &str,
         ind_aceitacao: u8,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_aceite_debito(
             access_key,
             seq,
@@ -1233,6 +1249,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             ind_aceitacao,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1249,6 +1266,7 @@ impl SefazClient {
         ver_aplic: &str,
         ind_aceitacao: u8,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_manif_transf_cred_ibs(
             access_key,
             seq,
@@ -1257,6 +1275,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             ind_aceitacao,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1273,6 +1292,7 @@ impl SefazClient {
         ver_aplic: &str,
         ind_aceitacao: u8,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_manif_transf_cred_cbs(
             access_key,
             seq,
@@ -1281,6 +1301,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             ind_aceitacao,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1298,6 +1319,7 @@ impl SefazClient {
         tp_evento_aut: &str,
         n_prot_evento: &str,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_cancela_evento(
             access_key,
             seq,
@@ -1307,6 +1329,7 @@ impl SefazClient {
             ver_aplic,
             tp_evento_aut,
             n_prot_evento,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1323,6 +1346,7 @@ impl SefazClient {
         ver_aplic: &str,
         data_prevista: &str,
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_atualizacao_data_entrega(
             access_key,
             seq,
@@ -1331,6 +1355,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             data_prevista,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1347,6 +1372,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_importacao_zfm(
             access_key,
             seq,
@@ -1355,6 +1381,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1371,6 +1398,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_roubo_perda_fornecedor(
             access_key,
             seq,
@@ -1379,6 +1407,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1395,6 +1424,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_fornecimento_nao_realizado(
             access_key,
             seq,
@@ -1403,6 +1433,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1419,6 +1450,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcCredPresItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_sol_aprop_cred_presumido(
             access_key,
             seq,
@@ -1427,6 +1459,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1444,6 +1477,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_destino_consumo_pessoal(
             access_key,
             seq,
@@ -1453,6 +1487,7 @@ impl SefazClient {
             tp_autor,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1469,6 +1504,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_roubo_perda_adquirente(
             access_key,
             seq,
@@ -1477,6 +1513,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1493,6 +1530,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_imobilizacao_item(
             access_key,
             seq,
@@ -1501,6 +1539,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1517,6 +1556,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_apropriacao_credito_comb(
             access_key,
             seq,
@@ -1525,6 +1565,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1541,6 +1582,7 @@ impl SefazClient {
         ver_aplic: &str,
         itens: &[RtcItem],
     ) -> Result<CancellationResponse, FiscalError> {
+        let org = svrs_org_override(uf);
         let xml = request_builders::build_rtc_apropriacao_credito_bens(
             access_key,
             seq,
@@ -1549,6 +1591,7 @@ impl SefazClient {
             uf,
             ver_aplic,
             itens,
+            org,
         );
         self.send_rtc_event(uf, environment, &xml).await
     }
@@ -1712,7 +1755,16 @@ impl SefazClient {
         let service = SefazService::ConsultaCadastro;
         let url = get_sefaz_url_for_model(uf, environment, service.url_key(), 55)?;
         let meta = service.meta();
-        let envelope = soap::build_envelope_with_header(request_xml, uf, &meta)?;
+        // PHP sped-nfe wraps the request in an extra <nfeDadosMsg> for MT
+        // before the SOAP envelope body (Tools.php ~line 324-326)
+        let mt_wrapped;
+        let effective_xml = if uf.eq_ignore_ascii_case("MT") {
+            mt_wrapped = format!("<nfeDadosMsg>{request_xml}</nfeDadosMsg>");
+            &mt_wrapped
+        } else {
+            request_xml
+        };
+        let envelope = soap::build_envelope_with_header(effective_xml, uf, &meta)?;
         let action = soap::build_action(&meta);
 
         let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");

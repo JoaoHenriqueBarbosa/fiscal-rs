@@ -73,8 +73,10 @@ pub struct InutilizacaoResponse {
     pub c_uf: String,
     /// Year of the inutilização (`ano`).
     pub ano: String,
-    /// CNPJ of the emitter.
+    /// CNPJ of the emitter (may be empty if CPF was used).
     pub cnpj: String,
+    /// CPF of the emitter (for MT and other states that use CPF instead of CNPJ).
+    pub cpf: Option<String>,
     /// Fiscal document model (`mod`).
     pub modelo: String,
     /// Series number (`serie`).
@@ -124,6 +126,70 @@ pub struct CadastroResponse {
     pub status_message: String,
     /// Raw inner XML of `<infCons>` for detailed parsing.
     pub raw_xml: String,
+}
+
+/// A single protocol from a `retConsReciNFe` response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ProtocolInfo {
+    /// Environment type (`tpAmb`).
+    pub tp_amb: String,
+    /// SEFAZ application version (`verAplic`).
+    pub ver_aplic: String,
+    /// NF-e access key (`chNFe`).
+    pub ch_nfe: String,
+    /// Timestamp when SEFAZ received the document (`dhRecbto`).
+    pub dh_recbto: Option<String>,
+    /// Protocol number (`nProt`).
+    pub n_prot: Option<String>,
+    /// Digest value (`digVal`).
+    pub dig_val: Option<String>,
+    /// SEFAZ status code (`cStat`).
+    pub c_stat: String,
+    /// Human-readable status message (`xMotivo`).
+    pub x_motivo: String,
+}
+
+/// Parsed result of a SEFAZ consulta recibo (`retConsReciNFe`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ConsultaReciboResponse {
+    /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.
+    pub tp_amb: String,
+    /// SEFAZ application version (`verAplic`).
+    pub ver_aplic: String,
+    /// Receipt number (`nRec`).
+    pub n_rec: String,
+    /// SEFAZ status code (`cStat`).
+    pub c_stat: String,
+    /// Human-readable status message (`xMotivo`).
+    pub x_motivo: String,
+    /// UF code (`cUF`).
+    pub c_uf: String,
+    /// Protocols for each NF-e in the batch.
+    pub protocols: Vec<ProtocolInfo>,
+}
+
+/// Parsed result of a SEFAZ consulta situação (`retConsSitNFe`) response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ConsultaSituacaoResponse {
+    /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.
+    pub tp_amb: String,
+    /// SEFAZ application version (`verAplic`).
+    pub ver_aplic: String,
+    /// SEFAZ status code (`cStat`).
+    pub c_stat: String,
+    /// Human-readable status message (`xMotivo`).
+    pub x_motivo: String,
+    /// UF code (`cUF`).
+    pub c_uf: String,
+    /// NF-e access key (`chNFe`).
+    pub ch_nfe: Option<String>,
+    /// Protocol XML (`<protNFe>...</protNFe>`), present when the NF-e exists.
+    pub protocol_xml: Option<String>,
+    /// Raw event XML fragments (`<retEvento>...</retEvento>`), if events exist.
+    pub event_xmls: Vec<String>,
 }
 
 /// Parse a SEFAZ authorization response (`retEnviNFe` / `nfeAutorizacaoLoteResult`).
@@ -310,6 +376,7 @@ pub fn parse_inutilizacao_response(xml: &str) -> Result<InutilizacaoResponse, Fi
     let c_uf = extract_xml_tag_value(scope, "cUF").unwrap_or_default();
     let ano = extract_xml_tag_value(scope, "ano").unwrap_or_default();
     let cnpj = extract_xml_tag_value(scope, "CNPJ").unwrap_or_default();
+    let cpf = extract_xml_tag_value(scope, "CPF");
     let modelo = extract_xml_tag_value(scope, "mod").unwrap_or_default();
     let serie = extract_xml_tag_value(scope, "serie").unwrap_or_default();
     let n_nf_ini = extract_xml_tag_value(scope, "nNFIni").unwrap_or_default();
@@ -325,6 +392,7 @@ pub fn parse_inutilizacao_response(xml: &str) -> Result<InutilizacaoResponse, Fi
         c_uf,
         ano,
         cnpj,
+        cpf,
         modelo,
         serie,
         n_nf_ini,
@@ -372,6 +440,101 @@ pub fn parse_csc_response(xml: &str) -> Result<CscResponse, FiscalError> {
         c_stat,
         x_motivo,
         tokens,
+    })
+}
+
+/// Parse a SEFAZ consulta recibo response (`retConsReciNFe`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts all batch-level fields
+/// and individual `<protNFe>` protocol entries.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_consulta_recibo_response(xml: &str) -> Result<ConsultaReciboResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    let c_stat = extract_xml_tag_value(&body, "cStat").ok_or_else(|| {
+        FiscalError::XmlParsing("missing <cStat> in consulta recibo response".into())
+    })?;
+    let x_motivo = extract_xml_tag_value(&body, "xMotivo").unwrap_or_default();
+    let tp_amb = extract_xml_tag_value(&body, "tpAmb").unwrap_or_default();
+    let ver_aplic = extract_xml_tag_value(&body, "verAplic").unwrap_or_default();
+    let n_rec = extract_xml_tag_value(&body, "nRec").unwrap_or_default();
+    let c_uf = extract_xml_tag_value(&body, "cUF").unwrap_or_default();
+
+    // Collect all <protNFe> entries
+    let prot_xmls = extract_all_raw_tags(&body, "protNFe");
+    let mut protocols = Vec::new();
+    for prot_xml in &prot_xmls {
+        let inf_prot = extract_inner_content(prot_xml, "infProt").unwrap_or(prot_xml);
+        let prot_c_stat = match extract_xml_tag_value(inf_prot, "cStat") {
+            Some(v) => v,
+            None => continue,
+        };
+        protocols.push(ProtocolInfo {
+            tp_amb: extract_xml_tag_value(inf_prot, "tpAmb").unwrap_or_default(),
+            ver_aplic: extract_xml_tag_value(inf_prot, "verAplic").unwrap_or_default(),
+            ch_nfe: extract_xml_tag_value(inf_prot, "chNFe").unwrap_or_default(),
+            dh_recbto: extract_xml_tag_value(inf_prot, "dhRecbto"),
+            n_prot: extract_xml_tag_value(inf_prot, "nProt"),
+            dig_val: extract_xml_tag_value(inf_prot, "digVal"),
+            c_stat: prot_c_stat,
+            x_motivo: extract_xml_tag_value(inf_prot, "xMotivo").unwrap_or_default(),
+        });
+    }
+
+    Ok(ConsultaReciboResponse {
+        tp_amb,
+        ver_aplic,
+        n_rec,
+        c_stat,
+        x_motivo,
+        c_uf,
+        protocols,
+    })
+}
+
+/// Parse a SEFAZ consulta situação response (`retConsSitNFe`).
+///
+/// The response may be wrapped in a SOAP envelope. The parser strips SOAP
+/// wrappers and namespace prefixes, then extracts the situation fields,
+/// optional `<protNFe>` and any `<retEvento>` entries.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if the XML is malformed or does not
+/// contain the expected `<cStat>` element.
+pub fn parse_consulta_situacao_response(
+    xml: &str,
+) -> Result<ConsultaSituacaoResponse, FiscalError> {
+    let body = strip_soap_envelope(xml);
+
+    let c_stat = extract_xml_tag_value(&body, "cStat").ok_or_else(|| {
+        FiscalError::XmlParsing("missing <cStat> in consulta situação response".into())
+    })?;
+    let x_motivo = extract_xml_tag_value(&body, "xMotivo").unwrap_or_default();
+    let tp_amb = extract_xml_tag_value(&body, "tpAmb").unwrap_or_default();
+    let ver_aplic = extract_xml_tag_value(&body, "verAplic").unwrap_or_default();
+    let c_uf = extract_xml_tag_value(&body, "cUF").unwrap_or_default();
+    let ch_nfe = extract_xml_tag_value(&body, "chNFe");
+
+    let protocol_xml = extract_raw_tag(&body, "protNFe");
+
+    // Collect all <retEvento> entries
+    let event_xmls = extract_all_raw_tags(&body, "retEvento");
+
+    Ok(ConsultaSituacaoResponse {
+        tp_amb,
+        ver_aplic,
+        c_stat,
+        x_motivo,
+        c_uf,
+        ch_nfe,
+        protocol_xml,
+        event_xmls,
     })
 }
 
@@ -496,6 +659,41 @@ fn extract_all_tag_values(xml: &str, tag_name: &str) -> Vec<String> {
         } else {
             break;
         }
+    }
+
+    results
+}
+
+/// Extract all occurrences of a raw tag (from `<tag ...>` to `</tag>` inclusive),
+/// returning each as a standalone `String`. Handles namespace-prefixed variants.
+fn extract_all_raw_tags(xml: &str, local_name: &str) -> Vec<String> {
+    let mut results = Vec::new();
+    let mut search_from = 0;
+
+    while search_from < xml.len() {
+        let remaining = &xml[search_from..];
+        let start = match find_opening_tag_pos(remaining, local_name) {
+            Some(pos) => pos,
+            None => break,
+        };
+        let abs_start = search_from + start;
+        let after_open = match xml[abs_start..].find('>') {
+            Some(pos) => abs_start + pos + 1,
+            None => break,
+        };
+
+        let inner = &xml[after_open..];
+        let close_rel = match find_closing_tag_pos(inner, local_name) {
+            Some(pos) => pos,
+            None => break,
+        };
+        let close_tag_end = match inner[close_rel..].find('>') {
+            Some(pos) => close_rel + pos + 1,
+            None => break,
+        };
+
+        results.push(xml[abs_start..after_open + close_tag_end].to_string());
+        search_from = after_open + close_tag_end;
     }
 
     results
@@ -971,6 +1169,170 @@ mod tests {
     #[test]
     fn csc_response_rejects_malformed_xml() {
         let err = parse_csc_response("<garbage>nothing</garbage>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    // ── parse_inutilizacao_response with CPF ────────────────────────
+
+    #[test]
+    fn parses_inutilizacao_response_with_cpf() {
+        let xml = concat!(
+            "<retInutNFe><infInut>",
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SVRS202406</verAplic>",
+            "<cStat>102</cStat>",
+            "<xMotivo>Inutilizacao de numero homologado</xMotivo>",
+            "<cUF>51</cUF>",
+            "<ano>24</ano>",
+            "<CPF>12345678901</CPF>",
+            "<mod>55</mod>",
+            "<serie>1</serie>",
+            "<nNFIni>1</nNFIni>",
+            "<nNFFin>10</nNFFin>",
+            "</infInut></retInutNFe>"
+        );
+        let resp = parse_inutilizacao_response(xml).unwrap();
+        assert_eq!(resp.cpf.as_deref(), Some("12345678901"));
+        assert_eq!(resp.cnpj, ""); // No CNPJ in this case
+    }
+
+    // ── parse_consulta_recibo_response ──────────────────────────────
+
+    #[test]
+    fn parses_consulta_recibo_response() {
+        let xml = concat!(
+            r#"<retConsReciNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#,
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP_NFE_PL009_V4</verAplic>",
+            "<nRec>351000000012345</nRec>",
+            "<cStat>104</cStat>",
+            "<xMotivo>Lote processado</xMotivo>",
+            "<cUF>35</cUF>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP_NFE_PL009_V4</verAplic>",
+            "<chNFe>35260112345678000199550010000000011123456780</chNFe>",
+            "<dhRecbto>2024-06-01T14:30:00-03:00</dhRecbto>",
+            "<nProt>135240000054321</nProt>",
+            "<digVal>dGVzdGU=</digVal>",
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado o uso da NF-e</xMotivo>",
+            "</infProt></protNFe>",
+            "</retConsReciNFe>"
+        );
+        let resp = parse_consulta_recibo_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.ver_aplic, "SP_NFE_PL009_V4");
+        assert_eq!(resp.n_rec, "351000000012345");
+        assert_eq!(resp.c_stat, "104");
+        assert_eq!(resp.x_motivo, "Lote processado");
+        assert_eq!(resp.c_uf, "35");
+        assert_eq!(resp.protocols.len(), 1);
+        assert_eq!(
+            resp.protocols[0].ch_nfe,
+            "35260112345678000199550010000000011123456780"
+        );
+        assert_eq!(resp.protocols[0].c_stat, "100");
+        assert_eq!(resp.protocols[0].n_prot.as_deref(), Some("135240000054321"));
+        assert_eq!(resp.protocols[0].dig_val.as_deref(), Some("dGVzdGU="));
+    }
+
+    #[test]
+    fn parses_consulta_recibo_response_multiple_protocols() {
+        let xml = concat!(
+            r#"<retConsReciNFe versao="4.00">"#,
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP</verAplic>",
+            "<nRec>351000000099999</nRec>",
+            "<cStat>104</cStat>",
+            "<xMotivo>Lote processado</xMotivo>",
+            "<cUF>35</cUF>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<chNFe>11111111111111111111111111111111111111111111</chNFe>",
+            "<cStat>100</cStat><xMotivo>OK</xMotivo>",
+            "</infProt></protNFe>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<chNFe>22222222222222222222222222222222222222222222</chNFe>",
+            "<cStat>100</cStat><xMotivo>OK</xMotivo>",
+            "</infProt></protNFe>",
+            "</retConsReciNFe>"
+        );
+        let resp = parse_consulta_recibo_response(xml).unwrap();
+        assert_eq!(resp.protocols.len(), 2);
+        assert_eq!(
+            resp.protocols[0].ch_nfe,
+            "11111111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            resp.protocols[1].ch_nfe,
+            "22222222222222222222222222222222222222222222"
+        );
+    }
+
+    #[test]
+    fn consulta_recibo_rejects_malformed_xml() {
+        let err = parse_consulta_recibo_response("<garbage>nothing</garbage>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    // ── parse_consulta_situacao_response ────────────────────────────
+
+    #[test]
+    fn parses_consulta_situacao_response() {
+        let xml = concat!(
+            r#"<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">"#,
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP_NFE_PL009_V4</verAplic>",
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado o uso da NF-e</xMotivo>",
+            "<cUF>35</cUF>",
+            "<chNFe>35260112345678000199550010000000011123456780</chNFe>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado o uso da NF-e</xMotivo>",
+            "<nProt>135240000054321</nProt>",
+            "</infProt></protNFe>",
+            "</retConsSitNFe>"
+        );
+        let resp = parse_consulta_situacao_response(xml).unwrap();
+        assert_eq!(resp.tp_amb, "2");
+        assert_eq!(resp.c_stat, "100");
+        assert_eq!(
+            resp.ch_nfe.as_deref(),
+            Some("35260112345678000199550010000000011123456780")
+        );
+        assert!(resp.protocol_xml.is_some());
+        assert!(resp.protocol_xml.as_ref().unwrap().contains("<protNFe"));
+        assert!(resp.event_xmls.is_empty());
+    }
+
+    #[test]
+    fn parses_consulta_situacao_response_with_events() {
+        let xml = concat!(
+            r#"<retConsSitNFe versao="4.00">"#,
+            "<tpAmb>2</tpAmb>",
+            "<verAplic>SP</verAplic>",
+            "<cStat>100</cStat>",
+            "<xMotivo>Autorizado</xMotivo>",
+            "<cUF>35</cUF>",
+            "<chNFe>35260112345678000199550010000000011123456780</chNFe>",
+            r#"<protNFe versao="4.00"><infProt>"#,
+            "<cStat>100</cStat><xMotivo>OK</xMotivo>",
+            "</infProt></protNFe>",
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            "<cStat>135</cStat><tpEvento>110111</tpEvento>",
+            "</infEvento></retEvento>",
+            "</retConsSitNFe>"
+        );
+        let resp = parse_consulta_situacao_response(xml).unwrap();
+        assert!(resp.protocol_xml.is_some());
+        assert_eq!(resp.event_xmls.len(), 1);
+        assert!(resp.event_xmls[0].contains("<retEvento"));
+    }
+
+    #[test]
+    fn consulta_situacao_rejects_malformed_xml() {
+        let err = parse_consulta_situacao_response("<garbage>nothing</garbage>").unwrap_err();
         assert!(matches!(err, FiscalError::XmlParsing(_)));
     }
 }

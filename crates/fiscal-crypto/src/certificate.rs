@@ -250,6 +250,24 @@ pub fn sign_event_xml(
     sign_xml_generic(xml, private_key, certificate, "infEvento", "evento")
 }
 
+/// Sign a SEFAZ inutilização XML with RSA-SHA1 enveloped XMLDSig signature.
+///
+/// Same algorithm as [`sign_xml`] but targets `<infInut>` inside `<inutNFe>`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infInut>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The RSA-SHA1 signing operation fails
+pub fn sign_inutilizacao_xml(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(xml, private_key, certificate, "infInut", "inutNFe")
+}
+
 // ── Private helpers ─────────────────────────────────────────────────────────
 
 /// Generic XML-DSig signing for both NFe and event documents.

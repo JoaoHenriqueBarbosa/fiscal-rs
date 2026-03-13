@@ -1,6 +1,6 @@
 use crate::FiscalError;
 use crate::constants::NFE_NAMESPACE;
-use crate::status_codes::{VALID_EVENT_STATUSES, VALID_PROTOCOL_STATUSES, sefaz_status};
+use crate::status_codes::{VALID_PROTOCOL_STATUSES, sefaz_status};
 use crate::xml_utils::extract_xml_tag_value;
 
 /// NF-e version used in wrapper elements when no version is found.
@@ -74,7 +74,36 @@ pub fn attach_protocol(request_xml: &str, response_xml: &str) -> Result<String, 
     }
 
     if matched_prot.is_none() {
-        // Fallback: use first available protNFe
+        // Check if any protNFe had a digVal (but didn't match)
+        let mut found_dig_val = false;
+        for prot in &prot_nodes {
+            if extract_xml_tag_value(prot, "digVal").is_some() {
+                found_dig_val = true;
+                break;
+            }
+        }
+
+        if !prot_nodes.is_empty() && !found_dig_val {
+            // digVal is null in the response — error 18 per PHP
+            let first_prot = &prot_nodes[0];
+            let c_stat = extract_xml_tag_value(first_prot, "cStat").unwrap_or_default();
+            let x_motivo = extract_xml_tag_value(first_prot, "xMotivo").unwrap_or_default();
+            let msg = format!("digVal ausente na resposta SEFAZ: [{c_stat}] {x_motivo}");
+            return Err(FiscalError::SefazRejection {
+                code: c_stat,
+                message: msg,
+            });
+        }
+
+        if found_dig_val {
+            // digVal exists but didn't match our DigestValue — error 5 per PHP
+            let key_info = access_key.as_deref().unwrap_or("unknown");
+            return Err(FiscalError::XmlParsing(format!(
+                "Os digest são diferentes [{key_info}]"
+            )));
+        }
+
+        // No protNFe at all
         let single_prot = extract_tag(response_xml, "protNFe").ok_or_else(|| {
             FiscalError::XmlParsing("Could not find <protNFe> in response XML".into())
         })?;
@@ -151,6 +180,46 @@ pub fn attach_inutilizacao(request_xml: &str, response_xml: &str) -> Result<Stri
     let version = extract_attribute(&inut_content, "inutNFe", "versao")
         .unwrap_or_else(|| DEFAULT_VERSION.to_string());
 
+    // Cross-validate request vs response fields (like PHP addInutNFeProtocol)
+    let ret_version = extract_attribute(&ret_inut_content, "retInutNFe", "versao")
+        .unwrap_or_else(|| DEFAULT_VERSION.to_string());
+
+    // Determine whether the request uses CNPJ or CPF
+    let cpf_or_cnpj_tag = if extract_xml_tag_value(&inut_content, "CNPJ").is_some() {
+        "CNPJ"
+    } else {
+        "CPF"
+    };
+
+    let field_pairs: &[(&str, &str, &str)] = &[("versao", &version, &ret_version)];
+    for &(name, req_val, ret_val) in field_pairs {
+        if req_val != ret_val {
+            return Err(FiscalError::XmlParsing(format!(
+                "Inutilização: {name} diverge entre request ({req_val}) e response ({ret_val})"
+            )));
+        }
+    }
+
+    let tag_pairs: &[&str] = &[
+        "tpAmb",
+        "cUF",
+        "ano",
+        cpf_or_cnpj_tag,
+        "mod",
+        "serie",
+        "nNFIni",
+        "nNFFin",
+    ];
+    for tag_name in tag_pairs {
+        let req_val = extract_xml_tag_value(&inut_content, tag_name).unwrap_or_default();
+        let ret_val = extract_xml_tag_value(&ret_inut_content, tag_name).unwrap_or_default();
+        if req_val != ret_val {
+            return Err(FiscalError::XmlParsing(format!(
+                "Inutilização: <{tag_name}> diverge entre request ({req_val}) e response ({ret_val})"
+            )));
+        }
+    }
+
     Ok(join_xml(
         &inut_content,
         &ret_inut_content,
@@ -174,7 +243,10 @@ pub fn attach_inutilizacao(request_xml: &str, response_xml: &str) -> Result<Stri
 /// - The `<retEvento>` tag is missing from `response_xml`
 ///
 /// Returns [`FiscalError::SefazRejection`] if the event status code
-/// is not in [`VALID_EVENT_STATUSES`].
+/// is not valid (135, 136, or 155 for cancellation only).
+///
+/// Returns [`FiscalError::XmlParsing`] if the `idLote` values differ
+/// between request and response.
 pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
     if request_xml.is_empty() {
         return Err(FiscalError::XmlParsing("Event request XML is empty".into()));
@@ -197,9 +269,28 @@ pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<St
     let version = extract_attribute(&evento_content, "evento", "versao")
         .unwrap_or_else(|| DEFAULT_VERSION.to_string());
 
+    // Validate idLote matches between request and response (PHP addEnvEventoProtocol)
+    let req_id_lote = extract_xml_tag_value(request_xml, "idLote");
+    let ret_id_lote = extract_xml_tag_value(response_xml, "idLote");
+    if let (Some(req_lote), Some(ret_lote)) = (&req_id_lote, &ret_id_lote) {
+        if req_lote != ret_lote {
+            return Err(FiscalError::XmlParsing(
+                "Os números de lote dos documentos são diferentes".into(),
+            ));
+        }
+    }
+
     // Validate event status
     let c_stat = extract_xml_tag_value(&ret_evento_content, "cStat").unwrap_or_default();
-    if !VALID_EVENT_STATUSES.contains(&c_stat.as_str()) {
+    let tp_evento = extract_xml_tag_value(&ret_evento_content, "tpEvento").unwrap_or_default();
+
+    // Build the valid statuses list: 135, 136 always; 155 only for cancellation
+    let mut valid_statuses: Vec<&str> = vec!["135", "136"];
+    if tp_evento == EVT_CANCELA {
+        valid_statuses.push("155");
+    }
+
+    if !valid_statuses.contains(&c_stat.as_str()) {
         let x_motivo = extract_xml_tag_value(&ret_evento_content, "xMotivo").unwrap_or_default();
         return Err(FiscalError::SefazRejection {
             code: c_stat,
@@ -257,10 +348,115 @@ pub fn attach_b2b(
         FiscalError::XmlParsing(format!("Could not extract <{tag_name}> from B2B XML"))
     })?;
 
-    Ok(format!(
+    let raw = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
          <nfeProcB2B>{nfe_proc_content}{b2b_content}</nfeProcB2B>"
-    ))
+    );
+
+    // PHP Complements::b2bTag line 79 does:
+    //   str_replace(array("\n", "\r", "\s"), '', $nfeb2bXML)
+    // This removes newlines/carriage-returns (and the literal "\s" which is
+    // a PHP quirk — "\s" inside single quotes is just the characters \ and s,
+    // but that string never appears in XML anyway).
+    let cleaned = strip_newlines(&raw);
+    Ok(cleaned)
+}
+
+/// Remove `\n` and `\r` characters from a string.
+///
+/// Mirrors the PHP `str_replace(array("\n", "\r", "\s"), '', ...)` call
+/// in `Complements::b2bTag`. The `\s` in PHP single-quoted strings is the
+/// literal two-character sequence `\s`, not a regex; we replicate by also
+/// removing it just in case, though it should never appear in valid XML.
+fn strip_newlines(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\n' || c == '\r' {
+            continue;
+        }
+        if c == '\\' {
+            if let Some(&'s') = chars.peek() {
+                chars.next(); // consume the 's'
+                continue;
+            }
+        }
+        result.push(c);
+    }
+    result
+}
+
+// ── Unified routing (mirrors PHP Complements::toAuthorize) ──────────────────
+
+/// Detect the document type from raw XML and dispatch to the correct
+/// protocol-attachment function.
+///
+/// This mirrors the PHP `Complements::toAuthorize()` method, which uses
+/// `Standardize::whichIs()` internally. The detection logic checks for
+/// the same root tags in the same priority order as the PHP implementation:
+///
+/// | Detected tag    | Dispatches to                  |
+/// |-----------------|-------------------------------|
+/// | `NFe`           | [`attach_protocol`]           |
+/// | `envEvento`     | [`attach_event_protocol`]     |
+/// | `inutNFe`       | [`attach_inutilizacao`]       |
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if:
+/// - Either input is empty
+/// - The request XML does not match any of the known document types
+/// - The delegated function returns an error
+pub fn to_authorize(request_xml: &str, response_xml: &str) -> Result<String, FiscalError> {
+    if request_xml.is_empty() {
+        return Err(FiscalError::XmlParsing(
+            "Erro ao protocolar: o XML a protocolar está vazio.".into(),
+        ));
+    }
+    if response_xml.is_empty() {
+        return Err(FiscalError::XmlParsing(
+            "Erro ao protocolar: o retorno da SEFAZ está vazio.".into(),
+        ));
+    }
+
+    // Detect using the same tag order as PHP Standardize::whichIs() + the
+    // ucfirst() / if-check in toAuthorize().
+    // PHP checks: whichIs() returns the root tag name from rootTagList,
+    // then toAuthorize() accepts only "NFe", "EnvEvento", "InutNFe".
+    // We search for these tags in the XML content:
+    if contains_xml_tag(request_xml, "NFe") {
+        attach_protocol(request_xml, response_xml)
+    } else if contains_xml_tag(request_xml, "envEvento") {
+        attach_event_protocol(request_xml, response_xml)
+    } else if contains_xml_tag(request_xml, "inutNFe") {
+        attach_inutilizacao(request_xml, response_xml)
+    } else {
+        Err(FiscalError::XmlParsing(
+            "Tipo de documento não reconhecido para protocolação".into(),
+        ))
+    }
+}
+
+/// Check if an XML string contains a given tag (with proper delimiter check).
+fn contains_xml_tag(xml: &str, tag_name: &str) -> bool {
+    let pattern = format!("<{tag_name}");
+    for (i, _) in xml.match_indices(&pattern) {
+        let after = i + pattern.len();
+        if after >= xml.len() {
+            return true;
+        }
+        let next = xml.as_bytes()[after];
+        if next == b' '
+            || next == b'>'
+            || next == b'/'
+            || next == b'\n'
+            || next == b'\r'
+            || next == b'\t'
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Cancellation event type code (`110111`).
@@ -769,5 +965,81 @@ mod tests {
         assert!(result.contains("<nProt>222222222222222</nProt>"));
         // Should only have one retEvento (the matching one)
         assert_eq!(result.matches("<retEvento").count(), 1);
+    }
+
+    // ── to_authorize routing tests ──────────────────────────────────────
+
+    #[test]
+    fn to_authorize_empty_request_returns_error() {
+        let err = to_authorize("", "<retEnviNFe/>").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn to_authorize_empty_response_returns_error() {
+        let err = to_authorize("<NFe/>", "").unwrap_err();
+        assert!(matches!(err, FiscalError::XmlParsing(_)));
+    }
+
+    #[test]
+    fn to_authorize_unrecognized_document_returns_error() {
+        let err = to_authorize("<other>data</other>", "<response/>").unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("não reconhecido"),
+            "should mention unrecognized type: {msg}"
+        );
+    }
+
+    #[test]
+    fn contains_xml_tag_basic() {
+        assert!(contains_xml_tag("<NFe versao=\"4.00\">", "NFe"));
+        assert!(contains_xml_tag("<NFe>", "NFe"));
+        assert!(contains_xml_tag("<NFe/>", "NFe"));
+        assert!(!contains_xml_tag("<NFeExtra>", "NFe"));
+        assert!(contains_xml_tag("<envEvento versao=\"1.00\">", "envEvento"));
+        assert!(contains_xml_tag("<inutNFe versao=\"4.00\">", "inutNFe"));
+    }
+
+    // ── attach_b2b whitespace stripping tests ───────────────────────────
+
+    #[test]
+    fn attach_b2b_strips_newlines() {
+        let nfe_proc = "<nfeProc versao=\"4.00\">\n<NFe/>\n<protNFe/>\n</nfeProc>";
+        let b2b = "<NFeB2BFin>\n<data>test</data>\n</NFeB2BFin>";
+        let result = attach_b2b(nfe_proc, b2b, None).unwrap();
+        assert!(!result.contains('\n'), "Result should not contain newlines");
+        assert!(
+            !result.contains('\r'),
+            "Result should not contain carriage returns"
+        );
+        assert!(result.contains("<nfeProcB2B>"));
+        assert!(result.contains("<NFeB2BFin>"));
+    }
+
+    #[test]
+    fn attach_b2b_strips_carriage_returns() {
+        let nfe_proc = "<nfeProc versao=\"4.00\">\r\n<NFe/>\r\n</nfeProc>";
+        let b2b = "<NFeB2BFin><data>test</data></NFeB2BFin>";
+        let result = attach_b2b(nfe_proc, b2b, None).unwrap();
+        assert!(!result.contains('\r'));
+        assert!(!result.contains('\n'));
+    }
+
+    // ── strip_newlines helper tests ─────────────────────────────────────
+
+    #[test]
+    fn strip_newlines_removes_newlines_and_cr() {
+        assert_eq!(strip_newlines("a\nb\rc\r\nd"), "abcd");
+    }
+
+    #[test]
+    fn strip_newlines_removes_literal_backslash_s() {
+        assert_eq!(strip_newlines("abc\\sdef"), "abcdef");
+    }
+
+    #[test]
+    fn strip_newlines_preserves_normal_content() {
+        assert_eq!(strip_newlines("<tag>value</tag>"), "<tag>value</tag>");
     }
 }
