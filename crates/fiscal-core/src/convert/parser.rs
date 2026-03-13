@@ -1,8 +1,8 @@
 //! NFeParser: state machine that accumulates TXT entities into XML.
 
 use super::helpers::*;
-use std::collections::HashMap;
 use super::types::{DiEntry, ItemBuild};
+use std::collections::HashMap;
 
 pub(super) struct NFeParser<'a> {
     structure: &'a HashMap<&'a str, &'a str>,
@@ -118,7 +118,11 @@ pub(super) struct NFeParser<'a> {
 }
 
 impl<'a> NFeParser<'a> {
-    pub(super) fn new(version: &str, layout: &str, structure: &'a HashMap<&'a str, &'a str>) -> Self {
+    pub(super) fn new(
+        version: &str,
+        layout: &str,
+        structure: &'a HashMap<&'a str, &'a str>,
+    ) -> Self {
         let _ = version;
         Self {
             structure,

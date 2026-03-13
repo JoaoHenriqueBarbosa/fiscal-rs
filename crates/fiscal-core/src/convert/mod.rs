@@ -2,7 +2,13 @@
 //!
 //! Converts pipe-delimited TXT files (official SEFAZ layout) into NF-e XML.
 
-mod builder;
+mod build_det;
+mod build_header;
+mod build_optional;
+mod build_parties;
+mod build_tax;
+mod build_totals;
+mod build_xml;
 mod helpers;
 mod parser;
 mod structures;
@@ -12,10 +18,9 @@ use std::collections::HashMap;
 
 use crate::FiscalError;
 
-use structures::*;
 use helpers::validate_txt_lines;
 use parser::NFeParser;
-
+use structures::*;
 
 // ── TXT structures ──────────────────────────────────────────────────────────
 

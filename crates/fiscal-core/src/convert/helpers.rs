@@ -1,8 +1,8 @@
 //! Helper functions for TXT validation and XML string building.
 
-use std::collections::HashMap;
-use crate::xml_utils::escape_xml;
 use super::get_structure;
+use crate::xml_utils::escape_xml;
+use std::collections::HashMap;
 
 pub(super) type Fields = HashMap<String, String>;
 
