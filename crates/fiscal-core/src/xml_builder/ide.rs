@@ -133,6 +133,11 @@ fn build_references(references: Option<&[ReferenceDoc]>) -> Vec<String> {
                 &[],
                 TagContent::Children(vec![tag("refNFe", &[], TagContent::Text(access_key))]),
             ),
+            ReferenceDoc::NfeSig { access_key } => tag(
+                "NFref",
+                &[],
+                TagContent::Children(vec![tag("refNFeSig", &[], TagContent::Text(access_key))]),
+            ),
             ReferenceDoc::Nf {
                 state_code,
                 year_month,
@@ -208,4 +213,59 @@ fn build_references(references: Option<&[ReferenceDoc]>) -> Vec<String> {
             ),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_references_nfe_emits_ref_nfe() {
+        let refs = vec![ReferenceDoc::Nfe {
+            access_key: "41260304123456000190550010000001231123456780".to_string(),
+        }];
+        let result = build_references(Some(&refs));
+        assert_eq!(result.len(), 1);
+        assert_eq!(
+            result[0],
+            "<NFref><refNFe>41260304123456000190550010000001231123456780</refNFe></NFref>"
+        );
+    }
+
+    #[test]
+    fn build_references_nfe_sig_emits_ref_nfe_sig() {
+        let refs = vec![ReferenceDoc::NfeSig {
+            access_key: "41260304123456000190550010000001231123456780".to_string(),
+        }];
+        let result = build_references(Some(&refs));
+        assert_eq!(result.len(), 1);
+        assert_eq!(
+            result[0],
+            "<NFref><refNFeSig>41260304123456000190550010000001231123456780</refNFeSig></NFref>"
+        );
+    }
+
+    #[test]
+    fn build_references_none_returns_empty() {
+        let result = build_references(None);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn build_references_nfe_and_nfe_sig_are_independent() {
+        let refs = vec![
+            ReferenceDoc::Nfe {
+                access_key: "11111111111111111111111111111111111111111111".to_string(),
+            },
+            ReferenceDoc::NfeSig {
+                access_key: "22222222222222222222222222222222222222222222".to_string(),
+            },
+        ];
+        let result = build_references(Some(&refs));
+        assert_eq!(result.len(), 2);
+        assert!(result[0].contains("<refNFe>"));
+        assert!(!result[0].contains("<refNFeSig>"));
+        assert!(result[1].contains("<refNFeSig>"));
+        assert!(!result[1].contains("<refNFe>"));
+    }
 }

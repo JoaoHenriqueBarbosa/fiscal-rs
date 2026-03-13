@@ -1011,6 +1011,37 @@ mod trait_tag_refs {
         let count = xml.matches("<NFref>").count();
         assert_eq!(count, 2);
     }
+
+    #[test]
+    fn test_tag_ref_nfe_sig_in_ide() {
+        let xml = tag(
+            "ide",
+            &[],
+            TagContent::Children(vec![
+                tag("cUF", &[], "35".into()),
+                tag(
+                    "NFref",
+                    &[],
+                    TagContent::Children(vec![tag(
+                        "refNFeSig",
+                        &[],
+                        "35170358716523000119550010000000291000000291".into(),
+                    )]),
+                ),
+            ]),
+        );
+
+        assert!(xml.contains("<NFref>"));
+        assert!(
+            xml.contains("<refNFeSig>35170358716523000119550010000000291000000291</refNFeSig>")
+        );
+        // refNFeSig should be inside ide
+        let ide_pos = xml.find("<ide>").unwrap();
+        let nfref_pos = xml.find("<NFref>").unwrap();
+        let ide_end_pos = xml.find("</ide>").unwrap();
+        assert!(nfref_pos > ide_pos);
+        assert!(nfref_pos < ide_end_pos);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -300,6 +300,23 @@ fn ide_reference_ecf() {
     assert!(xml.contains("<nCOO>000123</nCOO>"));
 }
 
+#[test]
+fn ide_reference_nfe_sig() {
+    let built = nfe_builder()
+        .references(vec![ReferenceDoc::NfeSig {
+            access_key: "41260304123456000190550010000001231123456780".to_string(),
+        }])
+        .add_item(common::sample_item())
+        .payments(vec![common::sample_payment()])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+    assert!(xml.contains("<NFref>"));
+    assert!(xml.contains("<refNFeSig>41260304123456000190550010000001231123456780</refNFeSig>"));
+    // Must NOT contain <refNFe> (only <refNFeSig>)
+    assert!(!xml.contains("<refNFe>"));
+}
+
 // ── ide.rs: compra_gov / pag_antecipado with PL010 ─────────────────────────
 
 #[test]

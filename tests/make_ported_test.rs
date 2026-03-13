@@ -298,6 +298,13 @@ mod reference_document_tags {
 
         expect_xml_contains(&xml, &[("mod", "2C"), ("nECF", "788"), ("nCOO", "114")]);
     }
+
+    #[test]
+    fn test_tagref_nfe_sig_builds_refnfesig_tag() {
+        let ref_nfe_sig = "35150271780456000160550010000253101000253101";
+        let xml = tag("refNFeSig", &[], ref_nfe_sig.into());
+        assert_eq!(xml, format!("<refNFeSig>{ref_nfe_sig}</refNFeSig>"));
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
