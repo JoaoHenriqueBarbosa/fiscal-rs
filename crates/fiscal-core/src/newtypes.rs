@@ -9,7 +9,7 @@ use std::fmt;
 use std::ops::{Add, AddAssign};
 
 use crate::FiscalError;
-use crate::state_codes::STATE_IBGE_CODES;
+use crate::state_codes::{STATE_IBGE_CODES, get_state_by_code};
 
 // ── Monetary amount ─────────────────────────────────────────────────────────
 
@@ -248,6 +248,23 @@ impl AccessKey {
     #[inline]
     pub fn check_digit(&self) -> &str {
         &self.0[43..44]
+    }
+
+    /// Validate that this key's cUF (first 2 digits) matches the expected UF.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::InvalidTaxData`] if the cUF in the key does not
+    /// correspond to the given UF abbreviation.
+    pub fn validate_uf(&self, expected_uf: &str) -> Result<(), FiscalError> {
+        let uf = get_state_by_code(self.state_code())?;
+        if !uf.eq_ignore_ascii_case(expected_uf) {
+            return Err(FiscalError::InvalidTaxData(format!(
+                "Access key {} does not belong to UF {}, got {}",
+                self.0, expected_uf, uf
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -715,6 +732,22 @@ mod tests {
     fn access_key_non_digit() {
         let bad = "4325030412345678901255001000000001100000001X";
         assert!(AccessKey::new(bad).is_err());
+    }
+
+    #[test]
+    fn validate_uf_match() {
+        // 43 = RS
+        let key = "43250304123456789012550010000000011000000010";
+        let ak = AccessKey::new(key).unwrap();
+        assert!(ak.validate_uf("RS").is_ok());
+    }
+
+    #[test]
+    fn validate_uf_mismatch() {
+        // 43 = RS, not SP
+        let key = "43250304123456789012550010000000011000000010";
+        let ak = AccessKey::new(key).unwrap();
+        assert!(ak.validate_uf("SP").is_err());
     }
 
     // -- StateCode ------------------------------------------------------------
