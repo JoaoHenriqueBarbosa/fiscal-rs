@@ -904,6 +904,8 @@ pub enum ReferenceDoc {
         year_month: String,
         /// CPF or CNPJ of the issuer.
         tax_id: String,
+        /// Inscrição Estadual do produtor rural (ou `"ISENTO"`).
+        ie: String,
         /// Document model.
         model: String,
         /// Series number.
