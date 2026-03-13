@@ -269,18 +269,7 @@ pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<St
     let version = extract_attribute(&evento_content, "evento", "versao")
         .unwrap_or_else(|| DEFAULT_VERSION.to_string());
 
-    // Validate idLote matches between request and response (PHP addEnvEventoProtocol)
-    let req_id_lote = extract_xml_tag_value(request_xml, "idLote");
-    let ret_id_lote = extract_xml_tag_value(response_xml, "idLote");
-    if let (Some(req_lote), Some(ret_lote)) = (&req_id_lote, &ret_id_lote) {
-        if req_lote != ret_lote {
-            return Err(FiscalError::XmlParsing(
-                "Os números de lote dos documentos são diferentes".into(),
-            ));
-        }
-    }
-
-    // Validate event status
+    // Validate event status FIRST (PHP validates cStat before idLote)
     let c_stat = extract_xml_tag_value(&ret_evento_content, "cStat").unwrap_or_default();
     let tp_evento = extract_xml_tag_value(&ret_evento_content, "tpEvento").unwrap_or_default();
 
@@ -296,6 +285,17 @@ pub fn attach_event_protocol(request_xml: &str, response_xml: &str) -> Result<St
             code: c_stat,
             message: x_motivo,
         });
+    }
+
+    // Validate idLote matches between request and response (PHP addEnvEventoProtocol)
+    let req_id_lote = extract_xml_tag_value(request_xml, "idLote");
+    let ret_id_lote = extract_xml_tag_value(response_xml, "idLote");
+    if let (Some(req_lote), Some(ret_lote)) = (&req_id_lote, &ret_id_lote) {
+        if req_lote != ret_lote {
+            return Err(FiscalError::XmlParsing(
+                "Os números de lote dos documentos são diferentes".into(),
+            ));
+        }
     }
 
     Ok(join_xml(
@@ -1375,6 +1375,36 @@ mod tests {
                 );
             }
             other => panic!("Expected XmlParsing, got {:?}", other),
+        }
+    }
+
+    // ── attach_event_protocol: cStat validated before idLote (PHP parity) ──
+
+    #[test]
+    fn attach_event_protocol_both_invalid_reports_cstat_first() {
+        // When BOTH cStat is invalid AND idLote mismatches, the error
+        // must be about cStat (SefazRejection), not about idLote,
+        // matching PHP addEnvEventoProtocol validation order.
+        let request = concat!(
+            r#"<envEvento><idLote>100</idLote>"#,
+            r#"<evento versao="1.00"><infEvento>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></evento></envEvento>"#
+        );
+        let response = concat!(
+            r#"<retEnvEvento><idLote>999</idLote>"#,
+            r#"<retEvento versao="1.00"><infEvento>"#,
+            r#"<cStat>573</cStat><xMotivo>Duplicidade de evento</xMotivo>"#,
+            r#"<tpEvento>110110</tpEvento>"#,
+            r#"</infEvento></retEvento></retEnvEvento>"#
+        );
+        let err = attach_event_protocol(request, response).unwrap_err();
+        match err {
+            FiscalError::SefazRejection { code, message } => {
+                assert_eq!(code, "573");
+                assert_eq!(message, "Duplicidade de evento");
+            }
+            other => panic!("Expected SefazRejection (cStat first), got {:?}", other),
         }
     }
 
