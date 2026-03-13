@@ -39,6 +39,10 @@ pub mod event_types {
     pub const CANCEL_PRORROGACAO_1: u32 = 111502;
     /// Cancelamento de pedido de prorrogação ICMS — 2.o prazo, code `111503`.
     pub const CANCEL_PRORROGACAO_2: u32 = 111503;
+    /// Conciliação financeira, code `110750`.
+    pub const CONCILIACAO: u32 = 110750;
+    /// Cancelamento de conciliação financeira, code `110751`.
+    pub const CANCEL_CONCILIACAO: u32 = 110751;
 }
 
 /// Event descriptions matching the SEFAZ specification.
@@ -59,6 +63,8 @@ fn event_description(event_type: u32) -> &'static str {
         210240 => "Operacao nao Realizada",
         110192 => "Insucesso na Entrega da NF-e",
         110193 => "Cancelamento Insucesso na Entrega da NF-e",
+        110750 => "ECONF",
+        110751 => "Cancelamento Conciliacao Financeira",
         _ => "",
     }
 }
@@ -1177,6 +1183,291 @@ pub fn build_cancel_prorrogacao_request(
     build_event_xml(access_key, tp_evento, seq, tax_id, environment, &additional)
 }
 
+/// Build a SEFAZ CSC (Código de Segurança do Contribuinte) request XML
+/// (`<admCscNFCe>`).
+///
+/// Manages the CSC for NFC-e (model 65). Used exclusively with the
+/// `CscNFCe` web service.
+///
+/// # Arguments
+///
+/// * `environment` — SEFAZ environment (production or homologation).
+/// * `ind_op` — Operation type: 1=query active CSCs, 2=request new CSC,
+///   3=revoke active CSC.
+/// * `cnpj` — Full CNPJ of the taxpayer (14 digits).
+/// * `csc_id` — CSC identifier (required only for `ind_op=3`).
+/// * `csc_code` — CSC code/value (required only for `ind_op=3`).
+pub fn build_csc_request(
+    environment: SefazEnvironment,
+    ind_op: u8,
+    cnpj: &str,
+    csc_id: Option<&str>,
+    csc_code: Option<&str>,
+) -> String {
+    let tp_amb = environment.as_str();
+    let digits: String = cnpj.chars().filter(|c| c.is_ascii_digit()).collect();
+    // raizCNPJ = first 8 digits of the CNPJ
+    let raiz_cnpj = if digits.len() >= 8 {
+        &digits[..8]
+    } else {
+        &digits
+    };
+
+    if ind_op == 3 {
+        let id_csc = csc_id.unwrap_or("");
+        let codigo_csc = csc_code.unwrap_or("");
+        format!(
+            "<admCscNFCe versao=\"1.00\" xmlns=\"{NFE_NAMESPACE}\">\
+             <tpAmb>{tp_amb}</tpAmb>\
+             <indOp>{ind_op}</indOp>\
+             <raizCNPJ>{raiz_cnpj}</raizCNPJ>\
+             <dadosCsc>\
+             <idCsc>{id_csc}</idCsc>\
+             <codigoCsc>{codigo_csc}</codigoCsc>\
+             </dadosCsc>\
+             </admCscNFCe>"
+        )
+    } else {
+        format!(
+            "<admCscNFCe versao=\"1.00\" xmlns=\"{NFE_NAMESPACE}\">\
+             <tpAmb>{tp_amb}</tpAmb>\
+             <indOp>{ind_op}</indOp>\
+             <raizCNPJ>{raiz_cnpj}</raizCNPJ>\
+             </admCscNFCe>"
+        )
+    }
+}
+
+/// An individual event for batch event submission.
+///
+/// Used with [`build_event_batch_request`] to send multiple events in a
+/// single SOAP request, matching the PHP `sefazEventoLote()` pattern.
+#[derive(Debug, Clone)]
+pub struct EventItem {
+    /// 44-digit access key of the NF-e.
+    pub access_key: String,
+    /// Event type code (e.g., `210200`, `210210`, `210220`, `210240`).
+    pub event_type: u32,
+    /// Event sequence number.
+    pub seq: u32,
+    /// CNPJ or CPF of the event sender.
+    pub tax_id: String,
+    /// Additional XML tags for `<detEvento>` (after `<descEvento>`).
+    pub additional_tags: String,
+}
+
+/// Build a SEFAZ batch event request XML (`<envEvento>`) containing
+/// multiple `<evento>` elements.
+///
+/// This matches the PHP `sefazEventoLote()` method. Each event is built
+/// individually and concatenated inside a single `<envEvento>` wrapper.
+///
+/// Events with type EPEC (`110140`) are skipped, matching PHP behavior.
+///
+/// # Arguments
+///
+/// * `uf` — State abbreviation or `"AN"` for Ambiente Nacional.
+/// * `events` — Slice of [`EventItem`] structs (max 20).
+/// * `lot_id` — Lot identifier. If `None`, a timestamp-based ID is generated.
+/// * `environment` — SEFAZ environment.
+///
+/// # Panics
+///
+/// Panics if `events` has more than 20 items or is empty.
+pub fn build_event_batch_request(
+    uf: &str,
+    events: &[EventItem],
+    lot_id: Option<&str>,
+    environment: SefazEnvironment,
+) -> String {
+    assert!(
+        !events.is_empty(),
+        "Event batch must contain at least one event"
+    );
+    assert!(
+        events.len() <= 20,
+        "Event batch is limited to 20 events, got {}",
+        events.len()
+    );
+
+    let c_orgao = get_state_code(uf).expect("Invalid state code");
+    let tp_amb = environment.as_str();
+
+    // Event datetime with BRT offset (-03:00)
+    let dh_evento = chrono::Utc::now()
+        .with_timezone(&chrono::FixedOffset::west_opt(3 * 3600).expect("valid offset"))
+        .format("%Y-%m-%dT%H:%M:%S%:z")
+        .to_string();
+
+    let mut batch = String::new();
+    for evt in events {
+        // Skip EPEC events in batch — matches PHP behavior
+        if evt.event_type == event_types::EPEC {
+            continue;
+        }
+
+        let event_id = build_event_id(evt.event_type, &evt.access_key, evt.seq);
+        let desc_evento = event_description(evt.event_type);
+        let tax_tag = tax_id_xml_tag(&evt.tax_id);
+
+        batch.push_str(&format!(
+            "<evento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\">\
+             <infEvento Id=\"{event_id}\">\
+             <cOrgao>{c_orgao}</cOrgao>\
+             <tpAmb>{tp_amb}</tpAmb>\
+             {tax_tag}\
+             <chNFe>{access_key}</chNFe>\
+             <dhEvento>{dh_evento}</dhEvento>\
+             <tpEvento>{event_type}</tpEvento>\
+             <nSeqEvento>{seq}</nSeqEvento>\
+             <verEvento>1.00</verEvento>\
+             <detEvento versao=\"1.00\">\
+             <descEvento>{desc_evento}</descEvento>\
+             {additional}\
+             </detEvento>\
+             </infEvento>\
+             </evento>",
+            access_key = evt.access_key,
+            event_type = evt.event_type,
+            seq = evt.seq,
+            additional = evt.additional_tags,
+        ));
+    }
+
+    let id_lote = match lot_id {
+        Some(id) => id.to_string(),
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis().to_string())
+            .unwrap_or_else(|_| "1".to_string()),
+    };
+
+    format!(
+        "<envEvento xmlns=\"{NFE_NAMESPACE}\" versao=\"1.00\">\
+         <idLote>{id_lote}</idLote>\
+         {batch}\
+         </envEvento>"
+    )
+}
+
+/// Payment detail for a conciliação financeira event.
+///
+/// Used with [`build_conciliacao_request`] to describe each payment
+/// method in the financial reconciliation.
+#[derive(Debug, Clone)]
+pub struct ConciliacaoDetPag {
+    /// Payment indicator (optional, e.g., `"0"` = à vista, `"1"` = a prazo).
+    pub ind_pag: Option<String>,
+    /// Payment type code (e.g., `"01"` = dinheiro, `"03"` = cartão crédito).
+    pub t_pag: String,
+    /// Payment description (optional).
+    pub x_pag: Option<String>,
+    /// Payment value.
+    pub v_pag: String,
+    /// Payment date (YYYY-MM-DD).
+    pub d_pag: String,
+    /// CNPJ of the payment institution (optional).
+    pub cnpj_pag: Option<String>,
+    /// UF of the payment institution (optional, required with `cnpj_pag`).
+    pub uf_pag: Option<String>,
+    /// CNPJ of the payment intermediary (optional).
+    pub cnpj_if: Option<String>,
+    /// Card brand type (optional).
+    pub t_band: Option<String>,
+    /// Authorization code (optional).
+    pub c_aut: Option<String>,
+    /// CNPJ of the receiver (optional).
+    pub cnpj_receb: Option<String>,
+    /// UF of the receiver (optional, required with `cnpj_receb`).
+    pub uf_receb: Option<String>,
+}
+
+/// Build a SEFAZ conciliação financeira event request XML
+/// (`tpEvento=110750` or `110751` for cancellation).
+///
+/// Implements the PHP `sefazConciliacao()` method.
+///
+/// # Arguments
+///
+/// * `uf` — State abbreviation. For model 55 (NF-e), use `"SVRS"`;
+///   for model 65 (NFC-e), use the actual state abbreviation.
+/// * `access_key` — 44-digit access key.
+/// * `ver_aplic` — Application version string.
+/// * `det_pag` — Payment details (required for new conciliation, empty for cancel).
+/// * `cancel` — If `true`, sends cancellation event (110751) instead.
+/// * `cancel_protocol` — Protocol of the conciliation event being cancelled
+///   (required when `cancel=true`).
+/// * `seq` — Event sequence number.
+/// * `environment` — SEFAZ environment.
+/// * `tax_id` — CNPJ or CPF of the issuer.
+#[allow(clippy::too_many_arguments)]
+pub fn build_conciliacao_request(
+    access_key: &str,
+    ver_aplic: &str,
+    det_pag: &[ConciliacaoDetPag],
+    cancel: bool,
+    cancel_protocol: Option<&str>,
+    seq: u32,
+    environment: SefazEnvironment,
+    tax_id: &str,
+) -> String {
+    if cancel {
+        let protocol = cancel_protocol.unwrap_or("");
+        let additional = format!(
+            "<verAplic>{ver_aplic}</verAplic>\
+             <nProtEvento>{protocol}</nProtEvento>"
+        );
+        build_event_xml(
+            access_key,
+            event_types::CANCEL_CONCILIACAO,
+            seq,
+            tax_id,
+            environment,
+            &additional,
+        )
+    } else {
+        let mut additional = format!("<verAplic>{ver_aplic}</verAplic>");
+        for pag in det_pag {
+            additional.push_str("<detPag>");
+            if let Some(ref ind) = pag.ind_pag {
+                additional.push_str(&format!("<indPag>{ind}</indPag>"));
+            }
+            additional.push_str(&format!("<tPag>{}</tPag>", pag.t_pag));
+            if let Some(ref x) = pag.x_pag {
+                additional.push_str(&format!("<xPag>{x}</xPag>"));
+            }
+            additional.push_str(&format!("<vPag>{}</vPag>", pag.v_pag));
+            additional.push_str(&format!("<dPag>{}</dPag>", pag.d_pag));
+            if let (Some(cnpj), Some(uf)) = (&pag.cnpj_pag, &pag.uf_pag) {
+                additional.push_str(&format!("<CNPJPag>{cnpj}</CNPJPag>"));
+                additional.push_str(&format!("<UFPag>{uf}</UFPag>"));
+                if let Some(ref cnpj_if) = pag.cnpj_if {
+                    additional.push_str(&format!("<CNPJIF>{cnpj_if}</CNPJIF>"));
+                }
+            }
+            if let Some(ref t_band) = pag.t_band {
+                additional.push_str(&format!("<tBand>{t_band}</tBand>"));
+            }
+            if let Some(ref c_aut) = pag.c_aut {
+                additional.push_str(&format!("<cAut>{c_aut}</cAut>"));
+            }
+            if let (Some(cnpj_receb), Some(uf_receb)) = (&pag.cnpj_receb, &pag.uf_receb) {
+                additional.push_str(&format!("<CNPJReceb>{cnpj_receb}</CNPJReceb>"));
+                additional.push_str(&format!("<UFReceb>{uf_receb}</UFReceb>"));
+            }
+            additional.push_str("</detPag>");
+        }
+        build_event_xml(
+            access_key,
+            event_types::CONCILIACAO,
+            seq,
+            tax_id,
+            environment,
+            &additional,
+        )
+    }
+}
+
 /// Extract a named section from XML (e.g., `<emit>...</emit>`).
 ///
 /// Returns the full content between the opening and closing tags, inclusive.
@@ -2067,5 +2358,387 @@ mod tests {
             )),
             "Must contain idPedidoCancelado referencing the 2nd-term prorrogacao event"
         );
+    }
+
+    // ── CSC request (admCscNFCe) ───────────────────────────────────
+
+    #[test]
+    fn csc_request_query_structure() {
+        let xml = build_csc_request(
+            SefazEnvironment::Homologation,
+            1,
+            "12345678000195",
+            None,
+            None,
+        );
+        assert!(xml.contains("<admCscNFCe versao=\"1.00\""));
+        assert!(xml.contains(&format!("xmlns=\"{NFE_NAMESPACE}\"")));
+        assert!(xml.contains("<tpAmb>2</tpAmb>"));
+        assert!(xml.contains("<indOp>1</indOp>"));
+        assert!(xml.contains("<raizCNPJ>12345678</raizCNPJ>"));
+        assert!(!xml.contains("<dadosCsc>"));
+    }
+
+    #[test]
+    fn csc_request_new_csc_structure() {
+        let xml = build_csc_request(
+            SefazEnvironment::Production,
+            2,
+            "12345678000195",
+            None,
+            None,
+        );
+        assert!(xml.contains("<tpAmb>1</tpAmb>"));
+        assert!(xml.contains("<indOp>2</indOp>"));
+        assert!(xml.contains("<raizCNPJ>12345678</raizCNPJ>"));
+        assert!(!xml.contains("<dadosCsc>"));
+    }
+
+    #[test]
+    fn csc_request_revoke_includes_dados_csc() {
+        let xml = build_csc_request(
+            SefazEnvironment::Homologation,
+            3,
+            "12345678000195",
+            Some("000001"),
+            Some("ABC123DEF456"),
+        );
+        assert!(xml.contains("<indOp>3</indOp>"));
+        assert!(xml.contains("<dadosCsc>"));
+        assert!(xml.contains("<idCsc>000001</idCsc>"));
+        assert!(xml.contains("<codigoCsc>ABC123DEF456</codigoCsc>"));
+        assert!(xml.contains("</dadosCsc>"));
+    }
+
+    #[test]
+    fn csc_request_raiz_cnpj_is_first_8_digits() {
+        let xml = build_csc_request(
+            SefazEnvironment::Homologation,
+            1,
+            "98765432000188",
+            None,
+            None,
+        );
+        assert!(xml.contains("<raizCNPJ>98765432</raizCNPJ>"));
+    }
+
+    // ── Event batch request ─────────────────────────────────────────
+
+    #[test]
+    fn event_batch_request_structure() {
+        let events = vec![
+            EventItem {
+                access_key: TEST_KEY.to_string(),
+                event_type: event_types::CONFIRMATION,
+                seq: 1,
+                tax_id: TEST_CNPJ.to_string(),
+                additional_tags: String::new(),
+            },
+            EventItem {
+                access_key: TEST_KEY.to_string(),
+                event_type: event_types::AWARENESS,
+                seq: 1,
+                tax_id: TEST_CNPJ.to_string(),
+                additional_tags: String::new(),
+            },
+        ];
+        let xml = build_event_batch_request(
+            "AN",
+            &events,
+            Some("202401151030001"),
+            SefazEnvironment::Homologation,
+        );
+
+        assert!(xml.contains("<envEvento"));
+        assert!(xml.contains("<idLote>202401151030001</idLote>"));
+        // Two <evento> elements
+        let evento_count = xml.matches("<evento ").count();
+        assert_eq!(
+            evento_count, 2,
+            "Should have 2 <evento> elements, got {evento_count}"
+        );
+        // Both event types present
+        assert!(xml.contains("<tpEvento>210200</tpEvento>"));
+        assert!(xml.contains("<tpEvento>210210</tpEvento>"));
+        // cOrgao=91 for AN
+        assert!(xml.contains("<cOrgao>91</cOrgao>"));
+        // Descriptions
+        assert!(xml.contains("<descEvento>Confirmacao da Operacao</descEvento>"));
+        assert!(xml.contains("<descEvento>Ciencia da Operacao</descEvento>"));
+    }
+
+    #[test]
+    fn event_batch_skips_epec() {
+        let events = vec![
+            EventItem {
+                access_key: TEST_KEY.to_string(),
+                event_type: event_types::EPEC,
+                seq: 1,
+                tax_id: TEST_CNPJ.to_string(),
+                additional_tags: String::new(),
+            },
+            EventItem {
+                access_key: TEST_KEY.to_string(),
+                event_type: event_types::AWARENESS,
+                seq: 1,
+                tax_id: TEST_CNPJ.to_string(),
+                additional_tags: String::new(),
+            },
+        ];
+        let xml =
+            build_event_batch_request("AN", &events, Some("123"), SefazEnvironment::Homologation);
+
+        // EPEC should be skipped
+        assert!(!xml.contains("<tpEvento>110140</tpEvento>"));
+        // Ciencia should be present
+        assert!(xml.contains("<tpEvento>210210</tpEvento>"));
+        // Only one <evento> element
+        let evento_count = xml.matches("<evento ").count();
+        assert_eq!(
+            evento_count, 1,
+            "EPEC should be skipped, got {evento_count} events"
+        );
+    }
+
+    #[test]
+    fn event_batch_with_additional_tags() {
+        let events = vec![EventItem {
+            access_key: TEST_KEY.to_string(),
+            event_type: event_types::OPERATION_NOT_PERFORMED,
+            seq: 1,
+            tax_id: TEST_CNPJ.to_string(),
+            additional_tags: "<xJust>Motivo teste</xJust>".to_string(),
+        }];
+        let xml =
+            build_event_batch_request("AN", &events, Some("456"), SefazEnvironment::Homologation);
+        assert!(xml.contains("<xJust>Motivo teste</xJust>"));
+        assert!(xml.contains("<tpEvento>210240</tpEvento>"));
+        assert!(xml.contains("<descEvento>Operacao nao Realizada</descEvento>"));
+    }
+
+    #[test]
+    #[should_panic(expected = "limited to 20")]
+    fn event_batch_rejects_more_than_20() {
+        let events: Vec<EventItem> = (0..21)
+            .map(|i| EventItem {
+                access_key: TEST_KEY.to_string(),
+                event_type: event_types::AWARENESS,
+                seq: i + 1,
+                tax_id: TEST_CNPJ.to_string(),
+                additional_tags: String::new(),
+            })
+            .collect();
+        let _ = build_event_batch_request("AN", &events, None, SefazEnvironment::Homologation);
+    }
+
+    #[test]
+    fn event_batch_with_cpf_tax_id() {
+        let events = vec![EventItem {
+            access_key: TEST_KEY.to_string(),
+            event_type: event_types::AWARENESS,
+            seq: 1,
+            tax_id: TEST_CPF.to_string(),
+            additional_tags: String::new(),
+        }];
+        let xml =
+            build_event_batch_request("AN", &events, Some("789"), SefazEnvironment::Homologation);
+        assert!(xml.contains(&format!("<CPF>{TEST_CPF}</CPF>")));
+    }
+
+    #[test]
+    fn event_batch_event_id_format() {
+        let events = vec![EventItem {
+            access_key: TEST_KEY.to_string(),
+            event_type: event_types::CONFIRMATION,
+            seq: 3,
+            tax_id: TEST_CNPJ.to_string(),
+            additional_tags: String::new(),
+        }];
+        let xml =
+            build_event_batch_request("SP", &events, Some("111"), SefazEnvironment::Homologation);
+        let expected_id = format!("ID210200{TEST_KEY}03");
+        assert!(
+            xml.contains(&format!("Id=\"{expected_id}\"")),
+            "Event ID must follow ID{{tpEvento}}{{chNFe}}{{nSeqEvento:02}} format"
+        );
+        // cOrgao=35 for SP
+        assert!(xml.contains("<cOrgao>35</cOrgao>"));
+    }
+
+    // ── Conciliação financeira (110750/110751) ────────────────────────
+
+    #[test]
+    fn conciliacao_request_structure() {
+        let det_pag = vec![ConciliacaoDetPag {
+            ind_pag: Some("0".to_string()),
+            t_pag: "01".to_string(),
+            x_pag: Some("Dinheiro".to_string()),
+            v_pag: "150.00".to_string(),
+            d_pag: "2024-06-15".to_string(),
+            cnpj_pag: None,
+            uf_pag: None,
+            cnpj_if: None,
+            t_band: None,
+            c_aut: None,
+            cnpj_receb: None,
+            uf_receb: None,
+        }];
+        let xml = build_conciliacao_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            &det_pag,
+            false,
+            None,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+
+        assert!(xml.contains("<tpEvento>110750</tpEvento>"));
+        assert!(xml.contains("<descEvento>ECONF</descEvento>"));
+        assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
+        assert!(xml.contains("<detPag>"));
+        assert!(xml.contains("<indPag>0</indPag>"));
+        assert!(xml.contains("<tPag>01</tPag>"));
+        assert!(xml.contains("<xPag>Dinheiro</xPag>"));
+        assert!(xml.contains("<vPag>150.00</vPag>"));
+        assert!(xml.contains("<dPag>2024-06-15</dPag>"));
+        assert!(xml.contains("</detPag>"));
+        assert!(xml.contains("<cOrgao>35</cOrgao>"));
+    }
+
+    #[test]
+    fn conciliacao_request_with_card_payment() {
+        let det_pag = vec![ConciliacaoDetPag {
+            ind_pag: Some("0".to_string()),
+            t_pag: "03".to_string(),
+            x_pag: None,
+            v_pag: "250.50".to_string(),
+            d_pag: "2024-06-15".to_string(),
+            cnpj_pag: Some("11222333000144".to_string()),
+            uf_pag: Some("SP".to_string()),
+            cnpj_if: Some("99888777000166".to_string()),
+            t_band: Some("01".to_string()),
+            c_aut: Some("AUTH123".to_string()),
+            cnpj_receb: Some("55444333000122".to_string()),
+            uf_receb: Some("RJ".to_string()),
+        }];
+        let xml = build_conciliacao_request(
+            TEST_KEY,
+            "APP-2.0",
+            &det_pag,
+            false,
+            None,
+            1,
+            SefazEnvironment::Production,
+            TEST_CNPJ,
+        );
+
+        assert!(xml.contains("<tPag>03</tPag>"));
+        assert!(xml.contains("<CNPJPag>11222333000144</CNPJPag>"));
+        assert!(xml.contains("<UFPag>SP</UFPag>"));
+        assert!(xml.contains("<CNPJIF>99888777000166</CNPJIF>"));
+        assert!(xml.contains("<tBand>01</tBand>"));
+        assert!(xml.contains("<cAut>AUTH123</cAut>"));
+        assert!(xml.contains("<CNPJReceb>55444333000122</CNPJReceb>"));
+        assert!(xml.contains("<UFReceb>RJ</UFReceb>"));
+        assert!(xml.contains("<tpAmb>1</tpAmb>"));
+    }
+
+    #[test]
+    fn conciliacao_cancel_request_structure() {
+        let xml = build_conciliacao_request(
+            TEST_KEY,
+            "FISCAL-RS-1.0",
+            &[],
+            true,
+            Some("135220000009999"),
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+
+        assert!(xml.contains("<tpEvento>110751</tpEvento>"));
+        assert!(xml.contains("<descEvento>Cancelamento Conciliacao Financeira</descEvento>"));
+        assert!(xml.contains("<verAplic>FISCAL-RS-1.0</verAplic>"));
+        assert!(xml.contains("<nProtEvento>135220000009999</nProtEvento>"));
+        assert!(!xml.contains("<detPag>"));
+    }
+
+    #[test]
+    fn conciliacao_multiple_payments() {
+        let det_pag = vec![
+            ConciliacaoDetPag {
+                ind_pag: Some("0".to_string()),
+                t_pag: "01".to_string(),
+                x_pag: None,
+                v_pag: "100.00".to_string(),
+                d_pag: "2024-06-15".to_string(),
+                cnpj_pag: None,
+                uf_pag: None,
+                cnpj_if: None,
+                t_band: None,
+                c_aut: None,
+                cnpj_receb: None,
+                uf_receb: None,
+            },
+            ConciliacaoDetPag {
+                ind_pag: Some("1".to_string()),
+                t_pag: "03".to_string(),
+                x_pag: None,
+                v_pag: "200.00".to_string(),
+                d_pag: "2024-07-15".to_string(),
+                cnpj_pag: None,
+                uf_pag: None,
+                cnpj_if: None,
+                t_band: None,
+                c_aut: None,
+                cnpj_receb: None,
+                uf_receb: None,
+            },
+        ];
+        let xml = build_conciliacao_request(
+            TEST_KEY,
+            "APP-1.0",
+            &det_pag,
+            false,
+            None,
+            1,
+            SefazEnvironment::Homologation,
+            TEST_CNPJ,
+        );
+
+        let det_pag_count = xml.matches("<detPag>").count();
+        assert_eq!(det_pag_count, 2, "Should have 2 <detPag> elements");
+        assert!(xml.contains("<vPag>100.00</vPag>"));
+        assert!(xml.contains("<vPag>200.00</vPag>"));
+        assert!(xml.contains("<dPag>2024-06-15</dPag>"));
+        assert!(xml.contains("<dPag>2024-07-15</dPag>"));
+    }
+
+    // ── Event type constants ────────────────────────────────────────
+
+    #[test]
+    fn conciliacao_event_type_values() {
+        assert_eq!(event_types::CONCILIACAO, 110750);
+        assert_eq!(event_types::CANCEL_CONCILIACAO, 110751);
+    }
+
+    // ── Download (dist_dfe by access key) ───────────────────────────
+
+    #[test]
+    fn download_uses_cons_ch_nfe() {
+        // sefazDownload builds a distDFeInt with consChNFe
+        let xml = build_dist_dfe_request(
+            "SP",
+            TEST_CNPJ,
+            None,
+            Some(TEST_KEY),
+            SefazEnvironment::Homologation,
+        );
+        assert!(xml.contains(&format!("<consChNFe><chNFe>{TEST_KEY}</chNFe></consChNFe>")));
+        assert!(xml.contains("<tpAmb>2</tpAmb>"));
+        assert!(xml.contains("<cUFAutor>35</cUFAutor>"));
+        assert!(xml.contains(&format!("<CNPJ>{TEST_CNPJ}</CNPJ>")));
     }
 }

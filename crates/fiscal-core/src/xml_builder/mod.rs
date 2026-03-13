@@ -140,6 +140,8 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
         },
         data.ret_trib.as_ref(),
         data.issqn_tot.as_ref(),
+        data.is_tot.as_ref(),
+        data.ibs_cbs_tot.as_ref(),
     ));
 
     inf_children.push(transp::build_transp(data));
@@ -168,6 +170,9 @@ fn generate_xml(data: &InvoiceBuildData) -> Result<InvoiceXmlResult, FiscalError
     }
     if let Some(ref purchase) = data.purchase {
         inf_children.push(optional::build_purchase(purchase));
+    }
+    if let Some(ref cana) = data.cana {
+        inf_children.push(optional::build_cana(cana));
     }
     if let Some(ref tech) = data.tech_responsible {
         inf_children.push(optional::build_tech_responsible_with_key(tech, &access_key));

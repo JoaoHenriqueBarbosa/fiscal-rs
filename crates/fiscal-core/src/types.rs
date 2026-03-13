@@ -2494,6 +2494,10 @@ pub struct InvoiceItemData {
     pub ind_tot: Option<u8>,
     /// Approximate total tax for this item (`vTotTrib`). Optional.
     pub v_tot_trib: Option<Cents>,
+    /// IS (Imposto Seletivo) data for this item. Optional.
+    pub is_data: Option<crate::tax_is::IsData>,
+    /// IBS/CBS (Imposto sobre Bens e Servicos / Contribuicao sobre Bens e Servicos) data. Optional.
+    pub ibs_cbs: Option<crate::tax_ibs_cbs::IbsCbsData>,
 }
 
 impl InvoiceItemData {
@@ -2601,6 +2605,8 @@ impl InvoiceItemData {
             imposto_devol: None,
             ind_tot: None,
             v_tot_trib: None,
+            is_data: None,
+            ibs_cbs: None,
         }
     }
 
@@ -2956,6 +2962,16 @@ impl InvoiceItemData {
         self.v_tot_trib = Some(v);
         self
     }
+    /// Set IS (Imposto Seletivo) data.
+    pub fn is_data(mut self, v: crate::tax_is::IsData) -> Self {
+        self.is_data = Some(v);
+        self
+    }
+    /// Set IBS/CBS data.
+    pub fn ibs_cbs(mut self, v: crate::tax_ibs_cbs::IbsCbsData) -> Self {
+        self.ibs_cbs = Some(v);
+        self
+    }
 }
 
 /// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
@@ -3002,6 +3018,9 @@ pub(crate) struct InvoiceBuildData {
     pub purchase: Option<PurchaseData>,
     pub export: Option<ExportData>,
     pub issqn_tot: Option<IssqnTotData>,
+    pub cana: Option<CanaData>,
+    pub is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
+    pub ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
 }
 
 /// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).
@@ -3168,5 +3187,113 @@ impl PutQRTagParams {
             qr_code_base_url: qr_code_base_url.into(),
             url_chave: url_chave.into(),
         }
+    }
+}
+
+// ── Cana-de-açúcar (Grupo ZC01) ────────────────────────────────────────────
+
+/// Daily sugarcane supply entry (`<forDia>`, Grupo ZC04).
+///
+/// Each entry represents the quantity supplied on a specific day of the month.
+/// Up to 31 entries are allowed (one per day).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ForDiaData {
+    /// Day of the month (1–31).
+    pub dia: u8,
+    /// Quantity supplied on this day (10 decimal places).
+    pub qtde: Cents,
+}
+
+impl ForDiaData {
+    /// Create a new daily supply entry.
+    pub fn new(dia: u8, qtde: Cents) -> Self {
+        Self { dia, qtde }
+    }
+}
+
+/// Deduction entry (`<deduc>`, Grupo ZC10).
+///
+/// Represents a deduction (taxes, contributions) on the sugarcane supply.
+/// Up to 10 entries are allowed.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct DeducData {
+    /// Description of the deduction.
+    pub x_ded: String,
+    /// Value of the deduction.
+    pub v_ded: Cents,
+}
+
+impl DeducData {
+    /// Create a new deduction entry.
+    pub fn new(x_ded: impl Into<String>, v_ded: Cents) -> Self {
+        Self {
+            x_ded: x_ded.into(),
+            v_ded,
+        }
+    }
+}
+
+/// Sugarcane supply data (`<cana>`, Grupo ZC01).
+///
+/// Used for NF-e invoices related to sugarcane (cana-de-açúcar) supply.
+/// Placed inside `<infNFe>` after `<compra>` and before `<infRespTec>`.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct CanaData {
+    /// Crop identification (e.g. "2025/2026").
+    pub safra: String,
+    /// Reference month/year (e.g. "03/2026").
+    pub referencia: String,
+    /// Daily supply entries (up to 31).
+    pub for_dia: Vec<ForDiaData>,
+    /// Total quantity for the month.
+    pub q_tot_mes: Cents,
+    /// Total quantity from previous months.
+    pub q_tot_ant: Cents,
+    /// Grand total quantity.
+    pub q_tot_ger: Cents,
+    /// Deduction entries (up to 10, optional).
+    pub deducoes: Option<Vec<DeducData>>,
+    /// Total supply value.
+    pub v_for: Cents,
+    /// Total deduction value.
+    pub v_tot_ded: Cents,
+    /// Net supply value (vFor - vTotDed).
+    pub v_liq_for: Cents,
+}
+
+impl CanaData {
+    /// Create a new sugarcane supply data entry.
+    pub fn new(
+        safra: impl Into<String>,
+        referencia: impl Into<String>,
+        for_dia: Vec<ForDiaData>,
+        q_tot_mes: Cents,
+        q_tot_ant: Cents,
+        q_tot_ger: Cents,
+        v_for: Cents,
+        v_tot_ded: Cents,
+        v_liq_for: Cents,
+    ) -> Self {
+        Self {
+            safra: safra.into(),
+            referencia: referencia.into(),
+            for_dia,
+            q_tot_mes,
+            q_tot_ant,
+            q_tot_ger,
+            deducoes: None,
+            v_for,
+            v_tot_ded,
+            v_liq_for,
+        }
+    }
+
+    /// Set deduction entries.
+    pub fn deducoes(mut self, d: Vec<DeducData>) -> Self {
+        self.deducoes = Some(d);
+        self
     }
 }

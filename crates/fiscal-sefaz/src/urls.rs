@@ -17,6 +17,7 @@ struct AuthorizerServices {
     recepcao_evento: ServiceUrls,
     nfe_consulta_cadastro: Option<ServiceUrls>,
     nfe_distribuicao_dfe: Option<ServiceUrls>,
+    csc_nfce: Option<ServiceUrls>,
 }
 
 impl AuthorizerServices {
@@ -41,6 +42,16 @@ impl AuthorizerServices {
             }
             "NfeDistribuicaoDFe" => {
                 return self.nfe_distribuicao_dfe.as_ref().and_then(|u| {
+                    let url = match env {
+                        SefazEnvironment::Production => u.production,
+                        SefazEnvironment::Homologation => u.homologation,
+                        _ => return None,
+                    };
+                    if url.is_empty() { None } else { Some(url) }
+                });
+            }
+            "CscNFCe" => {
+                return self.csc_nfce.as_ref().and_then(|u| {
                     let url = match env {
                         SefazEnvironment::Production => u.production,
                         SefazEnvironment::Homologation => u.homologation,
@@ -89,6 +100,7 @@ static AM: AuthorizerServices = AuthorizerServices {
     // PHP has empty NfeConsultaCadastro for AM
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static BA: AuthorizerServices = AuthorizerServices {
@@ -121,6 +133,7 @@ static BA: AuthorizerServices = AuthorizerServices {
         homologation: "https://hnfe.sefaz.ba.gov.br/webservices/CadConsultaCadastro4/CadConsultaCadastro4.asmx",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static GO: AuthorizerServices = AuthorizerServices {
@@ -153,6 +166,7 @@ static GO: AuthorizerServices = AuthorizerServices {
         homologation: "https://homolog.sefaz.go.gov.br/nfe/services/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static MG: AuthorizerServices = AuthorizerServices {
@@ -185,6 +199,7 @@ static MG: AuthorizerServices = AuthorizerServices {
         homologation: "https://hnfe.fazenda.mg.gov.br/nfe2/services/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // Fix #1: MS homologation domain corrected from homologacao.nfe.ms.gov.br to hom.nfe.sefaz.ms.gov.br
@@ -218,6 +233,7 @@ static MS: AuthorizerServices = AuthorizerServices {
         homologation: "https://hom.nfe.sefaz.ms.gov.br/ws/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // Fix #2: MT RecepcaoEvento path corrected from NfeRecepcaoEvento4 to RecepcaoEvento4
@@ -251,6 +267,7 @@ static MT: AuthorizerServices = AuthorizerServices {
         homologation: "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static PE: AuthorizerServices = AuthorizerServices {
@@ -283,6 +300,7 @@ static PE: AuthorizerServices = AuthorizerServices {
         homologation: "https://nfehomolog.sefaz.pe.gov.br/nfe-service/services/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static PR: AuthorizerServices = AuthorizerServices {
@@ -315,6 +333,7 @@ static PR: AuthorizerServices = AuthorizerServices {
         homologation: "https://homologacao.nfe.sefa.pr.gov.br/nfe/CadConsultaCadastro4",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static RS: AuthorizerServices = AuthorizerServices {
@@ -347,6 +366,7 @@ static RS: AuthorizerServices = AuthorizerServices {
         homologation: "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static SP: AuthorizerServices = AuthorizerServices {
@@ -379,6 +399,7 @@ static SP: AuthorizerServices = AuthorizerServices {
         homologation: "https://homologacao.nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // ── SVRS (Sefaz Virtual do RS) ──────────────────────────────────────────────
@@ -415,6 +436,7 @@ static SVRS: AuthorizerServices = AuthorizerServices {
         homologation: "https://cad-homologacao.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // ── SVAN (Sefaz Virtual do Ambiente Nacional) — MA ──────────────────────────
@@ -447,6 +469,7 @@ static SVAN: AuthorizerServices = AuthorizerServices {
     // SVAN has no NfeConsultaCadastro (empty in PHP)
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // ── Fix #5: AN (Ambiente Nacional) ──────────────────────────────────────────
@@ -484,6 +507,7 @@ static AN: AuthorizerServices = AuthorizerServices {
         production: "https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
         homologation: "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
     }),
+    csc_nfce: None,
 };
 
 // ── Fix #6: SVCAN (SVC-AN) — same URLs as SVAN ─────────────────────────────
@@ -515,6 +539,7 @@ static SVCAN: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // ── Fix #6: SVCRS (SVC-RS) — same URLs as SVRS ─────────────────────────────
@@ -549,6 +574,7 @@ static SVCRS: AuthorizerServices = AuthorizerServices {
         homologation: "",
     }),
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // ── NFC-e authorizers (model 65) ──────────────────────────────────────────
@@ -582,6 +608,10 @@ static AM_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: Some(ServiceUrls {
+        production: "https://nfce.sefaz.am.gov.br/nfce-services/services/CscNFCe",
+        homologation: "https://homnfce.sefaz.am.gov.br/nfce-services/services/CscNFCe",
+    }),
 };
 
 static GO_NFCE: AuthorizerServices = AuthorizerServices {
@@ -611,6 +641,10 @@ static GO_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: Some(ServiceUrls {
+        production: "https://nfe.sefaz.go.gov.br/nfe/services/v2/CscNFCe",
+        homologation: "https://homolog.sefaz.go.gov.br/nfe/services/v2/CscNFCe",
+    }),
 };
 
 static MG_NFCE: AuthorizerServices = AuthorizerServices {
@@ -640,6 +674,7 @@ static MG_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static MS_NFCE: AuthorizerServices = AuthorizerServices {
@@ -669,6 +704,7 @@ static MS_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static MT_NFCE: AuthorizerServices = AuthorizerServices {
@@ -698,6 +734,7 @@ static MT_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static RS_NFCE: AuthorizerServices = AuthorizerServices {
@@ -727,6 +764,7 @@ static RS_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static SP_NFCE: AuthorizerServices = AuthorizerServices {
@@ -756,6 +794,7 @@ static SP_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 static PR_NFCE: AuthorizerServices = AuthorizerServices {
@@ -785,6 +824,7 @@ static PR_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 // Fix #4: SVRS NFC-e URLs corrected to match PHP exactly
@@ -815,6 +855,7 @@ static SVRS_NFCE: AuthorizerServices = AuthorizerServices {
     },
     nfe_consulta_cadastro: None,
     nfe_distribuicao_dfe: None,
+    csc_nfce: None,
 };
 
 /// Get the authorizer for a given state (NF-e model 55).

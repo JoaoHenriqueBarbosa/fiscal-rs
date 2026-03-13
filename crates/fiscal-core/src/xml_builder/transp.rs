@@ -217,7 +217,12 @@ mod tests {
             purchase: None,
             export: None,
             issqn_tot: None,
+            cana: None,
+            is_tot: None,
+            ibs_cbs_tot: None,
             exit_at: None,
+            destination_indicator: None,
+            ver_proc: None,
         }
     }
 

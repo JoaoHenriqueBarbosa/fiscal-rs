@@ -44,9 +44,11 @@ pub mod state_codes;
 pub mod status_codes;
 /// Internal tax element types used by tax computation modules.
 pub mod tax_element;
+/// IBS/CBS (Imposto sobre Bens e Servicos / Contribuicao sobre Bens e Servicos) XML generation.
+pub mod tax_ibs_cbs;
 /// ICMS tax computation and XML generation (CST and CSOSN variants).
 pub mod tax_icms;
-/// IS (insurance tax) XML generation.
+/// IS (Imposto Seletivo) XML generation.
 pub mod tax_is;
 /// ISSQN (municipal service tax) XML generation.
 pub mod tax_issqn;

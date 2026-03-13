@@ -2,6 +2,7 @@
 
 use crate::format_utils::format_cents;
 use crate::newtypes::Cents;
+use crate::tax_ibs_cbs::{self, IbsCbsTotData, IsTotData};
 use crate::tax_icms::IcmsTotals;
 use crate::types::{IssqnTotData, RetTribData};
 use crate::xml_utils::{TagContent, tag};
@@ -31,13 +32,15 @@ pub struct OtherTotals {
     pub v_ipi_devol: i64,
 }
 
-/// Build the `<total>` element with ICMSTot, optional ISSQNtot, and retTrib.
+/// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, and IBSCBSTot.
 pub fn build_total(
     total_products: i64,
     icms: &IcmsTotals,
     other: &OtherTotals,
     ret_trib: Option<&RetTribData>,
     issqn_tot: Option<&IssqnTotData>,
+    is_tot: Option<&IsTotData>,
+    ibs_cbs_tot: Option<&IbsCbsTotData>,
 ) -> String {
     let fc2 = |c: i64| format_cents(c, 2);
 
@@ -98,6 +101,49 @@ pub fn build_total(
             &[],
             TagContent::Text(&fc2(icms.v_fcp_st_ret.0)),
         ),
+    ]);
+
+    // ICMS monofásico (NT 2023.001): only included when > 0 (matches PHP)
+    if icms.q_bc_mono > 0 {
+        icms_children.push(tag("qBCMono", &[], TagContent::Text(&fc2(icms.q_bc_mono))));
+    }
+    if icms.v_icms_mono.0 > 0 {
+        icms_children.push(tag(
+            "vICMSMono",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_mono.0)),
+        ));
+    }
+    if icms.q_bc_mono_reten > 0 {
+        icms_children.push(tag(
+            "qBCMonoReten",
+            &[],
+            TagContent::Text(&fc2(icms.q_bc_mono_reten)),
+        ));
+    }
+    if icms.v_icms_mono_reten.0 > 0 {
+        icms_children.push(tag(
+            "vICMSMonoReten",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_mono_reten.0)),
+        ));
+    }
+    if icms.q_bc_mono_ret > 0 {
+        icms_children.push(tag(
+            "qBCMonoRet",
+            &[],
+            TagContent::Text(&fc2(icms.q_bc_mono_ret)),
+        ));
+    }
+    if icms.v_icms_mono_ret.0 > 0 {
+        icms_children.push(tag(
+            "vICMSMonoRet",
+            &[],
+            TagContent::Text(&fc2(icms.v_icms_mono_ret.0)),
+        ));
+    }
+
+    icms_children.extend([
         tag("vProd", &[], TagContent::Text(&fc2(total_products))),
         tag("vFrete", &[], TagContent::Text(&fc2(other.v_frete))),
         tag("vSeg", &[], TagContent::Text(&fc2(other.v_seg))),
@@ -127,6 +173,16 @@ pub fn build_total(
     // ISSQNtot — emitted when the invoice has service items subject to ISSQN
     if let Some(iqt) = issqn_tot {
         total_children.push(build_issqn_tot(iqt));
+    }
+
+    // ISTot — emitted when IS (Imposto Seletivo) is present
+    if let Some(ist) = is_tot {
+        total_children.push(tax_ibs_cbs::build_is_tot_xml(ist));
+    }
+
+    // IBSCBSTot — emitted when IBS/CBS is present
+    if let Some(ibst) = ibs_cbs_tot {
+        total_children.push(tax_ibs_cbs::build_ibs_cbs_tot_xml(ibst));
     }
 
     if let Some(rt) = ret_trib {
@@ -306,7 +362,7 @@ mod tests {
             .v_bc(Cents(50000))
             .v_iss(Cents(2500));
 
-        let xml = build_total(0, &zero_icms(), &zero_other(), None, Some(&data));
+        let xml = build_total(0, &zero_icms(), &zero_other(), None, Some(&data), None, None);
 
         // ISSQNtot should appear after ICMSTot
         let icms_end = xml.find("</ICMSTot>").expect("</ICMSTot> must exist");
@@ -321,8 +377,92 @@ mod tests {
 
     #[test]
     fn no_issqn_tot_when_none() {
-        let xml = build_total(0, &zero_icms(), &zero_other(), None, None);
+        let xml = build_total(0, &zero_icms(), &zero_other(), None, None, None, None);
         assert!(!xml.contains("<ISSQNtot>"));
+    }
+
+    #[test]
+    fn icms_mono_fields_emitted_when_positive() {
+        let mut icms = zero_icms();
+        icms.q_bc_mono = 10000;
+        icms.v_icms_mono = Cents(5000);
+        icms.q_bc_mono_reten = 8000;
+        icms.v_icms_mono_reten = Cents(4000);
+        icms.q_bc_mono_ret = 6000;
+        icms.v_icms_mono_ret = Cents(3000);
+
+        let xml = build_total(100000, &icms, &zero_other(), None, None, None, None);
+
+        // All monophasic fields must be present
+        assert!(xml.contains("<qBCMono>100.00</qBCMono>"));
+        assert!(xml.contains("<vICMSMono>50.00</vICMSMono>"));
+        assert!(xml.contains("<qBCMonoReten>80.00</qBCMonoReten>"));
+        assert!(xml.contains("<vICMSMonoReten>40.00</vICMSMonoReten>"));
+        assert!(xml.contains("<qBCMonoRet>60.00</qBCMonoRet>"));
+        assert!(xml.contains("<vICMSMonoRet>30.00</vICMSMonoRet>"));
+
+        // Verify position: monophasic fields must come after vFCPSTRet and before vProd
+        let fcp_st_ret_end = xml.find("</vFCPSTRet>").expect("vFCPSTRet must exist");
+        let q_bc_mono_pos = xml.find("<qBCMono>").expect("qBCMono must exist");
+        let v_prod_pos = xml.find("<vProd>").expect("vProd must exist");
+        assert!(
+            fcp_st_ret_end < q_bc_mono_pos,
+            "qBCMono must come after vFCPSTRet"
+        );
+        assert!(q_bc_mono_pos < v_prod_pos, "qBCMono must come before vProd");
+    }
+
+    #[test]
+    fn icms_mono_fields_omitted_when_zero() {
+        let xml = build_total(100000, &zero_icms(), &zero_other(), None, None, None, None);
+
+        assert!(
+            !xml.contains("<qBCMono>"),
+            "qBCMono must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<vICMSMono>"),
+            "vICMSMono must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<qBCMonoReten>"),
+            "qBCMonoReten must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<vICMSMonoReten>"),
+            "vICMSMonoReten must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<qBCMonoRet>"),
+            "qBCMonoRet must be omitted when zero"
+        );
+        assert!(
+            !xml.contains("<vICMSMonoRet>"),
+            "vICMSMonoRet must be omitted when zero"
+        );
+    }
+
+    #[test]
+    fn icms_mono_partial_fields_emitted() {
+        let mut icms = zero_icms();
+        // Only set vICMSMono and qBCMonoRet
+        icms.v_icms_mono = Cents(2500);
+        icms.q_bc_mono_ret = 5000;
+
+        let xml = build_total(100000, &icms, &zero_other(), None, None, None, None);
+
+        // q_bc_mono is 0, should be omitted
+        assert!(!xml.contains("<qBCMono>"));
+        // v_icms_mono > 0, should be present
+        assert!(xml.contains("<vICMSMono>25.00</vICMSMono>"));
+        // q_bc_mono_reten is 0, should be omitted
+        assert!(!xml.contains("<qBCMonoReten>"));
+        // v_icms_mono_reten is 0, should be omitted
+        assert!(!xml.contains("<vICMSMonoReten>"));
+        // q_bc_mono_ret > 0, should be present
+        assert!(xml.contains("<qBCMonoRet>50.00</qBCMonoRet>"));
+        // v_icms_mono_ret is 0, should be omitted
+        assert!(!xml.contains("<vICMSMonoRet>"));
     }
 
     #[test]

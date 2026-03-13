@@ -92,6 +92,9 @@ pub struct InvoiceBuilder<State = Draft> {
     purchase: Option<PurchaseData>,
     export: Option<ExportData>,
     issqn_tot: Option<IssqnTotData>,
+    cana: Option<CanaData>,
+    is_tot: Option<crate::tax_ibs_cbs::IsTotData>,
+    ibs_cbs_tot: Option<crate::tax_ibs_cbs::IbsCbsTotData>,
 
     // Present only after build
     result_xml: Option<String>,
@@ -152,6 +155,9 @@ impl InvoiceBuilder<Draft> {
             purchase: None,
             export: None,
             issqn_tot: None,
+            cana: None,
+            is_tot: None,
+            ibs_cbs_tot: None,
             result_xml: None,
             result_access_key: None,
             result_signed_xml: None,
@@ -371,6 +377,24 @@ impl InvoiceBuilder<Draft> {
         self
     }
 
+    /// Set sugarcane supply data (cana).
+    pub fn cana(mut self, c: CanaData) -> Self {
+        self.cana = Some(c);
+        self
+    }
+
+    /// Set IS (Imposto Seletivo) total data.
+    pub fn is_tot(mut self, t: crate::tax_ibs_cbs::IsTotData) -> Self {
+        self.is_tot = Some(t);
+        self
+    }
+
+    /// Set IBS/CBS total data.
+    pub fn ibs_cbs_tot(mut self, t: crate::tax_ibs_cbs::IbsCbsTotData) -> Self {
+        self.ibs_cbs_tot = Some(t);
+        self
+    }
+
     /// Validate and build the XML, transitioning to [`Built`].
     ///
     /// # Errors
@@ -417,6 +441,9 @@ impl InvoiceBuilder<Draft> {
             purchase: self.purchase,
             export: self.export,
             issqn_tot: self.issqn_tot,
+            cana: self.cana,
+            is_tot: self.is_tot,
+            ibs_cbs_tot: self.ibs_cbs_tot,
         };
 
         let result = super::generate_xml(&data)?;
@@ -459,6 +486,9 @@ impl InvoiceBuilder<Draft> {
             purchase: data.purchase,
             export: data.export,
             issqn_tot: data.issqn_tot,
+            cana: data.cana,
+            is_tot: data.is_tot,
+            ibs_cbs_tot: data.ibs_cbs_tot,
             result_xml: Some(result.xml),
             result_access_key: Some(result.access_key),
             result_signed_xml: None,
@@ -558,6 +588,9 @@ impl InvoiceBuilder<Built> {
             purchase: self.purchase,
             export: self.export,
             issqn_tot: self.issqn_tot,
+            cana: self.cana,
+            is_tot: self.is_tot,
+            ibs_cbs_tot: self.ibs_cbs_tot,
             result_xml: self.result_xml,
             result_access_key: self.result_access_key,
             result_signed_xml: Some(signed_xml),

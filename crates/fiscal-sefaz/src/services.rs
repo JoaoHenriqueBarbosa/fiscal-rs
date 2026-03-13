@@ -43,6 +43,8 @@ pub enum SefazService {
     DistribuicaoDFe,
     /// `CadConsultaCadastro4` — query taxpayer registration.
     ConsultaCadastro,
+    /// `CscNFCe` — manage CSC (Código de Segurança do Contribuinte) for NFC-e.
+    CscNFCe,
 }
 
 impl SefazService {
@@ -100,6 +102,11 @@ impl SefazService {
                 operation: "CadConsultaCadastro4",
                 version: "2.00",
             },
+            Self::CscNFCe => ServiceMeta {
+                method: "admCscNFCe",
+                operation: "CscNFCe",
+                version: "1.00",
+            },
         }
     }
 
@@ -114,6 +121,7 @@ impl SefazService {
             Self::RecepcaoEvento => "RecepcaoEvento",
             Self::DistribuicaoDFe => "NfeDistribuicaoDFe",
             Self::ConsultaCadastro => "NfeConsultaCadastro",
+            Self::CscNFCe => "CscNFCe",
         }
     }
 }
@@ -133,6 +141,7 @@ mod tests {
             SefazService::RecepcaoEvento,
             SefazService::DistribuicaoDFe,
             SefazService::ConsultaCadastro,
+            SefazService::CscNFCe,
         ];
         for svc in services {
             let meta = svc.meta();
@@ -174,5 +183,19 @@ mod tests {
         assert_eq!(SefazService::RecepcaoEvento.meta().version, "1.00");
         assert_eq!(SefazService::DistribuicaoDFe.meta().version, "1.01");
         assert_eq!(SefazService::ConsultaCadastro.meta().version, "2.00");
+        assert_eq!(SefazService::CscNFCe.meta().version, "1.00");
+    }
+
+    #[test]
+    fn csc_nfce_meta() {
+        let meta = SefazService::CscNFCe.meta();
+        assert_eq!(meta.method, "admCscNFCe");
+        assert_eq!(meta.operation, "CscNFCe");
+        assert_eq!(meta.version, "1.00");
+    }
+
+    #[test]
+    fn csc_nfce_url_key() {
+        assert_eq!(SefazService::CscNFCe.url_key(), "CscNFCe");
     }
 }

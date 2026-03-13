@@ -251,6 +251,87 @@ pub fn build_delivery(d: &LocationData) -> String {
     tag("entrega", &[], TagContent::Children(children))
 }
 
+/// Build `<cana>` (sugarcane supply) element.
+///
+/// XML schema order (Grupo ZC01):
+/// ```xml
+/// <cana>
+///   <safra>...</safra>
+///   <ref>...</ref>
+///   <forDia dia="N"><qtde>...</qtde></forDia>  <!-- up to 31 -->
+///   <qTotMes>...</qTotMes>
+///   <qTotAnt>...</qTotAnt>
+///   <qTotGer>...</qTotGer>
+///   <deduc><xDed>...</xDed><vDed>...</vDed></deduc>  <!-- up to 10 -->
+///   <vFor>...</vFor>
+///   <vTotDed>...</vTotDed>
+///   <vLiqFor>...</vLiqFor>
+/// </cana>
+/// ```
+pub fn build_cana(cana: &CanaData) -> String {
+    let fc2 = |c: i64| format_cents(c, 2);
+    let fc10 = |c: i64| format_cents(c, 10);
+
+    let mut children = vec![
+        tag("safra", &[], TagContent::Text(&cana.safra)),
+        tag("ref", &[], TagContent::Text(&cana.referencia)),
+    ];
+
+    // forDia entries (up to 31, one per day)
+    for fd in cana.for_dia.iter().take(31) {
+        let dia_str = fd.dia.to_string();
+        children.push(tag(
+            "forDia",
+            &[("dia", &dia_str)],
+            TagContent::Children(vec![tag("qtde", &[], TagContent::Text(&fc10(fd.qtde.0)))]),
+        ));
+    }
+
+    children.push(tag(
+        "qTotMes",
+        &[],
+        TagContent::Text(&fc10(cana.q_tot_mes.0)),
+    ));
+    children.push(tag(
+        "qTotAnt",
+        &[],
+        TagContent::Text(&fc10(cana.q_tot_ant.0)),
+    ));
+    children.push(tag(
+        "qTotGer",
+        &[],
+        TagContent::Text(&fc10(cana.q_tot_ger.0)),
+    ));
+
+    // deduc entries (up to 10)
+    if let Some(ref deducs) = cana.deducoes {
+        for d in deducs.iter().take(10) {
+            children.push(tag(
+                "deduc",
+                &[],
+                TagContent::Children(vec![
+                    tag("xDed", &[], TagContent::Text(&d.x_ded)),
+                    tag("vDed", &[], TagContent::Text(&fc2(d.v_ded.0))),
+                ]),
+            ));
+        }
+    }
+
+    children.push(tag("vFor", &[], TagContent::Text(&fc2(cana.v_for.0))));
+    children.push(tag(
+        "vTotDed",
+        &[],
+        TagContent::Text(&fc2(cana.v_tot_ded.0)),
+    ));
+    children.push(tag(
+        "vLiqFor",
+        &[],
+        TagContent::Text(&fc2(cana.v_liq_for.0)),
+    ));
+
+    tag("cana", &[], TagContent::Children(children))
+}
+
 /// Build `<autXML>` element.
 pub fn build_aut_xml(entry: &AuthorizedXml) -> String {
     let tid = TaxId::new(&entry.tax_id);
@@ -260,4 +341,148 @@ pub fn build_aut_xml(entry: &AuthorizedXml) -> String {
         &[],
         TagContent::Children(vec![tag(tid.tag_name(), &[], TagContent::Text(&padded))]),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::newtypes::Cents;
+
+    #[test]
+    fn build_cana_minimal_without_deducoes() {
+        let cana = CanaData::new(
+            "2025/2026",
+            "03/2026",
+            vec![
+                ForDiaData::new(1, Cents(1000000)),
+                ForDiaData::new(2, Cents(1500000)),
+            ],
+            Cents(2500000), // qTotMes
+            Cents(5000000), // qTotAnt
+            Cents(7500000), // qTotGer
+            Cents(150000),  // vFor = 1500.00
+            Cents(0),       // vTotDed = 0.00
+            Cents(150000),  // vLiqFor = 1500.00
+        );
+
+        let xml = build_cana(&cana);
+
+        assert_eq!(
+            xml,
+            "<cana>\
+                <safra>2025/2026</safra>\
+                <ref>03/2026</ref>\
+                <forDia dia=\"1\"><qtde>10000.0000000000</qtde></forDia>\
+                <forDia dia=\"2\"><qtde>15000.0000000000</qtde></forDia>\
+                <qTotMes>25000.0000000000</qTotMes>\
+                <qTotAnt>50000.0000000000</qTotAnt>\
+                <qTotGer>75000.0000000000</qTotGer>\
+                <vFor>1500.00</vFor>\
+                <vTotDed>0.00</vTotDed>\
+                <vLiqFor>1500.00</vLiqFor>\
+            </cana>"
+        );
+    }
+
+    #[test]
+    fn build_cana_with_deducoes() {
+        let cana = CanaData::new(
+            "2024/2025",
+            "06/2025",
+            vec![ForDiaData::new(15, Cents(2000000))],
+            Cents(2000000),  // qTotMes
+            Cents(10000000), // qTotAnt
+            Cents(12000000), // qTotGer
+            Cents(500000),   // vFor = 5000.00
+            Cents(50000),    // vTotDed = 500.00
+            Cents(450000),   // vLiqFor = 4500.00
+        )
+        .deducoes(vec![
+            DeducData::new("TAXA PRODUCAO", Cents(30000)),
+            DeducData::new("FUNRURAL", Cents(20000)),
+        ]);
+
+        let xml = build_cana(&cana);
+
+        assert!(xml.contains("<safra>2024/2025</safra>"));
+        assert!(xml.contains("<ref>06/2025</ref>"));
+        assert!(xml.contains("<forDia dia=\"15\"><qtde>20000.0000000000</qtde></forDia>"));
+        assert!(xml.contains("<qTotMes>20000.0000000000</qTotMes>"));
+        assert!(xml.contains("<qTotAnt>100000.0000000000</qTotAnt>"));
+        assert!(xml.contains("<qTotGer>120000.0000000000</qTotGer>"));
+        assert!(xml.contains("<deduc><xDed>TAXA PRODUCAO</xDed><vDed>300.00</vDed></deduc>"));
+        assert!(xml.contains("<deduc><xDed>FUNRURAL</xDed><vDed>200.00</vDed></deduc>"));
+        assert!(xml.contains("<vFor>5000.00</vFor>"));
+        assert!(xml.contains("<vTotDed>500.00</vTotDed>"));
+        assert!(xml.contains("<vLiqFor>4500.00</vLiqFor>"));
+
+        // Verify order: deduc comes before vFor
+        let deduc_pos = xml.find("<deduc>").expect("deduc must be present");
+        let vfor_pos = xml.find("<vFor>").expect("vFor must be present");
+        assert!(
+            deduc_pos < vfor_pos,
+            "deduc must come before vFor in the XML"
+        );
+
+        // Verify order: forDia comes before qTotMes
+        let fordia_pos = xml.find("<forDia").expect("forDia must be present");
+        let qtotmes_pos = xml.find("<qTotMes>").expect("qTotMes must be present");
+        assert!(
+            fordia_pos < qtotmes_pos,
+            "forDia must come before qTotMes in the XML"
+        );
+    }
+
+    #[test]
+    fn build_cana_limits_fordia_to_31() {
+        let mut for_dia = Vec::new();
+        for day in 1..=35 {
+            for_dia.push(ForDiaData::new(day, Cents(100000)));
+        }
+
+        let cana = CanaData::new(
+            "2025/2026",
+            "01/2026",
+            for_dia,
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+        );
+
+        let xml = build_cana(&cana);
+
+        // Count forDia occurrences — should be capped at 31
+        let count = xml.matches("<forDia").count();
+        assert_eq!(count, 31, "forDia entries must be capped at 31");
+    }
+
+    #[test]
+    fn build_cana_limits_deduc_to_10() {
+        let mut deducs = Vec::new();
+        for i in 1..=15 {
+            deducs.push(DeducData::new(format!("DEDUC {i}"), Cents(1000)));
+        }
+
+        let cana = CanaData::new(
+            "2025/2026",
+            "01/2026",
+            vec![ForDiaData::new(1, Cents(100000))],
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+            Cents(0),
+        )
+        .deducoes(deducs);
+
+        let xml = build_cana(&cana);
+
+        // Count deduc occurrences — should be capped at 10
+        let count = xml.matches("<deduc>").count();
+        assert_eq!(count, 10, "deduc entries must be capped at 10");
+    }
 }

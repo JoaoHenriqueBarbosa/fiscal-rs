@@ -3,7 +3,9 @@
 use crate::FiscalError;
 use crate::format_utils::{format_cents, format_decimal};
 use crate::newtypes::{Cents, Rate, Rate4};
+use crate::tax_ibs_cbs;
 use crate::tax_icms::{self, IcmsCsosn, IcmsCst, IcmsTotals, IcmsVariant};
+use crate::tax_is;
 use crate::tax_issqn;
 use crate::tax_pis_cofins_ipi::{self, CofinsData, IiData, IpiData, PisData};
 use crate::types::{
@@ -515,6 +517,16 @@ pub(crate) fn build_det(
         imposto_children.push(issqn_xml);
     }
 
+    // Build IS (Imposto Seletivo) -- optional, inside <imposto>
+    if let Some(ref is_data) = item.is_data {
+        imposto_children.push(tax_is::build_is_xml(is_data));
+    }
+
+    // Build IBS/CBS -- optional, inside <imposto>
+    if let Some(ref ibs_cbs_data) = item.ibs_cbs {
+        imposto_children.push(tax_ibs_cbs::build_ibs_cbs_xml(ibs_cbs_data));
+    }
+
     // Assemble prod
     let fc2 = |c: i64| format_cents(c, 2);
     let fc10 = |c: i64| format_cents(c, 10);
@@ -1016,6 +1028,11 @@ mod tests {
             purchase: None,
             export: None,
             issqn_tot: None,
+            cana: None,
+            is_tot: None,
+            ibs_cbs_tot: None,
+            destination_indicator: None,
+            ver_proc: None,
         }
     }
 

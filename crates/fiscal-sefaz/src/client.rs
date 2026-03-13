@@ -212,12 +212,24 @@ impl SefazClient {
         signed_xml: &str,
         lot_id: &str,
     ) -> Result<AuthorizationResponse, FiscalError> {
-        let request_xml =
-            request_builders::build_autorizacao_request(signed_xml, lot_id, true, false);
-        let raw = self
-            .send(SefazService::Autorizacao, uf, environment, &request_xml)
-            .await?;
-        response_parsers::parse_autorizacao_response(&raw)
+        self.authorize_opts(uf, environment, signed_xml, lot_id, false, 55)
+            .await
+    }
+
+    /// Submit a signed NF-e for authorization with gzip compression.
+    ///
+    /// Same as [`authorize`] but compresses the XML with gzip and uses
+    /// `<nfeDadosMsgZip>` in the SOAP envelope, matching PHP sped-nfe's
+    /// `$compactar = true` mode.
+    pub async fn authorize_compressed(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        signed_xml: &str,
+        lot_id: &str,
+    ) -> Result<AuthorizationResponse, FiscalError> {
+        self.authorize_opts(uf, environment, signed_xml, lot_id, true, 55)
+            .await
     }
 
     /// Submit a signed NFC-e (model 65) for authorization.
@@ -230,11 +242,55 @@ impl SefazClient {
         signed_xml: &str,
         lot_id: &str,
     ) -> Result<AuthorizationResponse, FiscalError> {
+        self.authorize_opts(uf, environment, signed_xml, lot_id, false, 65)
+            .await
+    }
+
+    /// Submit a signed NFC-e (model 65) for authorization with gzip compression.
+    ///
+    /// Same as [`authorize_nfce`] but compresses the XML with gzip.
+    pub async fn authorize_nfce_compressed(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        signed_xml: &str,
+        lot_id: &str,
+    ) -> Result<AuthorizationResponse, FiscalError> {
+        self.authorize_opts(uf, environment, signed_xml, lot_id, true, 65)
+            .await
+    }
+
+    /// Internal: submit authorization with optional compression and model selection.
+    async fn authorize_opts(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        signed_xml: &str,
+        lot_id: &str,
+        compress: bool,
+        model: u8,
+    ) -> Result<AuthorizationResponse, FiscalError> {
         let request_xml =
-            request_builders::build_autorizacao_request(signed_xml, lot_id, true, false);
-        let raw = self
-            .send_model(SefazService::Autorizacao, uf, environment, &request_xml, 65)
-            .await?;
+            request_builders::build_autorizacao_request(signed_xml, lot_id, true, compress);
+        let raw = if compress {
+            self.send_model_compressed(
+                SefazService::Autorizacao,
+                uf,
+                environment,
+                &request_xml,
+                model,
+            )
+            .await?
+        } else {
+            self.send_model(
+                SefazService::Autorizacao,
+                uf,
+                environment,
+                &request_xml,
+                model,
+            )
+            .await?
+        };
         response_parsers::parse_autorizacao_response(&raw)
     }
 
@@ -865,7 +921,237 @@ impl SefazClient {
         response_parsers::parse_cancellation_response(&raw)
     }
 
+    /// Download an NF-e by its 44-digit access key (`NFeDistribuicaoDFe`).
+    ///
+    /// A convenience wrapper around [`dist_dfe`](Self::dist_dfe) that passes
+    /// the access key directly. Matches the PHP `sefazDownload()` method.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the interested party.
+    /// * `environment` — SEFAZ environment.
+    /// * `tax_id` — CNPJ or CPF of the interested party.
+    /// * `access_key` — 44-digit access key of the NF-e to download.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn download(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        tax_id: &str,
+        access_key: &str,
+    ) -> Result<DistDFeResponse, FiscalError> {
+        self.dist_dfe(uf, environment, tax_id, None, Some(access_key))
+            .await
+    }
+
+    /// Manage CSC (Código de Segurança do Contribuinte) for NFC-e
+    /// (`CscNFCe`).
+    ///
+    /// Matches the PHP `sefazCsc()` method. Used exclusively with NFC-e
+    /// (model 65).
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `ind_op` — Operation type: 1=query, 2=request new, 3=revoke.
+    /// * `cnpj` — Full CNPJ of the taxpayer (14 digits).
+    /// * `csc_id` — CSC identifier (required only for `ind_op=3`).
+    /// * `csc_code` — CSC code/value (required only for `ind_op=3`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    pub async fn csc(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        ind_op: u8,
+        cnpj: &str,
+        csc_id: Option<&str>,
+        csc_code: Option<&str>,
+    ) -> Result<String, FiscalError> {
+        let request_xml =
+            request_builders::build_csc_request(environment, ind_op, cnpj, csc_id, csc_code);
+        self.send_model(SefazService::CscNFCe, uf, environment, &request_xml, 65)
+            .await
+    }
+
+    /// Send multiple events in a single batch (`RecepcaoEvento4`).
+    ///
+    /// Matches the PHP `sefazEventoLote()` method. The batch can contain
+    /// up to 20 events. EPEC events are automatically skipped.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation or `"AN"` for Ambiente Nacional.
+    /// * `environment` — SEFAZ environment.
+    /// * `events` — Slice of [`request_builders::EventItem`] structs.
+    /// * `lot_id` — Optional lot identifier (auto-generated if `None`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn event_batch(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        events: &[request_builders::EventItem],
+        lot_id: Option<&str>,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml =
+            request_builders::build_event_batch_request(uf, events, lot_id, environment);
+        let raw = if uf == "AN" {
+            self.send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+                .await?
+        } else {
+            self.send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
+                .await?
+        };
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+    /// Send a batch of manifestação do destinatário events.
+    ///
+    /// Matches the PHP `sefazManifestaLote()` method. Valid event types:
+    /// - `210200` — Confirmação da Operação
+    /// - `210210` — Ciência da Operação
+    /// - `210220` — Desconhecimento da Operação
+    /// - `210240` — Operação não Realizada (requires justification in
+    ///   `additional_tags`)
+    ///
+    /// All events are sent to the Ambiente Nacional (AN) endpoint.
+    ///
+    /// # Arguments
+    ///
+    /// * `environment` — SEFAZ environment.
+    /// * `events` — Slice of [`request_builders::EventItem`] structs.
+    /// * `lot_id` — Optional lot identifier (auto-generated if `None`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn manifest_batch(
+        &self,
+        environment: SefazEnvironment,
+        events: &[request_builders::EventItem],
+        lot_id: Option<&str>,
+    ) -> Result<CancellationResponse, FiscalError> {
+        self.event_batch("AN", environment, events, lot_id).await
+    }
+
+    /// Submit a conciliação financeira event (`RecepcaoEvento4`,
+    /// tpEvento=110750 or 110751 for cancellation).
+    ///
+    /// Matches the PHP `sefazConciliacao()` method.
+    ///
+    /// Per NT 2024.002, for NF-e (model 55) the event is sent to SVRS;
+    /// for NFC-e (model 65) it goes to the state's own endpoint.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `model` — Invoice model (55 = NF-e, 65 = NFC-e).
+    /// * `access_key` — 44-digit access key.
+    /// * `ver_aplic` — Application version string.
+    /// * `det_pag` — Payment details for the reconciliation.
+    /// * `cancel` — If `true`, sends cancellation event (110751).
+    /// * `cancel_protocol` — Protocol of the event being cancelled.
+    /// * `seq` — Event sequence number.
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn conciliacao(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        model: u8,
+        access_key: &str,
+        ver_aplic: &str,
+        det_pag: &[request_builders::ConciliacaoDetPag],
+        cancel: bool,
+        cancel_protocol: Option<&str>,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_conciliacao_request(
+            access_key,
+            ver_aplic,
+            det_pag,
+            cancel,
+            cancel_protocol,
+            seq,
+            environment,
+            tax_id,
+        );
+        // NT 2024.002: model 55 uses SVRS, model 65 uses state endpoint
+        let effective_uf = if model == 55 { "SVRS" } else { uf };
+        let raw = self
+            .send(
+                SefazService::RecepcaoEvento,
+                effective_uf,
+                environment,
+                &request_xml,
+            )
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
+
+    /// Send a raw request XML to a SEFAZ service using gzip compression.
+    ///
+    /// The request XML is gzip-compressed and base64-encoded in the SOAP
+    /// envelope, using `<nfeDadosMsgZip>` instead of `<nfeDadosMsg>`.
+    async fn send_model_compressed(
+        &self,
+        service: SefazService,
+        uf: &str,
+        environment: SefazEnvironment,
+        request_xml: &str,
+        model: u8,
+    ) -> Result<String, FiscalError> {
+        let url = get_sefaz_url_for_model(uf, environment, service.url_key(), model)?;
+        let meta = service.meta();
+        let envelope = soap::build_envelope_compressed(request_xml, uf, &meta)?;
+        let action = soap::build_action(&meta);
+
+        let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
+
+        let response = self
+            .http
+            .post(&url)
+            .header("Content-Type", &content_type)
+            .body(envelope)
+            .send()
+            .await
+            .map_err(|e| FiscalError::Network(format!("{e}")))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| FiscalError::Network(format!("Failed to read response body: {e}")))?;
+
+        if !status.is_success() {
+            return Err(FiscalError::Network(format!(
+                "SEFAZ returned HTTP {status}: {body}"
+            )));
+        }
+
+        Ok(body)
+    }
 
     /// Send a request to the Ambiente Nacional (AN) endpoint.
     ///

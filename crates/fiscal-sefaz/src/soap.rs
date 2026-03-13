@@ -62,6 +62,63 @@ pub(crate) fn build_envelope(
     Ok(s)
 }
 
+/// Build the SOAP 1.2 envelope with gzip-compressed body (`nfeDadosMsgZip`).
+///
+/// Matches PHP sped-nfe behavior: `base64(gzencode($request, 9, FORCE_GZIP))`.
+/// The request XML is gzip-compressed (level 9) and base64-encoded, then
+/// wrapped in `<nfeDadosMsgZip>` instead of `<nfeDadosMsg>`.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::InvalidStateCode`] if `uf` is not a valid
+/// Brazilian state abbreviation.
+///
+/// Returns [`FiscalError::XmlParsing`] if gzip compression fails.
+pub(crate) fn build_envelope_compressed(
+    request_xml: &str,
+    uf: &str,
+    meta: &ServiceMeta,
+) -> Result<String, FiscalError> {
+    let _cuf = get_state_code(uf)?; // validates state code
+    let namespace = format!("{NFE_PORTAL}/wsdl/{}", meta.operation);
+
+    // Gzip compress and base64 encode (matching PHP: gzencode level 9)
+    use base64::Engine as _;
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
+    use std::io::Write;
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+    encoder
+        .write_all(request_xml.as_bytes())
+        .map_err(|e| FiscalError::XmlParsing(format!("Gzip compression failed: {e}")))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| FiscalError::XmlParsing(format!("Gzip compression failed: {e}")))?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&compressed);
+
+    let mut s = String::with_capacity(b64.len() + 400);
+
+    // Envelope open
+    s.push_str("<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"");
+    s.push_str(SOAP_NS);
+    s.push_str("\">");
+
+    // Body with nfeDadosMsgZip
+    s.push_str("<soap:Body>");
+    s.push_str("<nfeDadosMsgZip xmlns=\"");
+    s.push_str(&namespace);
+    s.push_str("\">");
+    s.push_str(&b64);
+    s.push_str("</nfeDadosMsgZip>");
+    s.push_str("</soap:Body>");
+
+    // Envelope close
+    s.push_str("</soap:Envelope>");
+
+    Ok(s)
+}
+
 /// Build the SOAP 1.2 envelope for DistDFe with the special wrapper.
 ///
 /// The DistDFe service requires an extra `<nfeDistDFeInteresse>` wrapper
@@ -271,5 +328,82 @@ mod tests {
             envelope, expected,
             "DistDFe envelope must match PHP sped-nfe format exactly"
         );
+    }
+
+    #[test]
+    fn compressed_envelope_uses_nfe_dados_msg_zip() {
+        let meta = SefazService::Autorizacao.meta();
+        let body = "<enviNFe><idLote>1</idLote></enviNFe>";
+        let envelope = build_envelope_compressed(body, "SP", &meta).unwrap();
+
+        // Must use nfeDadosMsgZip instead of nfeDadosMsg
+        assert!(
+            envelope.contains("<nfeDadosMsgZip"),
+            "Compressed envelope must use nfeDadosMsgZip"
+        );
+        assert!(
+            envelope.contains("</nfeDadosMsgZip>"),
+            "Compressed envelope must close nfeDadosMsgZip"
+        );
+        assert!(
+            !envelope.contains("<nfeDadosMsg "),
+            "Compressed envelope must NOT contain nfeDadosMsg (uncompressed)"
+        );
+
+        // Must have the correct SOAP structure
+        assert!(envelope.starts_with("<soap:Envelope"));
+        assert!(envelope.ends_with("</soap:Envelope>"));
+        assert!(envelope.contains("<soap:Body>"));
+        assert!(envelope.contains("</soap:Body>"));
+
+        // Must contain the namespace
+        let expected_ns = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4";
+        assert!(
+            envelope.contains(expected_ns),
+            "Compressed envelope must contain the service namespace"
+        );
+    }
+
+    #[test]
+    fn compressed_envelope_content_is_valid_base64_gzip() {
+        use base64::Engine as _;
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+
+        let meta = SefazService::Autorizacao.meta();
+        let body = "<enviNFe><idLote>42</idLote><indSinc>1</indSinc></enviNFe>";
+        let envelope = build_envelope_compressed(body, "SP", &meta).unwrap();
+
+        // Extract the base64 content from nfeDadosMsgZip
+        let start_tag =
+            "<nfeDadosMsgZip xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4\">";
+        let start = envelope.find(start_tag).unwrap() + start_tag.len();
+        let end = envelope.find("</nfeDadosMsgZip>").unwrap();
+        let b64_content = &envelope[start..end];
+
+        // Decode base64
+        let compressed = base64::engine::general_purpose::STANDARD
+            .decode(b64_content)
+            .expect("Content must be valid base64");
+
+        // Decompress gzip
+        let mut decoder = GzDecoder::new(&compressed[..]);
+        let mut decompressed = String::new();
+        decoder
+            .read_to_string(&mut decompressed)
+            .expect("Content must be valid gzip");
+
+        // Verify the decompressed content matches the original
+        assert_eq!(
+            decompressed, body,
+            "Decompressed content must match original XML"
+        );
+    }
+
+    #[test]
+    fn compressed_envelope_rejects_invalid_state() {
+        let meta = SefazService::Autorizacao.meta();
+        let err = build_envelope_compressed("<test/>", "XX", &meta).unwrap_err();
+        assert!(matches!(err, FiscalError::InvalidStateCode(_)));
     }
 }
