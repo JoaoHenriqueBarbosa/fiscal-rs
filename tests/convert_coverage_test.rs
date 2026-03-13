@@ -464,6 +464,47 @@ fn sebrae_fixture_as_local() {
     let _ = fiscal::convert::txt_to_xml(&t, "local");
 }
 
+// YA04 card fields including CNPJReceb and idTermPag
+#[test]
+fn ya04_card_with_cnpj_receb_and_id_term_pag() {
+    // Based on the SEBRAE layout which supports YA01 + YA04
+    let txt = minimal_txt_sebrae().replace(
+        "YA01||90|18.08|\n",
+        "YA01||03|18.08|\nYA04|1|12345678000199|02|AUTH456|98765432000188|TERMINAL01|\n",
+    );
+    let xml = fiscal::convert::txt_to_xml(&txt, "sebrae").unwrap();
+    assert!(xml.contains("<card>"), "Missing <card> element");
+    assert!(
+        xml.contains("<tpIntegra>1</tpIntegra>"),
+        "Missing tpIntegra"
+    );
+    assert!(xml.contains("<CNPJ>12345678000199</CNPJ>"), "Missing CNPJ");
+    assert!(xml.contains("<tBand>02</tBand>"), "Missing tBand");
+    assert!(xml.contains("<cAut>AUTH456</cAut>"), "Missing cAut");
+    assert!(
+        xml.contains("<CNPJReceb>98765432000188</CNPJReceb>"),
+        "Missing CNPJReceb"
+    );
+    assert!(
+        xml.contains("<idTermPag>TERMINAL01</idTermPag>"),
+        "Missing idTermPag"
+    );
+}
+
+#[test]
+fn ya04_card_without_cnpj_receb() {
+    // Based on the SEBRAE layout which supports YA01 + YA04
+    let txt = minimal_txt_sebrae().replace(
+        "YA01||90|18.08|\n",
+        "YA01||03|18.08|\nYA04|2|12345678000199|01|AUTH789|||\n",
+    );
+    let xml = fiscal::convert::txt_to_xml(&txt, "sebrae").unwrap();
+    assert!(xml.contains("<tpIntegra>2</tpIntegra>"));
+    assert!(xml.contains("<cAut>AUTH789</cAut>"));
+    assert!(!xml.contains("<CNPJReceb>"), "CNPJReceb should be absent");
+    assert!(!xml.contains("<idTermPag>"), "idTermPag should be absent");
+}
+
 // Access key validation
 #[test]
 fn invalid_access_key() {

@@ -639,6 +639,16 @@ impl<'a> NFeParser<'a> {
             "YA01" => {
                 self.det_pag_list.push(std.clone());
             }
+            "YA04" => {
+                // Merge card fields into the last detPag entry
+                if let Some(last) = self.det_pag_list.last_mut() {
+                    for (k, v) in std.iter() {
+                        if !v.is_empty() {
+                            last.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+            }
             "Z" => {
                 self.inf_adic_fields = std.clone();
             }
@@ -1331,7 +1341,60 @@ impl<'a> NFeParser<'a> {
                 }
             }
             add_child(&mut dc, "tPag", dp.get("tPag").map(|s| s.as_str()));
+            if let Some(v) = dp.get("xPag") {
+                if !v.is_empty() {
+                    add_child_str(&mut dc, "xPag", v);
+                }
+            }
             add_child(&mut dc, "vPag", dp.get("vPag").map(|s| s.as_str()));
+            if let Some(v) = dp.get("dPag") {
+                if !v.is_empty() {
+                    add_child_str(&mut dc, "dPag", v);
+                }
+            }
+            if let Some(v) = dp.get("CNPJPag") {
+                if !v.is_empty() {
+                    add_child_str(&mut dc, "CNPJPag", v);
+                }
+            }
+            if let Some(v) = dp.get("UFPag") {
+                if !v.is_empty() {
+                    add_child_str(&mut dc, "UFPag", v);
+                }
+            }
+            // Card group
+            if let Some(tp) = dp.get("tpIntegra") {
+                if !tp.is_empty() {
+                    let mut cc = Vec::new();
+                    add_child_str(&mut cc, "tpIntegra", tp);
+                    if let Some(v) = dp.get("CNPJ") {
+                        if !v.is_empty() {
+                            add_child_str(&mut cc, "CNPJ", v);
+                        }
+                    }
+                    if let Some(v) = dp.get("tBand") {
+                        if !v.is_empty() {
+                            add_child_str(&mut cc, "tBand", v);
+                        }
+                    }
+                    if let Some(v) = dp.get("cAut") {
+                        if !v.is_empty() {
+                            add_child_str(&mut cc, "cAut", v);
+                        }
+                    }
+                    if let Some(v) = dp.get("CNPJReceb") {
+                        if !v.is_empty() {
+                            add_child_str(&mut cc, "CNPJReceb", v);
+                        }
+                    }
+                    if let Some(v) = dp.get("idTermPag") {
+                        if !v.is_empty() {
+                            add_child_str(&mut cc, "idTermPag", v);
+                        }
+                    }
+                    dc.push(xml_tag("card", &cc.join("")));
+                }
+            }
             c.push(xml_tag("detPag", &dc.join("")));
         }
         if let Some(pf) = &self.pag_fields {
@@ -1680,7 +1743,7 @@ fn structure_400_sebrae() -> HashMap<&'static str, &'static str> {
         "Y07" => "Y07|nDup|dVenc|vDup|",
         "YA" => "YA|vTroco|",
         "YA01" => "YA01|indPag|tPag|vPag|",
-        "YA04" => "YA04|tpIntegra|CNPJ|tBand|cAut|",
+        "YA04" => "YA04|tpIntegra|CNPJ|tBand|cAut|CNPJReceb|idTermPag|",
         "Z" => "Z|infAdFisco|infCpl|",
         "ZD" => "ZD|CNPJ|xContato|email|fone|CSRT|idCSRT|"
     }

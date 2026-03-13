@@ -90,6 +90,74 @@ fn builder_payment_card_details() {
 }
 
 #[test]
+fn builder_payment_card_with_cnpj_receb_and_id_term_pag() {
+    let built = common::sample_invoice_builder()
+        .payment_card_details(vec![
+            PaymentCardDetail::new()
+                .integ_type("1")
+                .card_tax_id("12345678000199")
+                .card_brand("01")
+                .auth_code("ABC123")
+                .cnpj_receb("98765432000188")
+                .id_term_pag("TRM00142"),
+        ])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+    assert!(xml.contains("<card>"));
+    assert!(xml.contains("<tpIntegra>1</tpIntegra>"));
+    assert!(xml.contains("<CNPJ>12345678000199</CNPJ>"));
+    assert!(xml.contains("<tBand>01</tBand>"));
+    assert!(xml.contains("<cAut>ABC123</cAut>"));
+    assert!(xml.contains("<CNPJReceb>98765432000188</CNPJReceb>"));
+    assert!(xml.contains("<idTermPag>TRM00142</idTermPag>"));
+    // Verify ordering within <card>: CNPJReceb after cAut, idTermPag after CNPJReceb
+    let card_start = xml.find("<card>").unwrap();
+    let card_end = xml.find("</card>").unwrap();
+    let card_xml = &xml[card_start..card_end];
+    let pos_caut = card_xml.find("<cAut>").unwrap();
+    let pos_cnpj_receb = card_xml.find("<CNPJReceb>").unwrap();
+    let pos_id_term = card_xml.find("<idTermPag>").unwrap();
+    assert!(pos_caut < pos_cnpj_receb, "CNPJReceb must come after cAut");
+    assert!(
+        pos_cnpj_receb < pos_id_term,
+        "idTermPag must come after CNPJReceb"
+    );
+}
+
+#[test]
+fn builder_payment_card_cnpj_receb_only() {
+    let built = common::sample_invoice_builder()
+        .payment_card_details(vec![
+            PaymentCardDetail::new()
+                .integ_type("2")
+                .cnpj_receb("11222333000144"),
+        ])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+    assert!(xml.contains("<tpIntegra>2</tpIntegra>"));
+    assert!(xml.contains("<CNPJReceb>11222333000144</CNPJReceb>"));
+    assert!(!xml.contains("<idTermPag>"));
+}
+
+#[test]
+fn builder_payment_card_id_term_pag_only() {
+    let built = common::sample_invoice_builder()
+        .payment_card_details(vec![
+            PaymentCardDetail::new()
+                .integ_type("1")
+                .id_term_pag("TERMINAL99"),
+        ])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+    assert!(xml.contains("<tpIntegra>1</tpIntegra>"));
+    assert!(xml.contains("<idTermPag>TERMINAL99</idTermPag>"));
+    assert!(!xml.contains("<CNPJReceb>"));
+}
+
+#[test]
 fn builder_exit_at() {
     let offset = common::br_offset();
     let exit = chrono::NaiveDate::from_ymd_opt(2026, 1, 16)
