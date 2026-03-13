@@ -25,7 +25,7 @@ use crate::xml_utils::extract_xml_tag_value;
 pub struct Contingency {
     /// The active contingency type, or `None` when in normal mode.
     pub contingency_type: Option<ContingencyType>,
-    /// Justification reason for entering contingency (15-256 chars).
+    /// Justification reason for entering contingency (15-255 chars).
     pub reason: Option<String>,
     /// ISO-8601 timestamp when contingency was activated.
     pub activated_at: Option<String>,
@@ -51,14 +51,14 @@ impl Contingency {
 
     /// Activate contingency mode with the given type and justification reason.
     ///
-    /// The reason is trimmed and must be between 15 and 256 UTF-8 characters
+    /// The reason is trimmed and must be between 15 and 255 UTF-8 characters
     /// (inclusive). On success, the contingency is activated with the current
     /// UTC timestamp.
     ///
     /// # Errors
     ///
     /// Returns [`FiscalError::Contingency`] if the trimmed reason is shorter
-    /// than 15 characters or longer than 256 characters.
+    /// than 15 characters or longer than 255 characters.
     pub fn activate(
         &mut self,
         contingency_type: ContingencyType,
@@ -66,9 +66,9 @@ impl Contingency {
     ) -> Result<(), FiscalError> {
         let trimmed = reason.trim();
         let len = trimmed.chars().count();
-        if !(15..=256).contains(&len) {
+        if !(15..=255).contains(&len) {
             return Err(FiscalError::Contingency(
-                "The justification for entering contingency mode must be between 15 and 256 UTF-8 characters.".to_string(),
+                "The justification for entering contingency mode must be between 15 and 255 UTF-8 characters.".to_string(),
             ));
         }
 
@@ -695,9 +695,25 @@ mod tests {
     #[test]
     fn activate_rejects_long_reason() {
         let mut c = Contingency::new();
-        let motive = "A".repeat(257);
+        let motive = "A".repeat(256);
         let result = c.activate(ContingencyType::SvcAn, &motive);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn activate_accepts_255_char_reason() {
+        let mut c = Contingency::new();
+        let motive = "A".repeat(255);
+        let result = c.activate(ContingencyType::SvcAn, &motive);
+        assert!(result.is_ok(), "255-char reason must be accepted");
+    }
+
+    #[test]
+    fn activate_rejects_256_char_reason() {
+        let mut c = Contingency::new();
+        let motive = "A".repeat(256);
+        let result = c.activate(ContingencyType::SvcAn, &motive);
+        assert!(result.is_err(), "256-char reason must be rejected");
     }
 
     #[test]
