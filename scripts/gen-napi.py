@@ -139,8 +139,11 @@ def extract_impl_methods(root: ts.Node, type_name: str) -> list[FnSig]:
 
 
 # Enums that are accepted as strings from JS and parsed at runtime.
-# Maps enum_name → local variable name used in generated code.
 PARSEABLE_ENUMS = {"SefazEnvironment", "SignatureAlgorithm", "SefazService"}
+
+# Struct types that cannot be deserialized (contain Box<dyn Fn>, lifetimes, etc.)
+# These cause map_param to return None, skipping the function.
+_NON_DESERIALIZABLE_TYPES = {"NfceQrCodeParams"}
 
 
 # ── Type mapping (generic, based purely on the Rust type string) ─────────────
@@ -208,8 +211,14 @@ def map_param(p: Param) -> tuple[str, str]:
                     if inner.type == "type_identifier" and inner_text in ("u32", "i32", "u16", "i16", "u8", "i8", "f64", "f32"):
                         return f"{p.name}: Option<{inner_text}>", p.name
 
-    # Any other known enum not in PARSEABLE_ENUMS — skip
-    # (already handled above)
+    # Reference to a struct (&StructName) — accept as serde_json::Value
+    # and deserialize in the wrapper body.
+    # Skip if the struct is known to not implement Deserialize.
+    if t.startswith("&") and not t.startswith("&[") and not t.startswith("&str"):
+        inner = t[1:].strip()
+        if inner in _NON_DESERIALIZABLE_TYPES:
+            return None, None
+        return f"{p.name}: serde_json::Value", f"&__{p.name}"
 
     # Complex struct types passed by value — need serde
     # (EpecData, Vec<EventItem>, etc.)
@@ -287,7 +296,19 @@ def map_return(ret: str | None) -> tuple[str, str]:
 
     ok_node = get_ok_type_name(ret_node)
     if not ok_node:
-        # Not a Result<T, E> — might be a plain type
+        # Not a Result<T, E> — plain type
+        plain = txt(ret_node)
+        if plain == "String":
+            return "napi::Result<String>", "direct"
+        if plain == "bool":
+            return "napi::Result<bool>", "direct"
+        if ret_node.type == "type_identifier" and plain in ("u32", "i32", "u16", "i16", "u8", "i8", "f64"):
+            return f"napi::Result<{plain}>", "direct"
+        if ret_node.type == "primitive_type":
+            return f"napi::Result<{plain}>", "direct"
+        # Option<&str> → Option<String>
+        if plain.startswith("Option"):
+            return "napi::Result<Option<String>>", "direct"
         return "napi::Result<String>", "direct"
 
     ok_text = txt(ok_node)
@@ -499,7 +520,7 @@ def gen_fn_wrapper(fn: FnSig, mod_path: str, indent: str = "") -> str | None:
     call_args = []
     needs_env_parse = False
 
-    enum_parses = []  # lines like "let sefaz_environment = parse_sefaz_environment(&param)?;"
+    preamble = []  # lines to insert at the start of the function body
 
     for p in fn.params:
         decl, expr = map_param(p)
@@ -507,10 +528,18 @@ def gen_fn_wrapper(fn: FnSig, mod_path: str, indent: str = "") -> str | None:
             return None  # unsupported param type, skip this fn
         napi_params.append(decl)
         call_args.append(expr)
-        if p.rust_type.strip() in PARSEABLE_ENUMS:
-            local_var = _camel_to_snake(p.rust_type.strip())
+        t = p.rust_type.strip()
+        if t in PARSEABLE_ENUMS:
+            local_var = _camel_to_snake(t)
             parse_fn = f"parse_{local_var}"
-            enum_parses.append(f"{indent}    let {local_var} = {parse_fn}(&{p.name})?;\n")
+            preamble.append(f"{indent}    let {local_var} = {parse_fn}(&{p.name})?;\n")
+        elif t.startswith("&") and expr.startswith("&__"):
+            # Struct reference — deserialize from serde_json::Value.
+            # Use the full type path relative to the module.
+            inner_type = t[1:].strip()
+            local_var = f"__{p.name}"
+            preamble.append(f"{indent}    let {local_var} = serde_json::from_value({p.name})\n")
+            preamble.append(f'{indent}        .map_err(|e| napi::Error::from_reason(format!("Invalid {p.name}: {{e}}")))?;\n')
 
     params_str = ", ".join(napi_params)
     args_str = ", ".join(call_args)
@@ -526,10 +555,26 @@ def gen_fn_wrapper(fn: FnSig, mod_path: str, indent: str = "") -> str | None:
 
     lines.append(f"{indent}pub fn {fn.name}({params_str}) -> {ret_type} {{\n")
 
-    for ep in enum_parses:
-        lines.append(ep)
+    for line in preamble:
+        lines.append(line)
 
-    if ret_handling == "serde":
+    # Check if the return type is a Result (via AST)
+    is_result = False
+    if fn.return_type:
+        ret_ast = parse_return_type_node(fn.return_type)
+        if ret_ast and ret_ast.type == "generic_type":
+            base = ret_ast.children[0]
+            is_result = base.type == "type_identifier" and txt(base) == "Result"
+
+    if not is_result:
+        # Non-Result return — call directly, wrap in Ok()
+        ret_text = fn.return_type or ""
+        if "Option<&" in ret_text:
+            # Option<&str> → Option<String>
+            lines.append(f"{indent}    Ok({mod_path}::{fn.name}({args_str}).map(|s| s.to_string()))\n")
+        else:
+            lines.append(f"{indent}    Ok({mod_path}::{fn.name}({args_str}))\n")
+    elif ret_handling == "serde":
         lines.append(f"{indent}    let result = {mod_path}::{fn.name}({args_str})\n")
         lines.append(f"{indent}        .map_err(|e| napi::Error::from_reason(e.to_string()))?;\n")
         lines.append(f"{indent}    serde_json::to_value(&result).map_err(|e| napi::Error::from_reason(e.to_string()))\n")
@@ -550,7 +595,7 @@ def gen_method_wrapper(fn: FnSig, indent: str = "    ") -> str | None:
 
     napi_params = ["&self"]
     call_args = []
-    enum_parses = []
+    preamble = []
 
     for p in fn.params:
         decl, expr = map_param(p)
@@ -558,10 +603,15 @@ def gen_method_wrapper(fn: FnSig, indent: str = "    ") -> str | None:
             return None  # unsupported param type, skip
         napi_params.append(decl)
         call_args.append(expr)
-        if p.rust_type.strip() in PARSEABLE_ENUMS:
-            local_var = _camel_to_snake(p.rust_type.strip())
+        t = p.rust_type.strip()
+        if t in PARSEABLE_ENUMS:
+            local_var = _camel_to_snake(t)
             parse_fn = f"parse_{local_var}"
-            enum_parses.append(f"{indent}    let {local_var} = {parse_fn}(&{p.name})?;\n")
+            preamble.append(f"{indent}    let {local_var} = {parse_fn}(&{p.name})?;\n")
+        elif t.startswith("&") and expr.startswith("&__"):
+            local_var = f"__{p.name}"
+            preamble.append(f"{indent}    let {local_var} = serde_json::from_value({p.name})\n")
+            preamble.append(f'{indent}        .map_err(|e| napi::Error::from_reason(format!("Invalid {p.name}: {{e}}")))?;\n')
 
     params_str = ",\n{i}    ".format(i=indent).join(napi_params)
     args_str = ", ".join(call_args)
@@ -576,8 +626,8 @@ def gen_method_wrapper(fn: FnSig, indent: str = "    ") -> str | None:
 
     lines.append(f"{indent}pub async fn {fn.name}(\n{indent}    {params_str},\n{indent}) -> {ret_type} {{\n")
 
-    for ep in enum_parses:
-        lines.append(ep)
+    for line in preamble:
+        lines.append(line)
 
     if ret_handling == "serde":
         lines.append(f"{indent}    let resp = self\n")
@@ -602,10 +652,22 @@ def gen_method_wrapper(fn: FnSig, indent: str = "    ") -> str | None:
 def gen_utils() -> str:
     out = ["use napi_derive::napi;\n\n"]
 
-    # Modules to scan for standalone pub fns
+    # Modules to scan for standalone pub fns.
+    # Each entry: (file_path, rust_module_path, section_label)
     scan = [
+        # fiscal-core
         ("crates/fiscal-core/src/standardize.rs", "fiscal_core::standardize", "Standardize"),
         ("crates/fiscal-core/src/convert/mod.rs", "fiscal_core::convert", "Convert"),
+        ("crates/fiscal-core/src/qrcode.rs", "fiscal_core::qrcode", "QR Code"),
+        ("crates/fiscal-core/src/sanitize.rs", "fiscal_core::sanitize", "Sanitize"),
+        ("crates/fiscal-core/src/gtin.rs", "fiscal_core::gtin", "GTIN"),
+        ("crates/fiscal-core/src/state_codes.rs", "fiscal_core::state_codes", "State Codes"),
+        ("crates/fiscal-core/src/timezone.rs", "fiscal_core::timezone", "Timezone"),
+        ("crates/fiscal-core/src/xml_utils.rs", "fiscal_core::xml_utils", "XML Utils"),
+        ("crates/fiscal-core/src/config.rs", "fiscal_core::config", "Config"),
+        # fiscal-sefaz
+        ("crates/fiscal-sefaz/src/validate.rs", "fiscal_sefaz::validate", "Validate"),
+        ("crates/fiscal-sefaz/src/urls/mod.rs", "fiscal_sefaz::urls", "SEFAZ URLs"),
     ]
 
     for rel_path, mod_path, label in scan:
@@ -624,20 +686,36 @@ def gen_utils() -> str:
             out.append(f"// ── {label} {'─' * (60 - len(label))}\n\n")
             out.extend(section_fns)
 
-    # Complement — only re-exported functions (from pub use in mod.rs)
-    complement_dir = ROOT / "crates/fiscal-core/src/complement"
-    if complement_dir.exists():
-        complement_fns_list = collect_exported_fns(complement_dir)
+    # Directory-based modules — use collect_exported_fns to filter by pub use
+    dir_scan = [
+        ("crates/fiscal-core/src/complement", "fiscal_core::complement", "Complement"),
+        ("crates/fiscal-sefaz/src/request_builders", "fiscal_sefaz::request_builders", "Request Builders"),
+        ("crates/fiscal-sefaz/src/response_parsers", "fiscal_sefaz::response_parsers", "Response Parsers"),
+    ]
+
+    for rel_dir, mod_path, label in dir_scan:
+        mod_dir = ROOT / rel_dir
+        if not mod_dir.exists():
+            continue
+        exported_fns = collect_exported_fns(mod_dir)
         section_fns = []
-        for fn in complement_fns_list:
-            wrapper = gen_fn_wrapper(fn, "fiscal_core::complement")
+        for fn in exported_fns:
+            wrapper = gen_fn_wrapper(fn, mod_path)
             if wrapper:
                 section_fns.append(wrapper)
             else:
                 skipped.append((fn.name, "unsupported param type"))
         if section_fns:
-            out.append(f"// ── Complement {'─' * 44}\n\n")
+            out.append(f"// ── {label} {'─' * (60 - len(label))}\n\n")
             out.extend(section_fns)
+
+    # Generate enum parsers needed by utils functions
+    out.append("\n// ── Enum Parsers ─────────────────────────────────────────────\n\n")
+    out.append(gen_enum_parser(
+        "SefazEnvironment",
+        "fiscal_core::types::SefazEnvironment",
+        ROOT / "crates/fiscal-core/src/types/enums.rs",
+    ))
 
     return "".join(out)
 

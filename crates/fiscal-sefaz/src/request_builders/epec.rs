@@ -10,7 +10,8 @@ use super::helpers::{build_event_xml_with_org, extract_section};
 ///
 /// All fields are extracted from the signed NF-e XML. The struct is used
 /// as input to [`build_epec_request`] to avoid a long parameter list.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EpecData {
     /// 44-digit NF-e access key (from `infNFe@Id`, without "NFe" prefix).
     pub access_key: String,
@@ -269,7 +270,8 @@ pub fn build_epec_nfce_status_request(uf: &str, environment: SefazEnvironment) -
 ///
 /// All fields are extracted from the signed NFC-e XML. Used as input to
 /// [`build_epec_nfce_request`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EpecNfceData {
     /// 44-digit NFC-e access key (from `infNFe@Id`, without "NFe" prefix).
     pub access_key: String,

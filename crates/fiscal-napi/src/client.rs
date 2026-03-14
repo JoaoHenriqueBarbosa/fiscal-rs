@@ -579,6 +579,39 @@ impl SefazClient {
         to_json(&resp)
     }
 
+    /// Submit an EPEC (Evento Prévio de Emissão em Contingência) event
+    /// (`RecepcaoEvento4`, tpEvento=110140).
+    ///
+    /// The EPEC event is sent to the Ambiente Nacional (AN) endpoint.
+    /// The NF-e XML data is extracted via [`request_builders::extract_epec_data`]
+    /// and assembled into an EPEC event request.
+    ///
+    /// # Arguments
+    ///
+    /// * `epec_data` — Pre-extracted NF-e data for the EPEC event.
+    /// * `environment` — SEFAZ environment (production or homologation).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[napi(ts_return_type = "Promise<Record<string, unknown>>")]
+    pub async fn epec(
+        &self,
+        epec_data: serde_json::Value,
+        environment: String,
+    ) -> napi::Result<serde_json::Value> {
+        let __epec_data = serde_json::from_value(epec_data)
+            .map_err(|e| napi::Error::from_reason(format!("Invalid epec_data: {e}")))?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
+        let resp = self
+            .inner
+            .epec(&__epec_data, sefaz_environment)
+            .await
+            .map_err(to_napi)?;
+        to_json(&resp)
+    }
+
     /// Check EPEC NFC-e service status (`EPECStatusServico`, SP only).
     ///
     /// Queries the operational status of the EPEC NFC-e service. This
@@ -605,6 +638,44 @@ impl SefazClient {
         let resp = self
             .inner
             .epec_nfce_status(&uf, sefaz_environment)
+            .await
+            .map_err(to_napi)?;
+        to_json(&resp)
+    }
+
+    /// Submit an EPEC event for NFC-e (`RecepcaoEPEC`, tpEvento=110140,
+    /// SP only).
+    ///
+    /// The EPEC NFC-e event is sent to the state's `RecepcaoEPEC` endpoint
+    /// (not Ambiente Nacional). This is only available in SP and differs
+    /// from the standard EPEC: no `<vST>`, optional `<dest>`, and
+    /// `cOrgao` is the state's IBGE code.
+    ///
+    /// Matches the PHP `sefazEpecNfce()` method from `TraitEPECNfce`.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation (must be `"SP"`).
+    /// * `epec_data` — Pre-extracted NFC-e data for the EPEC event.
+    /// * `environment` — SEFAZ environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[napi(ts_return_type = "Promise<Record<string, unknown>>")]
+    pub async fn epec_nfce(
+        &self,
+        uf: String,
+        epec_data: serde_json::Value,
+        environment: String,
+    ) -> napi::Result<serde_json::Value> {
+        let __epec_data = serde_json::from_value(epec_data)
+            .map_err(|e| napi::Error::from_reason(format!("Invalid epec_data: {e}")))?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
+        let resp = self
+            .inner
+            .epec_nfce(&uf, &__epec_data, sefaz_environment)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -997,7 +1068,7 @@ impl SefazClient {
     }
 }
 
-// Skipped: authorize_batch (unsupported param type), authorize_batch_compressed (unsupported param type), authorize_batch_nfce (unsupported param type), prorrogacao (unsupported param type), epec (unsupported param type), epec_nfce (unsupported param type), event_batch (unsupported param type), manifest_batch (unsupported param type), conciliacao (unsupported param type), rtc_importacao_zfm (unsupported param type), rtc_roubo_perda_fornecedor (unsupported param type), rtc_fornecimento_nao_realizado (unsupported param type), rtc_sol_aprop_cred_presumido (unsupported param type), rtc_destino_consumo_pessoal (unsupported param type), rtc_roubo_perda_adquirente (unsupported param type), rtc_imobilizacao_item (unsupported param type), rtc_apropriacao_credito_comb (unsupported param type), rtc_apropriacao_credito_bens (unsupported param type)
+// Skipped: authorize_batch (unsupported param type), authorize_batch_compressed (unsupported param type), authorize_batch_nfce (unsupported param type), prorrogacao (unsupported param type), event_batch (unsupported param type), manifest_batch (unsupported param type), conciliacao (unsupported param type), rtc_importacao_zfm (unsupported param type), rtc_roubo_perda_fornecedor (unsupported param type), rtc_fornecimento_nao_realizado (unsupported param type), rtc_sol_aprop_cred_presumido (unsupported param type), rtc_destino_consumo_pessoal (unsupported param type), rtc_roubo_perda_adquirente (unsupported param type), rtc_imobilizacao_item (unsupported param type), rtc_apropriacao_credito_comb (unsupported param type), rtc_apropriacao_credito_bens (unsupported param type)
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
