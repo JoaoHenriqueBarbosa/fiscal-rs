@@ -15,3 +15,4 @@ pr_labels = ["release"]
 name = "fiscal-napi"
 publish = false
 semver_check = false
+git_only = true
