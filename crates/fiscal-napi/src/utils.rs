@@ -280,6 +280,31 @@ pub fn attach_inutilizacao(request_xml: String, response_xml: String) -> napi::R
         .map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
+/// Detect the document type from raw XML and dispatch to the correct
+/// protocol-attachment function.
+///
+/// This mirrors the PHP `Complements::toAuthorize()` method, which uses
+/// `Standardize::whichIs()` internally. The detection logic checks for
+/// the same root tags in the same priority order as the PHP implementation:
+///
+/// | Detected tag    | Dispatches to                  |
+/// |-----------------|-------------------------------|
+/// | `NFe`           | [`attach_protocol`]           |
+/// | `envEvento`     | [`attach_event_protocol`]     |
+/// | `inutNFe`       | [`attach_inutilizacao`]       |
+///
+/// # Errors
+///
+/// Returns [`FiscalError::XmlParsing`] if:
+/// - Either input is empty
+/// - The request XML does not match any of the known document types
+/// - The delegated function returns an error
+#[napi]
+pub fn to_authorize(request_xml: String, response_xml: String) -> napi::Result<String> {
+    fiscal_core::complement::to_authorize(&request_xml, &response_xml)
+        .map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
 /// Attach the SEFAZ authorization protocol to a signed NFe XML,
 /// producing the `<nfeProc>` wrapper required for storage and DANFE.
 ///

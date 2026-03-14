@@ -39,11 +39,15 @@ pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Valu
     if let Some(v) = cfg.add_item {
         builder = builder.add_item(v);
     }
-    builder = builder.items(cfg.items);
+    if let Some(v) = cfg.items {
+        builder = builder.items(v);
+    }
     if let Some(v) = cfg.recipient {
         builder = builder.recipient(v);
     }
-    builder = builder.payments(cfg.payments);
+    if let Some(v) = cfg.payments {
+        builder = builder.payments(v);
+    }
     if let Some(v) = cfg.change_amount {
         builder = builder.change_amount(v);
     }
@@ -200,9 +204,9 @@ struct BuildInvoiceConfig {
     issued_at: Option<String>,
     operation_nature: Option<String>,
     add_item: Option<InvoiceItemData>,
-    items: Vec<InvoiceItemData>,
+    items: Option<Vec<InvoiceItemData>>,
     recipient: Option<RecipientData>,
-    payments: Vec<PaymentData>,
+    payments: Option<Vec<PaymentData>>,
     change_amount: Option<Cents>,
     payment_card_details: Option<Vec<PaymentCardDetail>>,
     contingency: Option<ContingencyData>,

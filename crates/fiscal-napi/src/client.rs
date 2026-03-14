@@ -22,8 +22,12 @@ impl SefazClient {
     /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
     #[napi(ts_return_type = "Promise<Record<string, unknown>>")]
     pub async fn status(&self, uf: String, environment: String) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
-        let resp = self.inner.status(&uf, env).await.map_err(to_napi)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
+        let resp = self
+            .inner
+            .status(&uf, sefaz_environment)
+            .await
+            .map_err(to_napi)?;
         to_json(&resp)
     }
 
@@ -44,10 +48,10 @@ impl SefazClient {
         signed_xml: String,
         lot_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .authorize(&uf, env, &signed_xml, &lot_id)
+            .authorize(&uf, sefaz_environment, &signed_xml, &lot_id)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -66,10 +70,10 @@ impl SefazClient {
         signed_xml: String,
         lot_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .authorize_compressed(&uf, env, &signed_xml, &lot_id)
+            .authorize_compressed(&uf, sefaz_environment, &signed_xml, &lot_id)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -86,10 +90,10 @@ impl SefazClient {
         signed_xml: String,
         lot_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .authorize_nfce(&uf, env, &signed_xml, &lot_id)
+            .authorize_nfce(&uf, sefaz_environment, &signed_xml, &lot_id)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -106,10 +110,10 @@ impl SefazClient {
         signed_xml: String,
         lot_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .authorize_nfce_compressed(&uf, env, &signed_xml, &lot_id)
+            .authorize_nfce_compressed(&uf, sefaz_environment, &signed_xml, &lot_id)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -131,10 +135,10 @@ impl SefazClient {
         environment: String,
         receipt: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .consult_receipt(&uf, env, &receipt)
+            .consult_receipt(&uf, sefaz_environment, &receipt)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -156,10 +160,10 @@ impl SefazClient {
         environment: String,
         access_key: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .consult(&uf, env, &access_key)
+            .consult(&uf, sefaz_environment, &access_key)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -179,11 +183,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .ator_interessado(
-                env,
+                sefaz_environment,
                 &access_key,
                 tp_autor as u8,
                 &ver_aplic,
@@ -216,11 +220,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .comprovante_entrega(
-                env,
+                sefaz_environment,
                 &access_key,
                 &ver_aplic,
                 &delivery_date,
@@ -250,11 +254,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .cancel_comprovante_entrega(
-                env,
+                sefaz_environment,
                 &access_key,
                 &ver_aplic,
                 &event_protocol,
@@ -285,11 +289,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .insucesso_entrega(
-                env,
+                sefaz_environment,
                 &access_key,
                 &ver_aplic,
                 &attempt_date,
@@ -320,11 +324,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .cancel_insucesso_entrega(
-                env,
+                sefaz_environment,
                 &access_key,
                 &ver_aplic,
                 &event_protocol,
@@ -348,10 +352,18 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .cancel_prorrogacao(&uf, env, &access_key, &protocol, second_term, seq, &tax_id)
+            .cancel_prorrogacao(
+                &uf,
+                sefaz_environment,
+                &access_key,
+                &protocol,
+                second_term,
+                seq,
+                &tax_id,
+            )
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -380,10 +392,17 @@ impl SefazClient {
         justification: String,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .cancel(&uf, env, &access_key, &protocol, &justification, &tax_id)
+            .cancel(
+                &uf,
+                sefaz_environment,
+                &access_key,
+                &protocol,
+                &justification,
+                &tax_id,
+            )
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -412,10 +431,17 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .cce(&uf, env, &access_key, &correction, seq, &tax_id)
+            .cce(
+                &uf,
+                sefaz_environment,
+                &access_key,
+                &correction,
+                seq,
+                &tax_id,
+            )
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -441,9 +467,9 @@ impl SefazClient {
         environment: String,
         signed_inut_xml: String,
     ) -> napi::Result<String> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         self.inner
-            .inutilize(&uf, env, &signed_inut_xml)
+            .inutilize(&uf, sefaz_environment, &signed_inut_xml)
             .await
             .map_err(to_napi)
     }
@@ -470,11 +496,11 @@ impl SefazClient {
         seq: u32,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .manifest(
-                env,
+                sefaz_environment,
                 &access_key,
                 &event_type,
                 justification.as_deref(),
@@ -509,10 +535,16 @@ impl SefazClient {
         nsu: Option<String>,
         access_key: Option<String>,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .dist_dfe(&uf, env, &tax_id, nsu.as_deref(), access_key.as_deref())
+            .dist_dfe(
+                &uf,
+                sefaz_environment,
+                &tax_id,
+                nsu.as_deref(),
+                access_key.as_deref(),
+            )
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -538,10 +570,10 @@ impl SefazClient {
         search_type: String,
         search_value: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .cadastro(&uf, env, &search_type, &search_value)
+            .cadastro(&uf, sefaz_environment, &search_type, &search_value)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -569,10 +601,10 @@ impl SefazClient {
         uf: String,
         environment: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .epec_nfce_status(&uf, env)
+            .epec_nfce_status(&uf, sefaz_environment)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -590,12 +622,12 @@ impl SefazClient {
         ver_aplic: String,
         tax_id: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .cancel_substituicao(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 &ref_access_key,
                 &protocol,
@@ -632,10 +664,10 @@ impl SefazClient {
         tax_id: String,
         access_key: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .download(&uf, env, &tax_id, &access_key)
+            .download(&uf, sefaz_environment, &tax_id, &access_key)
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -669,11 +701,11 @@ impl SefazClient {
         csc_id: Option<String>,
         csc_code: Option<String>,
     ) -> napi::Result<String> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         self.inner
             .csc(
                 &uf,
-                env,
+                sefaz_environment,
                 ind_op as u8,
                 &cnpj,
                 csc_id.as_deref(),
@@ -683,7 +715,18 @@ impl SefazClient {
             .map_err(to_napi)
     }
 
-    /// Create a new SEFAZ client from a PKCS#12 (PFX) certificate buffer.
+    /// Create a new client from a PKCS#12 (PFX) certificate buffer.
+    ///
+    /// The PFX is parsed and installed as the TLS client identity for all
+    /// subsequent requests. TLS 1.2 is enforced as required by SEFAZ.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Certificate`] if:
+    /// - The PFX buffer is invalid or the passphrase is wrong
+    /// - The underlying TLS stack rejects the certificate
+    ///
+    /// Returns [`FiscalError::Network`] if the HTTP client cannot be built.
     #[napi(constructor)]
     pub fn new(pfx_buffer: Buffer, passphrase: String) -> napi::Result<Self> {
         let inner =
@@ -713,10 +756,35 @@ impl SefazClient {
         environment: String,
         request_xml: String,
     ) -> napi::Result<String> {
-        let env = parse_env(&environment)?;
-        let svc = parse_service(&service)?;
+        let sefaz_service = parse_sefaz_service(&service)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         self.inner
-            .send(svc, &uf, env, &request_xml)
+            .send(sefaz_service, &uf, sefaz_environment, &request_xml)
+            .await
+            .map_err(to_napi)
+    }
+
+    /// Send a raw request XML to a SEFAZ service for a specific invoice model
+    /// (55 = NF-e, 65 = NFC-e) and return the raw response XML.
+    #[napi]
+    pub async fn send_model(
+        &self,
+        service: String,
+        uf: String,
+        environment: String,
+        request_xml: String,
+        model: u32,
+    ) -> napi::Result<String> {
+        let sefaz_service = parse_sefaz_service(&service)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
+        self.inner
+            .send_model(
+                sefaz_service,
+                &uf,
+                sefaz_environment,
+                &request_xml,
+                model as u8,
+            )
             .await
             .map_err(to_napi)
     }
@@ -770,10 +838,17 @@ impl SefazClient {
         tax_id: String,
         ver_aplic: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
-            .rtc_info_pagto_integral(&uf, env, &access_key, seq, &tax_id, &ver_aplic)
+            .rtc_info_pagto_integral(
+                &uf,
+                sefaz_environment,
+                &access_key,
+                seq,
+                &tax_id,
+                &ver_aplic,
+            )
             .await
             .map_err(to_napi)?;
         to_json(&resp)
@@ -790,12 +865,12 @@ impl SefazClient {
         ver_aplic: String,
         ind_aceitacao: u32,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .rtc_aceite_debito(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 seq,
                 &tax_id,
@@ -818,12 +893,12 @@ impl SefazClient {
         ver_aplic: String,
         ind_aceitacao: u32,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .rtc_manif_transf_cred_ibs(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 seq,
                 &tax_id,
@@ -846,12 +921,12 @@ impl SefazClient {
         ver_aplic: String,
         ind_aceitacao: u32,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .rtc_manif_transf_cred_cbs(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 seq,
                 &tax_id,
@@ -875,12 +950,12 @@ impl SefazClient {
         tp_evento_aut: String,
         n_prot_evento: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .rtc_cancela_evento(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 seq,
                 &tax_id,
@@ -904,12 +979,12 @@ impl SefazClient {
         ver_aplic: String,
         data_prevista: String,
     ) -> napi::Result<serde_json::Value> {
-        let env = parse_env(&environment)?;
+        let sefaz_environment = parse_sefaz_environment(&environment)?;
         let resp = self
             .inner
             .rtc_atualizacao_data_entrega(
                 &uf,
-                env,
+                sefaz_environment,
                 &access_key,
                 seq,
                 &tax_id,
@@ -922,7 +997,7 @@ impl SefazClient {
     }
 }
 
-// Skipped methods (unsupported param types): authorize_batch, authorize_batch_compressed, authorize_batch_nfce, prorrogacao, epec, epec_nfce, event_batch, manifest_batch, conciliacao, rtc_importacao_zfm, rtc_roubo_perda_fornecedor, rtc_fornecimento_nao_realizado, rtc_sol_aprop_cred_presumido, rtc_destino_consumo_pessoal, rtc_roubo_perda_adquirente, rtc_imobilizacao_item, rtc_apropriacao_credito_comb, rtc_apropriacao_credito_bens
+// Skipped: authorize_batch (unsupported param type), authorize_batch_compressed (unsupported param type), authorize_batch_nfce (unsupported param type), prorrogacao (unsupported param type), epec (unsupported param type), epec_nfce (unsupported param type), event_batch (unsupported param type), manifest_batch (unsupported param type), conciliacao (unsupported param type), rtc_importacao_zfm (unsupported param type), rtc_roubo_perda_fornecedor (unsupported param type), rtc_fornecimento_nao_realizado (unsupported param type), rtc_sol_aprop_cred_presumido (unsupported param type), rtc_destino_consumo_pessoal (unsupported param type), rtc_roubo_perda_adquirente (unsupported param type), rtc_imobilizacao_item (unsupported param type), rtc_apropriacao_credito_comb (unsupported param type), rtc_apropriacao_credito_bens (unsupported param type)
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -934,36 +1009,35 @@ fn to_json(v: &impl serde::Serialize) -> napi::Result<serde_json::Value> {
     serde_json::to_value(v).map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
-fn parse_env(s: &str) -> napi::Result<SefazEnvironment> {
+fn parse_sefaz_environment(s: &str) -> napi::Result<SefazEnvironment> {
     match s.to_lowercase().as_str() {
         "production" | "1" => Ok(SefazEnvironment::Production),
         "homologation" | "2" => Ok(SefazEnvironment::Homologation),
         _ => Err(napi::Error::from_reason(format!(
-            "Invalid environment: \"{s}\". Expected \"production\" or \"homologation\"."
+            "Invalid SefazEnvironment: \"{s}\""
         ))),
     }
 }
 
-fn parse_service(s: &str) -> napi::Result<fiscal_sefaz::services::SefazService> {
-    use fiscal_sefaz::services::SefazService;
-    match s {
-        "StatusServico" => Ok(SefazService::StatusServico),
-        "Autorizacao" => Ok(SefazService::Autorizacao),
-        "RetAutorizacao" => Ok(SefazService::RetAutorizacao),
-        "ConsultaProtocolo" => Ok(SefazService::ConsultaProtocolo),
-        "Inutilizacao" => Ok(SefazService::Inutilizacao),
-        "RecepcaoEvento" => Ok(SefazService::RecepcaoEvento),
-        "DistribuicaoDFe" => Ok(SefazService::DistribuicaoDFe),
-        "ConsultaCadastro" => Ok(SefazService::ConsultaCadastro),
-        "CscNFCe" => Ok(SefazService::CscNFCe),
-        "RecepcaoEPEC" => Ok(SefazService::RecepcaoEPEC),
-        "EPECStatusServico" => Ok(SefazService::EPECStatusServico),
-        "RecepcaoEpecNfce" => Ok(SefazService::RecepcaoEpecNfce),
-        "EpecNfceStatusServico" => Ok(SefazService::EpecNfceStatusServico),
-        "NfeConsultaDest" => Ok(SefazService::NfeConsultaDest),
-        "NfeDownloadNF" => Ok(SefazService::NfeDownloadNF),
+fn parse_sefaz_service(s: &str) -> napi::Result<fiscal_sefaz::services::SefazService> {
+    match s.to_lowercase().as_str() {
+        "statusServico" => Ok(fiscal_sefaz::services::SefazService::StatusServico),
+        "autorizacao" => Ok(fiscal_sefaz::services::SefazService::Autorizacao),
+        "retAutorizacao" => Ok(fiscal_sefaz::services::SefazService::RetAutorizacao),
+        "consultaProtocolo" => Ok(fiscal_sefaz::services::SefazService::ConsultaProtocolo),
+        "inutilizacao" => Ok(fiscal_sefaz::services::SefazService::Inutilizacao),
+        "recepcaoEvento" => Ok(fiscal_sefaz::services::SefazService::RecepcaoEvento),
+        "distribuicaoDFe" => Ok(fiscal_sefaz::services::SefazService::DistribuicaoDFe),
+        "consultaCadastro" => Ok(fiscal_sefaz::services::SefazService::ConsultaCadastro),
+        "cscNFCe" => Ok(fiscal_sefaz::services::SefazService::CscNFCe),
+        "recepcaoEPEC" => Ok(fiscal_sefaz::services::SefazService::RecepcaoEPEC),
+        "ePECStatusServico" => Ok(fiscal_sefaz::services::SefazService::EPECStatusServico),
+        "recepcaoEpecNfce" => Ok(fiscal_sefaz::services::SefazService::RecepcaoEpecNfce),
+        "epecNfceStatusServico" => Ok(fiscal_sefaz::services::SefazService::EpecNfceStatusServico),
+        "nfeConsultaDest" => Ok(fiscal_sefaz::services::SefazService::NfeConsultaDest),
+        "nfeDownloadNF" => Ok(fiscal_sefaz::services::SefazService::NfeDownloadNF),
         _ => Err(napi::Error::from_reason(format!(
-            "Unknown service: \"{s}\""
+            "Invalid SefazService: \"{s}\""
         ))),
     }
 }
