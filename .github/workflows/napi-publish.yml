@@ -151,14 +151,19 @@ jobs:
             echo "$d: $(ls "$d"fiscal.*.node 2>/dev/null | wc -l) binary"
           done
 
+      - name: Prepare platform packages
+        working-directory: crates/fiscal-napi
+        run: bunx napi prepublish --no-gh-release --skip-optional-publish -t npm
+
       - name: Publish platform packages
         working-directory: crates/fiscal-napi
-        run: bunx napi prepublish --no-gh-release -t npm
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in npm/*/; do
+            cd "$pkg"
+            npm publish --access public || true
+            cd ../..
+          done
 
       - name: Publish main package
         working-directory: crates/fiscal-napi
-        run: bun publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

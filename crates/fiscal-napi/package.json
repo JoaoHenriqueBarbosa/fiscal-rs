@@ -49,7 +49,6 @@
     "artifacts": "napi artifacts",
     "build": "napi build --release --platform",
     "build:debug": "napi build --platform",
-    "prepublishOnly": "napi prepublish -t npm",
     "version": "napi version"
   }
 }
