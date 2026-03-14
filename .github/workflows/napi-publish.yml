@@ -7,11 +7,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'crates/fiscal-napi/**'
-      - 'crates/fiscal-core/**'
-      - 'crates/fiscal-crypto/**'
-      - 'crates/fiscal-sefaz/**'
 
 permissions:
   contents: read
