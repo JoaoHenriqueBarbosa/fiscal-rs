@@ -1,8 +1,7 @@
 name: Publish @fiscal-rs/node to npm
 
-# Runs on every push to master (same trigger as release-plz).
-# Compares the version in Cargo.toml with the latest npm version.
-# If they differ, builds all platforms and publishes to npm.
+# Runs on every push to master.
+# Compares the highest crate version with npm — if different, publishes.
 on:
   push:
     branches:
@@ -27,30 +26,22 @@ jobs:
       - name: Determine version from dependency crates
         id: check
         run: |
-          # npm version follows the highest version among fiscal-rs crates
           CORE=$(grep '^version' crates/fiscal-core/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           SEFAZ=$(grep '^version' crates/fiscal-sefaz/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           CRYPTO=$(grep '^version' crates/fiscal-crypto/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           FACADE=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
-          echo "fiscal-core: $CORE"
-          echo "fiscal-sefaz: $SEFAZ"
-          echo "fiscal-crypto: $CRYPTO"
-          echo "fiscal (facade): $FACADE"
+          echo "fiscal-core: $CORE | fiscal-sefaz: $SEFAZ | fiscal-crypto: $CRYPTO | fiscal: $FACADE"
 
-          # Pick the highest version (sort -V = version sort)
           VERSION=$(printf '%s\n' "$CORE" "$SEFAZ" "$CRYPTO" "$FACADE" | sort -V | tail -1)
           echo "Resolved npm version: $VERSION"
 
-          # Check npm registry for latest published version
           NPM_VERSION=$(npm view @fiscal-rs/node version 2>/dev/null || echo "0.0.0")
           echo "Current npm version: $NPM_VERSION"
 
           if [ "$VERSION" != "$NPM_VERSION" ]; then
-            echo "Version changed: $NPM_VERSION -> $VERSION"
             echo "should_publish=true" >> $GITHUB_OUTPUT
           else
-            echo "Version unchanged, skipping publish"
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -67,13 +58,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Native builds (no cross-compilation needed)
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
           - target: x86_64-apple-darwin
             os: macos-13
@@ -81,8 +67,20 @@ jobs:
             os: macos-14
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+          # Cross-compiled Linux builds (use --use-napi-cross)
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          # Cross-compiled Windows ARM64
           - target: aarch64-pc-windows-msvc
             os: windows-latest
+            cross: true
 
     steps:
       - uses: actions/checkout@v6
@@ -100,18 +98,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install cross-compilation tools
-        if: contains(matrix.target, 'aarch64-unknown-linux') || matrix.target == 'x86_64-unknown-linux-musl'
-        uses: napi-rs/setup-cross-toolchain-action@v1
-        with:
-          target: ${{ matrix.target }}
-
-      - name: Install OpenSSL (Linux x86_64 gnu)
+      # Native Linux x86_64 needs OpenSSL headers
+      - name: Install OpenSSL dev (Linux x86_64 gnu)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
 
+      # Build: use --use-napi-cross for cross targets, plain build for native
       - name: Build native addon
+        if: ${{ !matrix.cross }}
         run: npx napi build --release --platform --target ${{ matrix.target }}
+
+      - name: Build native addon (cross)
+        if: ${{ matrix.cross }}
+        run: npx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
