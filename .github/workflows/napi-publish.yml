@@ -29,24 +29,36 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Extract version from Cargo.toml
+      - name: Determine version from dependency crates
         id: check
         run: |
-          CARGO_VERSION=$(grep '^version' crates/fiscal-napi/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "Cargo.toml version: $CARGO_VERSION"
+          # npm version follows the highest version among fiscal-rs crates
+          CORE=$(grep '^version' crates/fiscal-core/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          SEFAZ=$(grep '^version' crates/fiscal-sefaz/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          CRYPTO=$(grep '^version' crates/fiscal-crypto/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          FACADE=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+
+          echo "fiscal-core: $CORE"
+          echo "fiscal-sefaz: $SEFAZ"
+          echo "fiscal-crypto: $CRYPTO"
+          echo "fiscal (facade): $FACADE"
+
+          # Pick the highest version (sort -V = version sort)
+          VERSION=$(printf '%s\n' "$CORE" "$SEFAZ" "$CRYPTO" "$FACADE" | sort -V | tail -1)
+          echo "Resolved npm version: $VERSION"
 
           # Check npm registry for latest published version
           NPM_VERSION=$(npm view @fiscal-rs/node version 2>/dev/null || echo "0.0.0")
-          echo "npm version: $NPM_VERSION"
+          echo "Current npm version: $NPM_VERSION"
 
-          if [ "$CARGO_VERSION" != "$NPM_VERSION" ]; then
-            echo "Version changed: $NPM_VERSION -> $CARGO_VERSION"
+          if [ "$VERSION" != "$NPM_VERSION" ]; then
+            echo "Version changed: $NPM_VERSION -> $VERSION"
             echo "should_publish=true" >> $GITHUB_OUTPUT
           else
             echo "Version unchanged, skipping publish"
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
-          echo "version=$CARGO_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   build:
     name: Build ${{ matrix.target }}
