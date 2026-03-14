@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.5.1...fiscal-v0.6.0) - 2026-03-14
+
+### Added
+
+- *(ci)* re-add Windows targets (x64 + arm64)
+
+### Fixed
+
+- *(ci)* skip already-published platform pkgs, remove prepublishOnly script
+- *(ci)* add publishConfig access public, remove Windows targets
+- *(ci)* create .npmrc for auth (napi prepublish uses npm internally)
+- *(ci)* use --no-gh-release instead of --skip-gh-release (napi v3)
+- *(ci)* use --output-dir instead of --dir for napi artifacts
+- *(ci)* replace napi version --no-git with jq (unsupported in napi v3)
+- *(ci)* remove musl targets (napi-cross lacks musl toolchain support)
+- *(ci)* replace npm with bun for faster napi-publish workflow
+- *(ci)* vendor OpenSSL in fiscal-napi for cross-platform builds
+- *(ci)* use setup-node v5, npm install, macos-latest, fix all build errors
+- *(ci)* replace removed setup-cross-toolchain-action with --use-napi-cross
+- *(ci)* remove paths filter so napi-publish runs on every master push
+
 ## [0.5.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.5.0...fiscal-v0.5.1) - 2026-03-14
 
 ### Fixed
