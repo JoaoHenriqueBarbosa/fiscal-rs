@@ -14,3 +14,4 @@ pr_labels = ["release"]
 [[package]]
 name = "fiscal-napi"
 release = false
+publish = false
