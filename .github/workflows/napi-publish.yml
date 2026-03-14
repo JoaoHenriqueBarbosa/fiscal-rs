@@ -100,12 +100,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Native Linux x86_64 needs OpenSSL headers
-      - name: Install OpenSSL dev (Linux x86_64 gnu)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
-
       # Build: use --use-napi-cross for cross targets, plain build for native
+      # OpenSSL is vendored (compiled from source) so no system dependency needed
       - name: Build native addon
         if: ${{ !matrix.cross }}
         run: npx napi build --release --platform --target ${{ matrix.target }}
