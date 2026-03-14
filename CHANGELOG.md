@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.5.0...fiscal-v0.5.1) - 2026-03-14
+
+### Fixed
+
+- *(release-plz)* add publish = false to match Cargo.toml
+
+### Other
+
+- *(napi)* auto-version npm from highest dependency crate version
+- *(napi)* rewrite npm publish to trigger on push to master
+
 ## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.4...fiscal-v0.5.0) - 2026-03-14
 
 ### Added
