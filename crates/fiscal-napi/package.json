@@ -6,6 +6,7 @@
   "types": "index.d.ts",
   "napi": {
     "binaryName": "fiscal",
+    "packageName": "@fiscal-rs/node",
     "targets": [
       "x86_64-unknown-linux-gnu",
       "aarch64-unknown-linux-gnu",
