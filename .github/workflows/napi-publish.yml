@@ -128,7 +128,12 @@ jobs:
 
       - name: Sync version to package.json
         working-directory: crates/fiscal-napi
-        run: bunx napi version --no-git ${{ needs.check-version.outputs.version }}
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          jq --arg v "$VERSION" '.version = $v | .optionalDependencies |= with_entries(.value = $v)' package.json > package.json.tmp && mv package.json.tmp package.json
+          for pkg in npm/*/package.json; do
+            jq --arg v "$VERSION" '.version = $v' "$pkg" > "$pkg.tmp" && mv "$pkg.tmp" "$pkg"
+          done
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
