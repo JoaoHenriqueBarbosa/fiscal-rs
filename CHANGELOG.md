@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.4...fiscal-v0.5.0) - 2026-03-14
+
+### Added
+
+- *(napi)* add ContingencyManager class + contingencyForState
+- *(napi)* expose full public API — 90 exports
+- *(napi)* add AST-based codegen script for napi bindings
+- *(napi)* add Node.js native binding via napi-rs
+
+### Fixed
+
+- *(release-plz)* add git_only for fiscal-napi version detection
+
+### Other
+
+- Merge pull request #18 from JoaoHenriqueBarbosa/feat/napi-node-binding
+- *(napi)* add npm publish workflow triggered by release-plz tags
+- *(napi)* serde deserializes directly into InvoiceBuildData
+- *(gen-napi)* eliminate all regex and hardcoding from codegen
+- *(memory)* add Claude memory files from previous sessions
+- *(gitignore)* ignore ts-rs bindings, Python cache, and venv
+- *(deny)* remove unused Unicode-DFS-2016 license allowance
+
 ## [0.4.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.4.3...fiscal-v0.4.4) - 2026-03-13
 
 ### Fixed
