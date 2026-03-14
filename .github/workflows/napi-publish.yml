@@ -154,7 +154,7 @@ jobs:
 
       - name: Publish platform packages
         working-directory: crates/fiscal-napi
-        run: bunx napi prepublish --skip-gh-release -t npm
+        run: bunx napi prepublish --no-gh-release -t npm
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
