@@ -1,6 +1,7 @@
 use super::{EmissionType, InvoiceModel};
 use crate::newtypes::IbgeCode;
 use chrono::NaiveDate;
+use serde::{Deserialize, Serialize};
 
 // ── Data structures ──────────────────────────────────────────────────────────
 
@@ -9,7 +10,10 @@ use chrono::NaiveDate;
 /// Holds the PEM-encoded private key and certificate alongside the original
 /// PFX buffer and passphrase so the certificate can be reused for multiple
 /// signing operations without re-parsing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CertificateData {
     /// PEM-encoded RSA private key (PKCS#8 format).
@@ -42,7 +46,10 @@ impl CertificateData {
 /// Human-readable X.509 certificate metadata for display purposes.
 ///
 /// Extracted from a PKCS#12 file without exposing the private key.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CertificateInfo {
     /// Common name (CN) from the certificate's subject field.
@@ -80,7 +87,10 @@ impl CertificateInfo {
 ///
 /// The access key (`chave de acesso`) uniquely identifies a Brazilian electronic
 /// invoice and is computed from these components using a Verhoeff-like algorithm.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AccessKeyParams {
     /// IBGE numeric state code (e.g. `"41"` for Paraná).

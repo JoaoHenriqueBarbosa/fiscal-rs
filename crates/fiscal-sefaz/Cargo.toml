@@ -21,3 +21,4 @@ quick-xml = "0.39"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls"], optional = true }
 flate2 = "1"
 base64 = "0.22"
+serde = { version = "1", features = ["derive"] }

@@ -1,7 +1,12 @@
+use serde::{Deserialize, Serialize};
+
 use crate::newtypes::{Cents, Rate};
 
 /// Batch/lot tracking data (`<rastro>`) for traceability of perishable or regulated goods.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct RastroData {
     /// Batch / lot number (`nLote`).
@@ -43,7 +48,10 @@ impl RastroData {
 /// Vehicle product details (`<veicProd>`) for NF-e documents covering automotive sales.
 ///
 /// All fields are required as mandated by DENATRAN / SEFAZ vehicle invoicing rules.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct VeicProdData {
     /// Type of operation (`tpOp`): `"1"` (sale to end consumer), `"2"` (sell to reseller), `"3"` (other).
@@ -155,7 +163,10 @@ impl VeicProdData {
 }
 
 /// Medicine / pharmaceutical product details (`<med>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct MedData {
     /// ANVISA product registry code (`cProdANVISA`). Optional (use `"isento"` when exempt).
@@ -189,7 +200,10 @@ impl MedData {
 }
 
 /// Firearm / weapon product details (`<arma>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ArmaData {
     /// Weapon type code (`tpArma`): `"0"` (allowed use) or `"1"` (restricted use).
@@ -220,7 +234,10 @@ impl ArmaData {
 }
 
 /// Per-item observation fields (`<obsItem>`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ObsItemData {
     /// Contributor observation (`obsCont`). Optional.
@@ -248,7 +265,10 @@ impl ObsItemData {
 }
 
 /// A single per-item observation field (`obsCont` or `obsFisco`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ObsField {
     /// Field identifier (`xCampo`), max 20 characters.
@@ -271,7 +291,10 @@ impl ObsField {
 ///
 /// Represents a Declaração de Importação (DI, DSI, DIRE) attached to an invoice
 /// item. Each DI may contain one or more additions ([`AdiData`]).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct DiData {
     /// Document number (`nDI`) — DI, DSI, DIRE, etc.
@@ -359,7 +382,10 @@ impl DiData {
 }
 
 /// Addition data (`<adi>` inside `<DI>`) for import declarations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AdiData {
     /// Addition number (`nAdicao`). Optional.
@@ -409,7 +435,10 @@ impl AdiData {
 ///
 /// Contains export information for an invoice item, including the optional
 /// indirect export (`<exportInd>`) sub-group.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct DetExportData {
     /// Drawback concession act number (`nDraw`). Optional.
@@ -457,7 +486,10 @@ impl DetExportData {
 ///
 /// Applicable to return/devolution invoices. Contains the devolution percentage
 /// and the IPI value being returned.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ImpostoDevolData {
     /// Percentage of goods returned (`pDevol`) — 2 decimal places.
@@ -477,7 +509,10 @@ impl ImpostoDevolData {
 }
 
 /// A referenced digital fiscal document (DFe) linked to an invoice item (`<DFeRef>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct DFeReferenciadoData {
     /// 44-digit access key of the referenced DFe.
@@ -505,7 +540,10 @@ impl DFeReferenciadoData {
 // ── Combustíveis (comb) ──────────────────────────────────────────────────────
 
 /// CIDE data for fuel products (`<CIDE>` inside `<comb>`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CideData {
     /// BC da CIDE (`qBCProd`) — quantity base, formatted with 4 decimal places.
@@ -532,7 +570,10 @@ impl CideData {
 }
 
 /// Encerrante (meter reading) data for fuel pump operations (`<encerrante>` inside `<comb>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct EncerranteData {
     /// Número do bico (`nBico`).
@@ -574,7 +615,10 @@ impl EncerranteData {
 /// Origin of fuel indicator (`<origComb>` inside `<comb>`).
 ///
 /// NT2023_0001_v1.10: may appear multiple times per `<comb>`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct OrigCombData {
     /// Indicador de importação (`indImport`): `"0"` nacional, `"1"` importado.
@@ -604,7 +648,10 @@ impl OrigCombData {
 ///
 /// Represents the complete fuel detail group per NF-e layout 4.00 and
 /// NT2016_002_v1.30 / NT2023_0001_v1.10.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CombData {
     /// Código de produto da ANP (`cProdANP`) — 9 digits.

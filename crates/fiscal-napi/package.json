@@ -1,0 +1,35 @@
+{
+  "name": "@fiscal-rs/node",
+  "version": "0.1.0",
+  "description": "Node.js native binding for fiscal-rs — Brazilian fiscal document library (NF-e/NFC-e)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "fiscal"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+  },
+  "keywords": [
+    "nfe",
+    "nfce",
+    "fiscal",
+    "brazil",
+    "sefaz",
+    "nota-fiscal",
+    "rust",
+    "napi-rs"
+  ],
+  "devDependencies": {
+    "@napi-rs/cli": "^3"
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --release",
+    "build:debug": "napi build",
+    "prepublishOnly": "napi prepublish -t npm",
+    "version": "napi version"
+  }
+}

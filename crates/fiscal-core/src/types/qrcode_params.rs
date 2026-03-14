@@ -1,4 +1,5 @@
 use super::{EmissionType, QrCodeVersion, SefazEnvironment};
+use serde::{Deserialize, Serialize};
 
 /// Parameters for building an NFC-e QR Code URL.
 ///
@@ -145,7 +146,10 @@ impl NfceQrCodeParams {
 /// Parameters for inserting the `<infNFeSupl>` QR Code block into a signed NFC-e XML.
 ///
 /// Pass to [`crate::qrcode::put_qr_tag`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PutQRTagParams {
     /// The signed NFC-e XML string.

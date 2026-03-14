@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::FiscalError;
 use crate::state_codes::get_state_by_code;
 
@@ -14,7 +16,10 @@ use crate::state_codes::get_state_by_code;
 /// cUF(2) + AAMM(4) + CNPJ(14) + mod(2) + serie(3) + nNF(9)
 /// + tpEmis(1) + cNF(8) + cDV(1) = 44 digits
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct AccessKey(pub String);
 
 impl AccessKey {

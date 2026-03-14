@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::FiscalError;
 
 // ── Tax ID (CPF / CNPJ) ─────────────────────────────────────────────────────
@@ -15,7 +17,10 @@ use crate::FiscalError;
 /// synthetic CNPJs.
 ///
 /// `Display` renders the raw digits (no formatting).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct TaxId(pub String);
 
 impl TaxId {

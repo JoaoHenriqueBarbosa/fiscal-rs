@@ -1,8 +1,13 @@
 //! Ad-valorem data types: diferimento, devolução, redução, IBS UF/Mun, CBS,
 //! gIBSCBS, tributação regular e compra governamental.
 
+use serde::{Deserialize, Serialize};
+
 /// Diferimento (deferment) data: `<gDif>` inside `<gIBSUF>`, `<gIBSMun>`, or `<gCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GDifData {
     /// Percentual do diferimento (`pDif`), e.g. `"10.0000"`.
@@ -22,7 +27,10 @@ impl GDifData {
 }
 
 /// Devolucao de tributos data: `<gDevTrib>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GDevTribData {
     /// Valor do tributo devolvido (`vDevTrib`), e.g. `"3.00"`.
@@ -39,7 +47,10 @@ impl GDevTribData {
 }
 
 /// Reducao de aliquota data: `<gRed>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GRedData {
     /// Percentual da reducao de aliquota (`pRedAliq`), e.g. `"20.0000"`.
@@ -61,7 +72,10 @@ impl GRedData {
 // ── gIBSUF / gIBSMun / gCBS sub-groups ───────────────────────────────────
 
 /// IBS de competencia da UF: `<gIBSUF>` inside `<gIBSCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GIbsUfData {
     /// Aliquota do IBS da UF (`pIBSUF`), e.g. `"18.0000"`.
@@ -103,7 +117,10 @@ impl GIbsUfData {
 }
 
 /// IBS de competencia do Municipio: `<gIBSMun>` inside `<gIBSCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GIbsMunData {
     /// Aliquota do IBS do Municipio (`pIBSMun`), e.g. `"5.0000"`.
@@ -145,7 +162,10 @@ impl GIbsMunData {
 }
 
 /// CBS (Contribuicao sobre Bens e Servicos): `<gCBS>` inside `<gIBSCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GCbsData {
     /// Aliquota da CBS (`pCBS`), e.g. `"9.0000"`.
@@ -189,7 +209,10 @@ impl GCbsData {
 // ── gIBSCBS (tributacao ad-valorem) ──────────────────────────────────────
 
 /// Grupo de informacoes do IBS e CBS ad-valorem: `<gIBSCBS>` inside `<IBSCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GIbsCbsData {
     /// Base de calculo (`vBC`), e.g. `"1000.00"`.
@@ -230,7 +253,10 @@ impl GIbsCbsData {
 // ── Tributacao Regular ───────────────────────────────────────────────────
 
 /// Grupo de informacoes da tributacao regular: `<gTribRegular>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GTribRegularData {
     /// CST da tributacao regular (`CSTReg`).
@@ -280,7 +306,10 @@ impl GTribRegularData {
 // ── Tributacao Compra Governamental ──────────────────────────────────────
 
 /// Grupo de tributacao em compras governamentais: `<gTribCompraGov>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GTribCompraGovData {
     /// Aliquota IBS UF (`pAliqIBSUF`).

@@ -10,6 +10,8 @@
 //! [`ContributionTaxConfig`]; their public APIs accept separate typed structs
 //! ([`PisData`] / [`CofinsData`]) so callers remain independent.
 
+use serde::{Deserialize, Serialize};
+
 use crate::format_utils::{format_cents_or_zero, format_rate_4, format_rate4_or_zero};
 use crate::newtypes::{Cents, Rate, Rate4};
 use crate::tax_element::{TaxElement, TaxField, serialize_tax_element};
@@ -40,7 +42,10 @@ const IPI_TRIB_CSTS: &[&str] = &["00", "49", "50", "99"];
 ///
 /// Build with [`PisData::new`] and chain the optional setters.
 /// Pass to [`build_pis_xml`] to generate the `<PIS>` XML fragment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PisData {
     /// PIS CST code (`CST`), e.g. `"01"`, `"07"`.
@@ -95,7 +100,10 @@ impl PisData {
 /// PIS-ST (substituição tributária) input data.
 ///
 /// Pass to [`build_pis_st_xml`] to generate the `<PISST>` XML fragment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PisStData {
     /// ST calculation base value (`vBC`). Optional for quantity-based mode.
@@ -151,7 +159,10 @@ impl PisStData {
 ///
 /// Build with [`CofinsData::new`] and chain the optional setters.
 /// Pass to [`build_cofins_xml`] to generate the `<COFINS>` XML fragment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CofinsData {
     /// COFINS CST code (`CST`), e.g. `"01"`, `"07"`.
@@ -206,7 +217,10 @@ impl CofinsData {
 /// COFINS-ST (substituição tributária) input data.
 ///
 /// Pass to [`build_cofins_st_xml`] to generate the `<COFINSST>` XML fragment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CofinsStData {
     /// ST calculation base value (`vBC`). Optional for quantity-based mode.
@@ -262,7 +276,10 @@ impl CofinsStData {
 ///
 /// Build with [`IpiData::new`] and chain the optional setters.
 /// Pass to [`build_ipi_xml`] to generate the `<IPI>` XML fragment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IpiData {
     /// IPI CST code (`CST`), e.g. `"00"`, `"53"`.
@@ -342,7 +359,10 @@ impl IpiData {
 ///
 /// All four fields are required. Pass to [`build_ii_xml`] to generate the
 /// `<II>` XML fragment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IiData {
     /// Import tax calculation base (`vBC`).

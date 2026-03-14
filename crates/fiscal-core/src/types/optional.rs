@@ -1,4 +1,5 @@
 use crate::newtypes::Cents;
+use serde::{Deserialize, Serialize};
 
 // ── Cana-de-açúcar (Grupo ZC01) ────────────────────────────────────────────
 
@@ -6,7 +7,10 @@ use crate::newtypes::Cents;
 ///
 /// Each entry represents the quantity supplied on a specific day of the month.
 /// Up to 31 entries are allowed (one per day).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ForDiaData {
     /// Day of the month (1–31).
@@ -26,7 +30,10 @@ impl ForDiaData {
 ///
 /// Represents a deduction (taxes, contributions) on the sugarcane supply.
 /// Up to 10 entries are allowed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct DeducData {
     /// Description of the deduction.
@@ -49,7 +56,10 @@ impl DeducData {
 ///
 /// Used for NF-e invoices related to sugarcane (cana-de-açúcar) supply.
 /// Placed inside `<infNFe>` after `<compra>` and before `<infRespTec>`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CanaData {
     /// Crop identification (e.g. "2025/2026").
@@ -114,7 +124,10 @@ impl CanaData {
 /// Guia de trânsito agropecuário (`<guiaTransito>`, Grupo ZF04).
 ///
 /// Informações de produtos da agricultura, pecuária e produção florestal.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AgropecuarioGuiaData {
     /// Tipo da guia (tpGuia).
@@ -155,7 +168,10 @@ impl AgropecuarioGuiaData {
 ///
 /// Informação de receituário de agrotóxico/defensivo agrícola.
 /// Up to 20 entries allowed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AgropecuarioDefensivoData {
     /// Número da receita ou receituário (nReceituario).
@@ -178,7 +194,10 @@ impl AgropecuarioDefensivoData {
 ///
 /// Contains either a guia de trânsito or a list of defensivos (up to 20).
 /// Placed inside `<infNFe>` after `<infRespTec>`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum AgropecuarioData {
     /// Guia de trânsito (guiaTransito).
@@ -192,7 +211,10 @@ pub enum AgropecuarioData {
 /// Informação de compras governamentais (`<gCompraGov>`, Grupo B31).
 ///
 /// Placed inside `<ide>` after `<NFref>` elements (PL_010+).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CompraGovData {
     /// Tipo de ente governamental (tpEnteGov).
@@ -222,7 +244,10 @@ impl CompraGovData {
 ///
 /// Contém chave(s) de acesso da NF-e de antecipação de pagamento.
 /// Placed inside `<ide>` after `<gCompraGov>` (PL_010+).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PagAntecipadoData {
     /// Chave(s) de acesso da NF-e de antecipação (refNFe).

@@ -1,9 +1,13 @@
 use crate::newtypes::{Cents, IbgeCode, Rate};
+use serde::{Deserialize, Serialize};
 
 /// Transport section (`<transp>`) data for an NF-e document.
 ///
 /// The freight mode is required; all other fields are optional.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct TransportData {
     /// Freight modality code (`modFrete`): `"0"` (issuer) through `"9"` (no freight).
@@ -80,7 +84,10 @@ impl TransportData {
 ///
 /// All fields are optional to accommodate scenarios where only partial
 /// carrier information is available.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct CarrierData {
     /// CNPJ or CPF of the carrier.
@@ -141,7 +148,10 @@ impl CarrierData {
 }
 
 /// Vehicle identification for transport (`veicTransp`) or trailers (`reboque`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct VehicleData {
     /// Vehicle licence plate (`placa`).
@@ -170,7 +180,10 @@ impl VehicleData {
 }
 
 /// A single transported volume (`<vol>`) with optional identification and weights.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct VolumeData {
     /// Number of volumes (`qVol`).
@@ -235,7 +248,10 @@ impl VolumeData {
 /// ICMS retained on transport services (`<retTransp>`).
 ///
 /// Applicable when the carrier is subject to ICMS withholding.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct RetainedIcmsTransp {
     /// Transport service value (`vServ`).

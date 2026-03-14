@@ -1,7 +1,11 @@
 use crate::newtypes::Cents;
+use serde::{Deserialize, Serialize};
 
 /// Billing section (`<cobr>`) with optional invoice header and installments.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct BillingData {
     /// Billing invoice summary (`<fat>`).
@@ -30,7 +34,10 @@ impl BillingData {
 }
 
 /// Billing invoice summary (`<fat>`) with original, discount, and net values.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct BillingInvoice {
     /// Invoice / bill number (`nFat`).
@@ -62,7 +69,10 @@ impl BillingInvoice {
 }
 
 /// A single billing installment (`<dup>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct Installment {
     /// Installment number (`nDup`), e.g. `"001"`.

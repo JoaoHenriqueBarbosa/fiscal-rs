@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::FiscalError;
 
 // ── GTIN (barcode) ──────────────────────────────────────────────────────────
@@ -15,7 +17,10 @@ use crate::FiscalError;
 /// checks both the digit count and the check digit.
 ///
 /// `Display` renders the stored value as-is.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Gtin(pub String);
 
 impl Gtin {
@@ -57,7 +62,10 @@ impl fmt::Display for Gtin {
 /// typically used for services.
 ///
 /// `Display` renders the 8-digit string.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Ncm(pub String);
 
 impl Ncm {
@@ -99,7 +107,10 @@ impl fmt::Display for Ncm {
 /// - **5, 6, 7** — *saida* (outgoing goods / services)
 ///
 /// `Display` renders the 4-digit string.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Cfop(pub String);
 
 impl Cfop {

@@ -6,6 +6,8 @@
 //! - [`build_imposto_devol`] — generate `<impostoDevol>` element for return invoices.
 //! - [`create_issqn_totals`] — create a zeroed [`IssqnTotals`] accumulator.
 
+use serde::{Deserialize, Serialize};
+
 use crate::format_utils::{format_cents_2, format_rate_4};
 use crate::tax_element::{
     TaxElement, TaxField, filter_fields, optional_field, serialize_tax_element,
@@ -13,7 +15,10 @@ use crate::tax_element::{
 
 /// ISSQN (ISS - Imposto Sobre Servicos) input data.
 /// All monetary amounts in cents, rates as hundredths.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IssqnData {
     /// Base de calculo in cents

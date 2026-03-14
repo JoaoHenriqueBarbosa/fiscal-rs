@@ -7,6 +7,7 @@ use super::{
 };
 use crate::newtypes::Cents;
 use chrono::{DateTime, FixedOffset};
+use serde::{Deserialize, Serialize};
 
 /// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
 ///
@@ -67,7 +68,10 @@ pub(crate) struct InvoiceBuildData {
 }
 
 /// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AuthorizedXml {
     /// CNPJ or CPF of the authorised entity.

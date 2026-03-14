@@ -1,7 +1,11 @@
 use crate::newtypes::IbgeCode;
+use serde::{Deserialize, Serialize};
 
 /// Address data for pickup (`retirada`) or delivery (`entrega`) locations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct LocationData {
     /// CNPJ or CPF of the location owner.
@@ -110,7 +114,10 @@ impl LocationData {
 }
 
 /// Additional information section (`<infAdic>`) for freeform notes and observations.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AdditionalInfo {
     /// Free-text note for the taxpayer (`infCpl`), printed on the DANFE.
@@ -159,7 +166,10 @@ impl AdditionalInfo {
 }
 
 /// A field-name / text-value pair used in contributor and fiscal observations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct FieldText {
     /// Field identifier (`xCampo`), max 20 characters.
@@ -179,7 +189,10 @@ impl FieldText {
 }
 
 /// Reference to an administrative or judicial process (`<procRef>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ProcessRef {
     /// Process number (`nProc`).
@@ -215,7 +228,10 @@ impl ProcessRef {
 }
 
 /// Intermediary entity data (`<infIntermed>`) for marketplace transactions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IntermediaryData {
     /// CNPJ of the intermediary platform.
@@ -242,7 +258,10 @@ impl IntermediaryData {
 
 /// Technical responsible entity (`<infRespTec>`) — the company that developed the
 /// software used to issue the NF-e.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct TechResponsibleData {
     /// CNPJ of the responsible software company (`CNPJ`).
@@ -296,7 +315,10 @@ impl TechResponsibleData {
 }
 
 /// Purchase references (`<compra>`) linking the NF-e to a purchase order or contract.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PurchaseData {
     /// Purchase order number (`xPed`). Optional.
@@ -331,7 +353,10 @@ impl PurchaseData {
 }
 
 /// Export information (`<exporta>`) for NF-e documents covering international exports.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ExportData {
     /// UF of the exit point from Brazil (`UFSaidaPais`).
