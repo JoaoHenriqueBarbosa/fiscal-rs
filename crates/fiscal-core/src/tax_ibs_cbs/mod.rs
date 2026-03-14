@@ -16,6 +16,8 @@
 //! - [`GEstornoCredData`] -- estorno de credito
 //! - [`GCredPresOperData`] -- credito presumido por operacao
 
+use serde::{Deserialize, Serialize};
+
 mod build_item;
 mod totals;
 mod types_advalorem;
@@ -37,7 +39,10 @@ mod tests;
 ///
 /// Follows the PHP `tagIBSCBS` + all appended sub-groups.
 /// `gIBSCBS` and `gIBSCBSMono` are mutually exclusive (choice).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IbsCbsData {
     /// CST code (`CST`).

@@ -1,7 +1,10 @@
 //! Typed result structs for all SEFAZ response parsers.
 
+use serde::{Deserialize, Serialize};
+
 /// Parsed result of a SEFAZ NF-e authorization (`retEnviNFe`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AuthorizationResponse {
     /// SEFAZ status code (`cStat`).
@@ -21,7 +24,8 @@ pub struct AuthorizationResponse {
 }
 
 /// Parsed result of a SEFAZ service status (`retConsStatServ`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct StatusResponse {
     /// SEFAZ status code (`cStat`).
@@ -33,7 +37,8 @@ pub struct StatusResponse {
 }
 
 /// Parsed result of a SEFAZ cancellation event (`retEvento`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CancellationResponse {
     /// SEFAZ status code (`cStat`).
@@ -45,7 +50,8 @@ pub struct CancellationResponse {
 }
 
 /// Parsed result of a SEFAZ DistDFe (`retDistDFeInt`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DistDFeResponse {
     /// SEFAZ status code (`cStat`).
@@ -61,7 +67,8 @@ pub struct DistDFeResponse {
 }
 
 /// Parsed result of a SEFAZ inutilização (`retInutNFe`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct InutilizacaoResponse {
     /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.
@@ -95,7 +102,8 @@ pub struct InutilizacaoResponse {
 }
 
 /// A single CSC token (id + secret) from the NFC-e CSC administration response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CscToken {
     /// CSC identifier (`idCsc`).
     pub id_csc: String,
@@ -104,7 +112,8 @@ pub struct CscToken {
 }
 
 /// Parsed result of a SEFAZ NFC-e CSC administration (`retAdmCscNFCe`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CscResponse {
     /// Environment type (`tpAmb`): 1 = production, 2 = homologation.
@@ -120,7 +129,8 @@ pub struct CscResponse {
 }
 
 /// Parsed result of a SEFAZ Cadastro (`retConsCad`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CadastroResponse {
     /// SEFAZ status code (`cStat`).
@@ -132,7 +142,8 @@ pub struct CadastroResponse {
 }
 
 /// A single protocol from a `retConsReciNFe` response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ProtocolInfo {
     /// Environment type (`tpAmb`).
@@ -154,7 +165,8 @@ pub struct ProtocolInfo {
 }
 
 /// Parsed result of a SEFAZ consulta recibo (`retConsReciNFe`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ConsultaReciboResponse {
     /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.
@@ -174,7 +186,8 @@ pub struct ConsultaReciboResponse {
 }
 
 /// Parsed result of a SEFAZ consulta situação (`retConsSitNFe`) response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ConsultaSituacaoResponse {
     /// Environment type (`tpAmb`): 1 = Produção, 2 = Homologação.

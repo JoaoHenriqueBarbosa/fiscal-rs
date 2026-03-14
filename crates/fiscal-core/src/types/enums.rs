@@ -1,9 +1,14 @@
 // ── Enums ────────────────────────────────────────────────────────────────────
 
+use serde::{Deserialize, Serialize};
+
 /// NF-e model code: 55 = NF-e (business-to-business), 65 = NFC-e (consumer).
 ///
 /// The value maps directly to the `<mod>` element inside `<ide>`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum InvoiceModel {
     /// Model 55 — NF-e for business operations and B2B transactions.
@@ -33,7 +38,10 @@ impl std::fmt::Display for InvoiceModel {
 /// Use [`Homologation`](SefazEnvironment::Homologation) during development and
 /// testing; switch to [`Production`](SefazEnvironment::Production) only when
 /// issuing real fiscal documents.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum SefazEnvironment {
     /// Production environment — documents have legal fiscal validity.
@@ -64,7 +72,10 @@ impl SefazEnvironment {
 /// When [`PL009`](SchemaVersion::PL009) is selected the builder silently omits
 /// all PL_010-exclusive tags even if data is provided, matching the behaviour
 /// of the PHP `sped-nfe` `$schema` property.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum SchemaVersion {
     /// PL_009_V4 — standard schema without tax-reform tags (default).
@@ -84,10 +95,14 @@ impl SchemaVersion {
 /// NF-e emission type (`tpEmis`) — normal or one of the contingency modes.
 ///
 /// Values map directly to the `<tpEmis>` element in the `<ide>` group.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum EmissionType {
     /// `1` — Normal online emission via the primary SEFAZ authorizer.
+    #[default]
     Normal = 1,
     /// `2` — FS-IA contingency (Formulário de Segurança — Impressor Autônomo).
     FsIa = 2,
@@ -131,7 +146,10 @@ impl EmissionType {
 /// API parity with PHP and to allow future divergence.
 ///
 /// The default is [`V2`](CalculationMethod::V2), matching PHP's default.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum CalculationMethod {
     /// Calculate totals from accumulated struct values.
@@ -145,7 +163,10 @@ pub enum CalculationMethod {
 ///
 /// Determines which ICMS CST/CSOSN codes are valid for the issuer and
 /// maps to the `<CRT>` element inside `<emit>`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum TaxRegime {
     /// `CRT=1` — Simples Nacional (small businesses, unified tax collection).
@@ -160,7 +181,10 @@ pub enum TaxRegime {
 ///
 /// Each Brazilian state is pre-assigned to either SVC-AN or SVC-RS; see
 /// [`crate::contingency::contingency_for_state`] for the mapping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum ContingencyType {
     /// SVC-AN — Sefaz Virtual do Ambiente Nacional (federal fallback).
@@ -270,7 +294,10 @@ impl core::str::FromStr for ContingencyType {
 /// Version 2 (`V200`) is the current standard and requires a CSC token.
 /// Version 3 (`V300`, introduced in NT 2025.001) drops the CSC requirement
 /// for online mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum QrCodeVersion {
     /// Version 2 (`qrCodType=2`) — requires CSC token and CSC ID for SHA-1 HMAC.

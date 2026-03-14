@@ -264,7 +264,8 @@ pub fn validate_nfe_xml(xml: &str, version: &str) -> Result<(), FiscalError> {
 ///
 /// Returned by [`validate_authorized_nfe`] after comparing local document
 /// data against the SEFAZ response.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationResult {
     /// Whether all three fields (protocol, digest, access key) match.
     pub is_valid: bool,

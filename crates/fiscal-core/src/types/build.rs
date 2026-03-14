@@ -7,23 +7,38 @@ use super::{
 };
 use crate::newtypes::Cents;
 use chrono::{DateTime, FixedOffset};
+use serde::{Deserialize, Serialize};
 
-/// Internal data bag assembled by [`InvoiceBuilder`] and consumed by sub-modules.
+/// Complete data for building an NF-e/NFC-e XML document.
 ///
-/// Not part of the public API — callers should use the builder.
-#[derive(Debug, Clone)]
-pub(crate) struct InvoiceBuildData {
+/// This struct contains all the fields needed to generate a fiscal document.
+/// It can be used directly via [`crate::xml_builder::build_from_data`] for
+/// FFI/binding scenarios where the typestate builder is not practical, or
+/// indirectly via [`crate::xml_builder::InvoiceBuilder`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct InvoiceBuildData {
+    #[serde(default)]
     pub schema_version: SchemaVersion,
     pub model: InvoiceModel,
+    #[serde(default = "default_one")]
     pub series: u32,
+    #[serde(default = "default_one")]
     pub number: u32,
+    #[serde(default)]
     pub emission_type: EmissionType,
     pub environment: SefazEnvironment,
+    #[serde(default = "default_now_br")]
     pub issued_at: DateTime<FixedOffset>,
+    #[serde(default = "default_operation_nature")]
     pub operation_nature: String,
     pub issuer: IssuerData,
     pub recipient: Option<RecipientData>,
+    #[serde(default)]
     pub items: Vec<InvoiceItemData>,
+    #[serde(default)]
     pub payments: Vec<PaymentData>,
     pub change_amount: Option<Cents>,
     pub payment_card_details: Option<Vec<PaymentCardDetail>>,
@@ -62,12 +77,29 @@ pub(crate) struct InvoiceBuildData {
     // vNFTot override (PL_010 only)
     pub v_nf_tot_override: Option<crate::newtypes::Cents>,
     // ASCII sanitization
+    #[serde(default)]
     pub only_ascii: bool,
+    #[serde(default)]
     pub calculation_method: CalculationMethod,
 }
 
+fn default_one() -> u32 {
+    1
+}
+
+fn default_operation_nature() -> String {
+    "VENDA".to_string()
+}
+
+fn default_now_br() -> DateTime<FixedOffset> {
+    chrono::Utc::now().with_timezone(&FixedOffset::west_opt(3 * 3600).expect("valid offset"))
+}
+
 /// Third-party entity authorised to download the NF-e XML from the SEFAZ portal (`<autXML>`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct AuthorizedXml {
     /// CNPJ or CPF of the authorised entity.
@@ -83,9 +115,14 @@ impl AuthorizedXml {
     }
 }
 
-/// Internal result of XML generation, consumed by the builder.
-#[derive(Debug, Clone)]
-pub(crate) struct InvoiceXmlResult {
+/// Result of XML generation: the unsigned XML and its 44-digit access key.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct InvoiceXmlResult {
+    /// The unsigned NF-e/NFC-e XML document.
     pub xml: String,
+    /// The 44-digit access key (`chave de acesso`).
     pub access_key: String,
 }

@@ -1,13 +1,17 @@
 use super::ContingencyType;
 use crate::newtypes::IbgeCode;
 use chrono::{DateTime, FixedOffset};
+use serde::{Deserialize, Serialize};
 
 /// Recipient (destinatário) identification and optional address data.
 ///
 /// For NFC-e issued to anonymous consumers under R$200 the recipient may be
 /// omitted entirely. For other documents, at minimum `tax_id` and `name` are
 /// required; the full address is optional.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct RecipientData {
     /// CNPJ, CPF, or foreign ID of the recipient (digits only).
@@ -161,7 +165,10 @@ impl RecipientData {
 /// authorizer is unavailable.
 ///
 /// When present, the XML builder inserts `<dhCont>` and `<xJust>` into `<ide>`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct ContingencyData {
     /// Which contingency mode is active.

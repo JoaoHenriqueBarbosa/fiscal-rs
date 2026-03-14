@@ -1,5 +1,7 @@
 //! Tipos e builders XML para totais IBS/CBS e IS: `<IBSCBSTot>` e `<ISTot>`.
 
+use serde::{Deserialize, Serialize};
+
 use crate::xml_utils::{TagContent, tag};
 
 // ── IBS/CBS Total data ──────────────────────────────────────────────────
@@ -7,7 +9,10 @@ use crate::xml_utils::{TagContent, tag};
 /// Total do IBS/CBS: `<IBSCBSTot>` inside `<total>`.
 ///
 /// Follows PHP `tagIBSCBSTot`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IbsCbsTotData {
     /// Base de calculo total (`vBCIBSCBS`).
@@ -73,7 +78,10 @@ impl IbsCbsTotData {
 }
 
 /// Total do IS (Imposto Seletivo): `<ISTot>` inside `<total>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IsTotData {
     /// Valor total do IS (`vIS`).

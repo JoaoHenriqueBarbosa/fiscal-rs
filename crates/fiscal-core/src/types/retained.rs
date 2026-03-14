@@ -1,9 +1,13 @@
 use crate::newtypes::{Cents, Rate4};
+use serde::{Deserialize, Serialize};
 
 /// Retained federal taxes (`<retTrib>`) withheld at source.
 ///
 /// All fields are optional; include only those applicable to the transaction.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct RetTribData {
     /// Retained PIS value (`vRetPIS`).
@@ -68,7 +72,10 @@ impl RetTribData {
 /// Crédito presumido ICMS data (`<gCred>`) — up to 4 per item inside `<prod>`.
 ///
 /// Maps to the PHP `taggCred()` method in sped-nfe.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GCredData {
     /// Código de Benefício Fiscal de Crédito Presumido (`cCredPresumido`).

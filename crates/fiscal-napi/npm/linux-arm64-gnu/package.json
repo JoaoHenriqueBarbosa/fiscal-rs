@@ -1,0 +1,33 @@
+{
+  "name": "@fiscal-rs/node-linux-arm64-gnu",
+  "version": "0.1.0",
+  "cpu": [
+    "arm64"
+  ],
+  "main": "fiscal.linux-arm64-gnu.node",
+  "files": [
+    "fiscal.linux-arm64-gnu.node"
+  ],
+  "description": "Node.js native binding for fiscal-rs — Brazilian fiscal document library (NF-e/NFC-e)",
+  "keywords": [
+    "nfe",
+    "nfce",
+    "fiscal",
+    "brazil",
+    "sefaz",
+    "nota-fiscal",
+    "rust",
+    "napi-rs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

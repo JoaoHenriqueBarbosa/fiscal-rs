@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::{
     ArmaData, CombData, DFeReferenciadoData, DetExportData, DiData, GCredData, ImpostoDevolData,
     MedData, ObsItemData, RastroData, VeicProdData,
@@ -10,7 +12,10 @@ use crate::newtypes::{Cents, Rate, Rate4};
 /// Required fields are supplied via [`InvoiceItemData::new`]; optional fields
 /// (shipping, discounts, extended tax fields, specialised product data) are set
 /// via chainable setter methods.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct InvoiceItemData {
     /// Sequential item number (`nItem`, 1-based).
@@ -23,6 +28,7 @@ pub struct InvoiceItemData {
     pub ncm: String,
     /// NVE (Nomenclatura de Valor Aduaneiro e Estatística) codes.
     /// Up to 8 NVE codes per item (I05a).
+    #[serde(default)]
     pub nve: Vec<String>,
     /// CFOP operation code (4 digits).
     pub cfop: String,
@@ -60,6 +66,7 @@ pub struct InvoiceItemData {
     /// PL_010 only — emitted inside `<prod>` after `<cBenef>`.
     pub tp_cred_pres_ibs_zfm: Option<String>,
     /// Crédito presumido ICMS entries (`gCred`). Optional — up to 4 per item.
+    #[serde(default)]
     pub g_cred: Vec<GCredData>,
     /// TIPI exception code (`EXTIPI`). Optional.
     pub extipi: Option<String>,

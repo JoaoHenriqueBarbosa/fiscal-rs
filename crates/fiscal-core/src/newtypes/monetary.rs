@@ -3,12 +3,20 @@
 use std::fmt;
 use std::ops::{Add, AddAssign};
 
+use serde::{Deserialize, Serialize};
+
 // ── Monetary amount ─────────────────────────────────────────────────────────
 
 /// Monetary amount in cents (R$ 10.50 = `Cents(1050)`).
 ///
 /// `Display` renders with 2 decimal places: `"10.50"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", ts(as = "f64"))]
 pub struct Cents(pub i64);
 
 impl From<i64> for Cents {
@@ -58,7 +66,13 @@ impl AddAssign for Cents {
 /// Tax rate in hundredths of a percent (18% = `Rate(1800)`).
 ///
 /// `Display` renders with 4 decimal places: `"18.0000"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", ts(as = "f64"))]
 pub struct Rate(pub i64);
 
 impl From<i64> for Rate {
@@ -108,7 +122,13 @@ impl AddAssign for Rate {
 /// PIS/COFINS rate scaled by 10 000 (1.65% = `Rate4(16500)`).
 ///
 /// `Display` renders with 4 decimal places: `"1.6500"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", ts(as = "f64"))]
 pub struct Rate4(pub i64);
 
 impl From<i64> for Rate4 {

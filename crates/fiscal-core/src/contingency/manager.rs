@@ -17,7 +17,8 @@ use crate::types::{ContingencyType, EmissionType, InvoiceModel};
 /// ```json
 /// {"motive":"reason","timestamp":1480700623,"type":"SVCAN","tpEmis":6}
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Contingency {
     /// The active contingency type, or `None` when in normal mode.

@@ -39,14 +39,14 @@
 //! assert_eq!(config.sigla_uf, "SP");
 //! ```
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::FiscalError;
 
 /// Proxy configuration for SEFAZ communication.
 ///
 /// All fields are optional; when present they configure HTTP proxy settings.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyConfig {
     /// Proxy server IP address.
@@ -98,7 +98,8 @@ struct RawConfig {
 ///
 /// Created by [`validate_config`] after parsing and validating a JSON string
 /// against the same rules as the PHP `Config::validate()` method.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FiscalConfig {
     /// Date/time of the last configuration update (optional).
     pub atualizacao: Option<String>,

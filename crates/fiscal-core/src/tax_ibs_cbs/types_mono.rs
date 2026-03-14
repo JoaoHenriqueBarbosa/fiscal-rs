@@ -1,10 +1,15 @@
 //! Monofásico (combustíveis) data types: padrão, retenção, retido anteriormente,
 //! diferimento e grupo monofásico completo.
 
+use serde::{Deserialize, Serialize};
+
 // ── Monofasico ──────────────────────────────────────────────────────────
 
 /// Monofasico padrao sub-group: `<gMonoPadrao>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GMonoPadraoData {
     /// Quantidade tributada (`qBCMono`).
@@ -39,7 +44,10 @@ impl GMonoPadraoData {
 }
 
 /// Monofasico retencao sub-group: `<gMonoReten>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GMonoRetenData {
     pub q_bc_mono_reten: String,
@@ -69,7 +77,10 @@ impl GMonoRetenData {
 }
 
 /// Monofasico retido anteriormente: `<gMonoRet>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GMonoRetData {
     pub q_bc_mono_ret: String,
@@ -99,7 +110,10 @@ impl GMonoRetData {
 }
 
 /// Monofasico diferimento: `<gMonoDif>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GMonoDifData {
     pub p_dif_ibs: String,
@@ -126,7 +140,10 @@ impl GMonoDifData {
 }
 
 /// Grupo monofasico completo: `<gIBSCBSMono>` inside `<IBSCBS>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GIbsCbsMonoData {
     /// Monofasico padrao. Optional.

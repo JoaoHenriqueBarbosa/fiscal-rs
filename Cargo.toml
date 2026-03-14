@@ -3,6 +3,7 @@ members = [
     "crates/fiscal-core",
     "crates/fiscal-crypto",
     "crates/fiscal-sefaz",
+    "crates/fiscal-napi",
 ]
 exclude = [
     "benchmarks/rust",

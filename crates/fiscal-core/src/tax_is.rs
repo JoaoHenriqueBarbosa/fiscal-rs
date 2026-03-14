@@ -4,6 +4,8 @@
 //! 2024 tax reform. This module provides [`IsData`] and [`build_is_xml`] to
 //! generate the `<IS>` element placed inside `<imposto>`.
 
+use serde::{Deserialize, Serialize};
+
 use crate::tax_element::{
     TaxElement, TaxField, filter_fields, optional_field, serialize_tax_element,
 };
@@ -14,7 +16,10 @@ use crate::tax_element::{
 /// String fields are pre-formatted (e.g. "100.00", "5.0000") because
 /// the IS schema uses mixed decimal precisions that don't map to a
 /// single cents/rate convention.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IsData {
     /// IS tax situation code

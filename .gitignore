@@ -3,3 +3,20 @@ target/
 
 # Manual test scripts (contain sensitive data: PFX paths, passwords, access keys)
 manual/
+
+# Reference projects (SVN checkouts, etc.)
+.reference/
+
+# napi-rs build artifacts
+*.node
+crates/fiscal-napi/index.js
+crates/fiscal-napi/index.d.ts
+crates/fiscal-napi/node_modules/
+crates/fiscal-napi/package-lock.json
+
+# ts-rs generated TypeScript bindings
+bindings/
+
+# Python
+__pycache__/
+.venv/

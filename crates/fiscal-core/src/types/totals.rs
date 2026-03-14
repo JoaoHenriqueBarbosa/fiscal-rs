@@ -1,4 +1,5 @@
 use crate::newtypes::Cents;
+use serde::{Deserialize, Serialize};
 
 // ── ISSQN total data ────────────────────────────────────────────────────────
 
@@ -6,7 +7,10 @@ use crate::newtypes::Cents;
 ///
 /// When the invoice has service items with ISSQN, this group is emitted
 /// after `<ICMSTot>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IssqnTotData {
     /// Total services value (`vServ`) in cents. Optional — only emitted when > 0.

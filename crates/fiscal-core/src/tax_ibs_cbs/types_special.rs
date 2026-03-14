@@ -1,10 +1,15 @@
 //! Tipos especiais: transferência de crédito, crédito presumido ZFM,
 //! ajuste de competência, estorno de crédito, crédito presumido por operação.
 
+use serde::{Deserialize, Serialize};
+
 // ── Transferencia de Credito ────────────────────────────────────────────
 
 /// Grupo de transferencia de creditos: `<gTransfCred>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GTransfCredData {
     /// Valor do IBS a ser transferido (`vIBS`).
@@ -26,7 +31,10 @@ impl GTransfCredData {
 // ── Credito Presumido ZFM ───────────────────────────────────────────────
 
 /// Grupo de credito presumido IBS com ZFM: `<gCredPresIBSZFM>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GCredPresIbsZfmData {
     /// Competencia de apuracao (`competApur`), e.g. `"2025-06"`. Optional.
@@ -59,7 +67,10 @@ impl GCredPresIbsZfmData {
 // ── Ajuste de Competencia ───────────────────────────────────────────────
 
 /// Grupo de ajuste de competencia: `<gAjusteCompet>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GAjusteCompetData {
     /// Competencia de apuracao (`competApur`), e.g. `"2025-06"`.
@@ -88,7 +99,10 @@ impl GAjusteCompetData {
 // ── Estorno de Credito ──────────────────────────────────────────────────
 
 /// Grupo de estorno de credito: `<gEstornoCred>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GEstornoCredData {
     /// Valor do IBS estornado (`vIBSEstCred`).
@@ -110,7 +124,10 @@ impl GEstornoCredData {
 // ── Credito Presumido por Operacao ──────────────────────────────────────
 
 /// IBS credito presumido sub-group: `<gIBSCredPres>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GIbsCredPresData {
     /// Percentual do credito presumido (`pCredPres`).
@@ -147,7 +164,10 @@ impl GIbsCredPresData {
 pub type GCbsCredPresData = GIbsCredPresData;
 
 /// Grupo de credito presumido por operacao: `<gCredPresOper>`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct GCredPresOperData {
     /// Base de calculo do credito presumido (`vBCCredPres`).

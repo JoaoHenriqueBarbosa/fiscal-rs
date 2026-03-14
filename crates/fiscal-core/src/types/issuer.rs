@@ -1,5 +1,6 @@
 use super::TaxRegime;
 use crate::newtypes::IbgeCode;
+use serde::{Deserialize, Serialize};
 
 /// Issuer (emitente) identification and address data.
 ///
@@ -28,7 +29,10 @@ use crate::newtypes::IbgeCode;
 /// );
 /// assert_eq!(issuer.state_code, "PR");
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct IssuerData {
     /// CNPJ or CPF of the issuer (digits only).

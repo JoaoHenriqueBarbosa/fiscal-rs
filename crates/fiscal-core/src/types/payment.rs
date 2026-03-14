@@ -1,10 +1,14 @@
 use crate::newtypes::{Cents, IbgeCode};
+use serde::{Deserialize, Serialize};
 
 /// Payment method and amount for a single payment entry (`<detPag>`).
 ///
 /// Use the payment type codes from [`crate::constants::payment_types`] for
 /// the `method` field (e.g. `"01"` for cash, `"17"` for Pix).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PaymentData {
     /// Payment type code (`tPag`), e.g. `"01"` (cash) or `"03"` (credit card).
@@ -71,7 +75,10 @@ impl PaymentData {
 /// Optional credit/debit card details attached to a payment entry (`<card>`).
 ///
 /// All fields are optional; set only the ones available from the payment terminal.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub struct PaymentCardDetail {
     /// Integration type code (`tpIntegra`): `"1"` (integrated) or `"2"` (non-integrated).
@@ -134,7 +141,10 @@ impl PaymentCardDetail {
 /// Referenced fiscal document types that may appear in the `<NFref>` section.
 ///
 /// Each variant represents a different class of referenced document.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum ReferenceDoc {
     /// Reference to another NF-e by its 44-digit access key.

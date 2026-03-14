@@ -7,3 +7,12 @@ semver_check = true
 publish_timeout = "10m"
 # Label the release PR
 pr_labels = ["release"]
+
+# fiscal-napi is a cdylib — don't publish to crates.io.
+# Version bump + changelog are still managed by release-plz.
+# npm publish is handled by the napi-publish.yml workflow.
+[[package]]
+name = "fiscal-napi"
+publish = false
+semver_check = false
+git_only = true
