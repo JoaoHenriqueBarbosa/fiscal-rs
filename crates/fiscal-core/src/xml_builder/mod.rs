@@ -30,6 +30,24 @@ pub mod transp;
 pub use access_key::build_access_key;
 pub use builder::{Built, Draft, InvoiceBuilder, Signed};
 
+/// Build an NF-e/NFC-e XML directly from a fully populated [`InvoiceBuildData`].
+///
+/// This is the FFI-friendly alternative to the typestate [`InvoiceBuilder`].
+/// Intended for bindings (Node.js, Python, WASM) where the data arrives as
+/// a deserialized struct rather than through chainable setters.
+///
+/// Returns [`InvoiceXmlResult`] containing the unsigned XML and access key.
+///
+/// # Errors
+///
+/// Returns [`FiscalError`] if the data is invalid (unknown state code,
+/// invalid tax data, etc.).
+pub fn build_from_data(
+    data: &crate::types::InvoiceBuildData,
+) -> Result<crate::types::InvoiceXmlResult, FiscalError> {
+    generate_xml(data)
+}
+
 use crate::FiscalError;
 use crate::constants::{NFE_NAMESPACE, NFE_VERSION};
 use crate::newtypes::IbgeCode;

@@ -95,13 +95,14 @@ impl SchemaVersion {
 /// NF-e emission type (`tpEmis`) — normal or one of the contingency modes.
 ///
 /// Values map directly to the `<tpEmis>` element in the `<ide>` group.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[non_exhaustive]
 pub enum EmissionType {
     /// `1` — Normal online emission via the primary SEFAZ authorizer.
+    #[default]
     Normal = 1,
     /// `2` — FS-IA contingency (Formulário de Segurança — Impressor Autônomo).
     FsIa = 2,

@@ -82,8 +82,7 @@ pub use totals::IssqnTotData;
 pub use item::InvoiceItemData;
 
 // ── Re-exports: build ──────────────────────────────────────────────────────
-pub use build::AuthorizedXml;
-pub(crate) use build::{InvoiceBuildData, InvoiceXmlResult};
+pub use build::{AuthorizedXml, InvoiceBuildData, InvoiceXmlResult};
 
 // ── Re-exports: qrcode_params ──────────────────────────────────────────────
 pub use qrcode_params::{NfceQrCodeParams, PutQRTagParams};

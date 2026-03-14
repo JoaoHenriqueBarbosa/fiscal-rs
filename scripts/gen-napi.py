@@ -765,160 +765,56 @@ fn to_json(v: &impl serde::Serialize) -> napi::Result<serde_json::Value> {
 
 
 def gen_builder() -> str:
-    """Generate builder.rs from InvoiceBuilder<Draft> setter methods."""
-    builder_path = ROOT / "crates/fiscal-core/src/xml_builder/builder.rs"
-    root = parse_file(builder_path)
+    """Generate builder.rs — thin wrapper over InvoiceBuildData + build_from_data.
 
-    # Find InvoiceBuilder impl blocks and collect Draft setters
-    all_methods = extract_impl_methods(root, "InvoiceBuilder<Draft>")
-    # Also try just "InvoiceBuilder" in case tree-sitter parses differently
-    all_methods.extend(extract_impl_methods(root, "InvoiceBuilder"))
+    Since InvoiceBuildData has Deserialize, serde does all the work.
+    No BuildInvoiceConfig, no if-let chains.
+    """
+    return '''use napi_derive::napi;
 
-    # Setters: methods that return Self (consume self)
-    setters = []
-    seen = set()
-    for m in all_methods:
-        if m.name in seen:
-            continue
-        seen.add(m.name)
-        if m.has_self and m.return_type and "Self" in m.return_type and m.name not in ("new", "build"):
-            if m.params:  # must have at least one value param
-                setters.append(m)
-
-    # All setters become optional fields in the config struct.
-    # The only required fields are the InvoiceBuilder::new() params
-    # (issuer, environment, model) which are hardcoded in the struct.
-
-    # Collect all types referenced by setters to generate imports
-    referenced_types = set()
-    for s in setters:
-        p = s.params[0]
-        t = p.rust_type.strip()
-        # Extract type identifiers from the type string via AST
-        node = parse_type_node(t)
-        if node:
-            _collect_type_idents(node, referenced_types)
-
-    # Also need types from InvoiceBuilder::new() params
-    for m in all_methods:
-        if m.name == "new":
-            for p in m.params:
-                node = parse_type_node(p.rust_type.strip())
-                if node:
-                    _collect_type_idents(node, referenced_types)
-
-    out = [
-        "use napi_derive::napi;\n",
-        "use serde::Deserialize;\n\n",
-        "use fiscal_core::types::*;\n",
-        "use fiscal_core::xml_builder::InvoiceBuilder;\n",
-    ]
-
-    # Add specific imports for types not covered by `types::*`
-    extra_imports = set()
-    for t in referenced_types:
-        if t == "Cents":
-            extra_imports.add("use fiscal_core::newtypes::Cents;\n")
-        elif t == "Rate":
-            extra_imports.add("use fiscal_core::newtypes::Rate;\n")
-        elif t == "Rate4":
-            extra_imports.add("use fiscal_core::newtypes::Rate4;\n")
-
-    for imp in sorted(extra_imports):
-        out.append(imp)
-    out.append("\n")
-
-    # ── buildInvoice ──
-    out.append("""/// Build an NF-e/NFC-e XML from a configuration object.
+/// Build an NF-e/NFC-e XML from a configuration object.
 ///
-/// Accepts the full invoice data as a single JSON object and returns
+/// Accepts the full invoice data as a single JSON object (matching
+/// `InvoiceBuildData` fields in camelCase) and returns
 /// `{ xml: string, accessKey: string }`.
 #[napi(ts_return_type = "{ xml: string; accessKey: string }")]
 pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Value> {
-    let cfg: BuildInvoiceConfig = serde_json::from_value(config)
+    let data: fiscal_core::types::InvoiceBuildData = serde_json::from_value(config)
         .map_err(|e| napi::Error::from_reason(format!("Invalid config: {e}")))?;
 
-    let mut builder = InvoiceBuilder::new(cfg.issuer, cfg.environment, cfg.model);
-
-""")
-
-    for s in setters:
-        name = s.name
-        p = s.params[0]
-        t = p.rust_type.strip()
-
-        if t.startswith("DateTime<"):
-            out.append(f"    if let Some(ref v) = cfg.{name} {{\n")
-            out.append(f"        let dt = chrono::DateTime::parse_from_rfc3339(v)\n")
-            out.append(f'            .map_err(|e| napi::Error::from_reason(format!("Invalid {name}: {{e}}")))?;\n')
-            out.append(f"        builder = builder.{name}(dt);\n")
-            out.append(f"    }}\n")
-        else:
-            out.append(f"    if let Some(v) = cfg.{name} {{\n")
-            out.append(f"        builder = builder.{name}(v);\n")
-            out.append(f"    }}\n")
-
-    out.append("""
-    let built = builder
-        .build()
+    let result = fiscal_core::xml_builder::build_from_data(&data)
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    Ok(serde_json::json!({
-        "xml": built.xml(),
-        "accessKey": built.access_key(),
-    }))
+    serde_json::to_value(&result).map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 /// Build and sign an NF-e/NFC-e XML in one step.
+///
+/// Same as `buildInvoice` but also signs the XML using the provided
+/// PEM-encoded private key and certificate.
 #[napi(ts_return_type = "{ xml: string; signedXml: string; accessKey: string }")]
 pub fn build_and_sign_invoice(
     config: serde_json::Value,
     private_key: String,
     certificate: String,
 ) -> napi::Result<serde_json::Value> {
-    let result = build_invoice(config)?;
-    let xml = result["xml"].as_str().unwrap();
-    let access_key = result["accessKey"].as_str().unwrap().to_string();
+    let data: fiscal_core::types::InvoiceBuildData = serde_json::from_value(config)
+        .map_err(|e| napi::Error::from_reason(format!("Invalid config: {e}")))?;
 
-    let signed_xml = fiscal_crypto::certificate::sign_xml(xml, &private_key, &certificate)
+    let result = fiscal_core::xml_builder::build_from_data(&data)
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
+    let signed_xml =
+        fiscal_crypto::certificate::sign_xml(&result.xml, &private_key, &certificate)
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+
     Ok(serde_json::json!({
-        "xml": xml,
+        "xml": result.xml,
         "signedXml": signed_xml,
-        "accessKey": access_key,
+        "accessKey": result.access_key,
     }))
 }
-
-""")
-
-    # ── BuildInvoiceConfig struct ──
-    out.append("// ── Config (auto-generated from InvoiceBuilder<Draft> setters) ──\n\n")
-    out.append("#[derive(Deserialize)]\n")
-    out.append('#[serde(rename_all = "camelCase")]\n')
-    out.append("struct BuildInvoiceConfig {\n")
-    out.append("    // Required\n")
-    out.append("    issuer: IssuerData,\n")
-    out.append("    environment: SefazEnvironment,\n")
-    out.append("    model: InvoiceModel,\n")
-
-    for s in setters:
-        name = s.name
-        p = s.params[0]
-        t = p.rust_type.strip()
-
-        if t.startswith("impl Into<String>"):
-            out.append(f"    {name}: Option<String>,\n")
-        elif t.startswith("DateTime<"):
-            out.append(f"    /// ISO 8601 string\n")
-            out.append(f"    {name}: Option<String>,\n")
-        else:
-            fixed_t = rewrite_crate_paths(t)
-            out.append(f"    {name}: Option<{fixed_t}>,\n")
-
-    out.append("}\n")
-
-    return "".join(out)
+'''
 
 
 def _collect_use_names(node: ts.Node, names: set[str]):
