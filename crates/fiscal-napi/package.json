@@ -11,7 +11,7 @@
       "x86_64-unknown-linux-gnu",
       "aarch64-unknown-linux-gnu",
       "x86_64-apple-darwin",
-      "aarch64-apple-darwin",
+      "aarch64-apple-darwin"
     ]
   },
   "license": "MIT",
@@ -37,7 +37,7 @@
     "@fiscal-rs/node-linux-x64-gnu": "0.1.0",
     "@fiscal-rs/node-linux-arm64-gnu": "0.1.0",
     "@fiscal-rs/node-darwin-x64": "0.1.0",
-    "@fiscal-rs/node-darwin-arm64": "0.1.0",
+    "@fiscal-rs/node-darwin-arm64": "0.1.0"
   },
   "publishConfig": {
     "access": "public"
