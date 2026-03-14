@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.4...fiscal-sefaz-v0.5.0) - 2026-03-14
+
+### Added
+
+- *(napi)* expose full public API — 90 exports
+- *(napi)* add AST-based codegen script for napi bindings
+- *(napi)* add Node.js native binding via napi-rs
+
+### Other
+
+- Merge pull request #18 from JoaoHenriqueBarbosa/feat/napi-node-binding
+
 ## [0.4.4](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.3...fiscal-sefaz-v0.4.4) - 2026-03-13
 
 ### Other

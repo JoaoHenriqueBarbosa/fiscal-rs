@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.6.1...fiscal-core-v0.7.0) - 2026-03-14
+
+### Added
+
+- *(napi)* add ContingencyManager class + contingencyForState
+- *(napi)* expose full public API — 90 exports
+- *(napi)* add Node.js native binding via napi-rs
+
+### Other
+
+- Merge pull request #18 from JoaoHenriqueBarbosa/feat/napi-node-binding
+- *(napi)* serde deserializes directly into InvoiceBuildData
+
 ## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.6.0...fiscal-core-v0.6.1) - 2026-03-13
 
 ### Other
