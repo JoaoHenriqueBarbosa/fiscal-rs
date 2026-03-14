@@ -76,12 +76,6 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            cross: true
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            cross: true
           # Cross-compiled Windows ARM64
           - target: aarch64-pc-windows-msvc
             os: windows-latest
