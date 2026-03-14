@@ -1,17 +1,11 @@
 name: Publish @fiscal-rs/node to npm
 
-# Runs on every push to master (same trigger as release-plz).
-# Compares the version in Cargo.toml with the latest npm version.
-# If they differ, builds all platforms and publishes to npm.
+# Runs on every push to master.
+# Compares the highest crate version with npm — if different, publishes.
 on:
   push:
     branches:
       - master
-    paths:
-      - 'crates/fiscal-napi/**'
-      - 'crates/fiscal-core/**'
-      - 'crates/fiscal-crypto/**'
-      - 'crates/fiscal-sefaz/**'
 
 permissions:
   contents: read
@@ -29,33 +23,28 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Determine version from dependency crates
         id: check
         run: |
-          # npm version follows the highest version among fiscal-rs crates
           CORE=$(grep '^version' crates/fiscal-core/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           SEFAZ=$(grep '^version' crates/fiscal-sefaz/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           CRYPTO=$(grep '^version' crates/fiscal-crypto/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           FACADE=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
-          echo "fiscal-core: $CORE"
-          echo "fiscal-sefaz: $SEFAZ"
-          echo "fiscal-crypto: $CRYPTO"
-          echo "fiscal (facade): $FACADE"
+          echo "fiscal-core: $CORE | fiscal-sefaz: $SEFAZ | fiscal-crypto: $CRYPTO | fiscal: $FACADE"
 
-          # Pick the highest version (sort -V = version sort)
           VERSION=$(printf '%s\n' "$CORE" "$SEFAZ" "$CRYPTO" "$FACADE" | sort -V | tail -1)
           echo "Resolved npm version: $VERSION"
 
-          # Check npm registry for latest published version
-          NPM_VERSION=$(npm view @fiscal-rs/node version 2>/dev/null || echo "0.0.0")
+          NPM_VERSION=$(curl -s https://registry.npmjs.org/@fiscal-rs/node/latest | jq -r '.version // "0.0.0"')
           echo "Current npm version: $NPM_VERSION"
 
           if [ "$VERSION" != "$NPM_VERSION" ]; then
-            echo "Version changed: $NPM_VERSION -> $VERSION"
             echo "should_publish=true" >> $GITHUB_OUTPUT
           else
-            echo "Version unchanged, skipping publish"
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -72,30 +61,32 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Native builds
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-          - target: x86_64-apple-darwin
-            os: macos-13
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-latest
+          # macOS x86_64 cross-compiled from ARM64 runner
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            cross: true
+          # Native Windows build
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+          # Cross-compiled Linux builds (use --use-napi-cross)
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          # Cross-compiled Windows ARM64
           - target: aarch64-pc-windows-msvc
             os: windows-latest
+            cross: true
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -103,20 +94,17 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
-      - name: Install cross-compilation tools
-        if: contains(matrix.target, 'aarch64-unknown-linux') || matrix.target == 'x86_64-unknown-linux-musl'
-        uses: napi-rs/setup-cross-toolchain-action@v1
-        with:
-          target: ${{ matrix.target }}
-
-      - name: Install OpenSSL (Linux x86_64 gnu)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
-
+      # Build: use --use-napi-cross for cross targets, plain build for native
+      # OpenSSL is vendored (compiled from source) so no system dependency needed
       - name: Build native addon
-        run: npx napi build --release --platform --target ${{ matrix.target }}
+        if: ${{ !matrix.cross }}
+        run: bunx napi build --release --platform --target ${{ matrix.target }}
+
+      - name: Build native addon (cross)
+        if: ${{ matrix.cross }}
+        run: bunx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -132,19 +120,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Configure npm registry auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies
         working-directory: crates/fiscal-napi
-        run: npm ci
+        run: bun install
 
       - name: Sync version to package.json
         working-directory: crates/fiscal-napi
-        run: npx napi version --no-git ${{ needs.check-version.outputs.version }}
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          jq --arg v "$VERSION" '.version = $v | .optionalDependencies |= with_entries(.value = $v)' package.json > package.json.tmp && mv package.json.tmp package.json
+          for pkg in npm/*/package.json; do
+            jq --arg v "$VERSION" '.version = $v' "$pkg" > "$pkg.tmp" && mv "$pkg.tmp" "$pkg"
+          done
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -153,7 +148,7 @@ jobs:
 
       - name: Move artifacts to npm dirs
         working-directory: crates/fiscal-napi
-        run: npx napi artifacts --dir artifacts
+        run: bunx napi artifacts --output-dir artifacts
 
       - name: List packages
         working-directory: crates/fiscal-napi
@@ -163,14 +158,19 @@ jobs:
             echo "$d: $(ls "$d"fiscal.*.node 2>/dev/null | wc -l) binary"
           done
 
+      - name: Prepare platform packages
+        working-directory: crates/fiscal-napi
+        run: bunx napi prepublish --no-gh-release --skip-optional-publish -t npm
+
       - name: Publish platform packages
         working-directory: crates/fiscal-napi
-        run: npx napi prepublish --skip-gh-release -t npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in npm/*/; do
+            cd "$pkg"
+            npm publish --access public || true
+            cd ../..
+          done
 
       - name: Publish main package
         working-directory: crates/fiscal-napi
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
