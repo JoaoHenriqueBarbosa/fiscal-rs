@@ -3,4 +3,5 @@
 mod builder;
 mod certificate;
 mod client;
+mod contingency;
 mod utils;

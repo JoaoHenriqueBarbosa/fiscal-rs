@@ -948,7 +948,7 @@ def collect_exported_fns(mod_dir: Path) -> list[FnSig]:
 
 
 def gen_lib() -> str:
-    return '#![doc = "Node.js native binding for fiscal-rs via napi-rs."]\n\nmod builder;\nmod certificate;\nmod client;\nmod utils;\n'
+    return '#![doc = "Node.js native binding for fiscal-rs via napi-rs."]\n\nmod builder;\nmod certificate;\nmod client;\nmod contingency;\nmod utils;\n'
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
