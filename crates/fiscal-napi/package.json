@@ -5,7 +5,17 @@
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
-    "name": "fiscal"
+    "binaryName": "fiscal",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-musl",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
+    ]
   },
   "license": "MIT",
   "repository": {
@@ -22,13 +32,27 @@
     "rust",
     "napi-rs"
   ],
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "optionalDependencies": {
+    "@fiscal-rs/node-linux-x64-gnu": "0.1.0",
+    "@fiscal-rs/node-linux-arm64-gnu": "0.1.0",
+    "@fiscal-rs/node-linux-x64-musl": "0.1.0",
+    "@fiscal-rs/node-linux-arm64-musl": "0.1.0",
+    "@fiscal-rs/node-darwin-x64": "0.1.0",
+    "@fiscal-rs/node-darwin-arm64": "0.1.0",
+    "@fiscal-rs/node-win32-x64-msvc": "0.1.0",
+    "@fiscal-rs/node-win32-arm64-msvc": "0.1.0"
+  },
   "devDependencies": {
     "@napi-rs/cli": "^3"
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --release",
-    "build:debug": "napi build",
+    "build": "napi build --release --platform",
+    "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "version": "napi version"
   }
