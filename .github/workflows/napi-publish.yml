@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Determine version from dependency crates
         id: check
         run: |
@@ -36,7 +39,7 @@ jobs:
           VERSION=$(printf '%s\n' "$CORE" "$SEFAZ" "$CRYPTO" "$FACADE" | sort -V | tail -1)
           echo "Resolved npm version: $VERSION"
 
-          NPM_VERSION=$(npm view @fiscal-rs/node version 2>/dev/null || echo "0.0.0")
+          NPM_VERSION=$(curl -s https://registry.npmjs.org/@fiscal-rs/node/latest | jq -r '.version // "0.0.0"')
           echo "Current npm version: $NPM_VERSION"
 
           if [ "$VERSION" != "$NPM_VERSION" ]; then
@@ -87,10 +90,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -98,17 +99,17 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       # Build: use --use-napi-cross for cross targets, plain build for native
       # OpenSSL is vendored (compiled from source) so no system dependency needed
       - name: Build native addon
         if: ${{ !matrix.cross }}
-        run: npx napi build --release --platform --target ${{ matrix.target }}
+        run: bunx napi build --release --platform --target ${{ matrix.target }}
 
       - name: Build native addon (cross)
         if: ${{ matrix.cross }}
-        run: npx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
+        run: bunx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -124,19 +125,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         working-directory: crates/fiscal-napi
-        run: npm install
+        run: bun install
 
       - name: Sync version to package.json
         working-directory: crates/fiscal-napi
-        run: npx napi version --no-git ${{ needs.check-version.outputs.version }}
+        run: bunx napi version --no-git ${{ needs.check-version.outputs.version }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -145,7 +143,7 @@ jobs:
 
       - name: Move artifacts to npm dirs
         working-directory: crates/fiscal-napi
-        run: npx napi artifacts --dir artifacts
+        run: bunx napi artifacts --dir artifacts
 
       - name: List packages
         working-directory: crates/fiscal-napi
@@ -157,12 +155,12 @@ jobs:
 
       - name: Publish platform packages
         working-directory: crates/fiscal-napi
-        run: npx napi prepublish --skip-gh-release -t npm
+        run: bunx napi prepublish --skip-gh-release -t npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish main package
         working-directory: crates/fiscal-napi
-        run: npm publish --access public
+        run: bun publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
