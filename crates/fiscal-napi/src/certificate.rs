@@ -9,37 +9,77 @@ fn to_json(v: &impl serde::Serialize) -> napi::Result<serde_json::Value> {
     serde_json::to_value(v).map_err(to_napi)
 }
 
-/// Load a PKCS#12 (PFX) certificate and return the PEM-encoded
-/// private key and certificate.
-#[napi(
-    ts_return_type = "{ privateKey: string; certificate: string; pfxBuffer: number[]; passphrase: string }"
-)]
+/// Extract private key and certificate PEM strings from a PKCS#12/PFX buffer.
+///
+/// Parses the PFX using the provided passphrase and returns a [`CertificateData`]
+/// containing both PEM-encoded private key and certificate, along with the
+/// original PFX buffer and passphrase for later reuse.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The buffer is not a valid PKCS#12 file
+/// - The passphrase is incorrect
+/// - The PFX does not contain a private key or certificate
+#[napi(ts_return_type = "Record<string, unknown>")]
 pub fn load_certificate(pfx_buffer: Buffer, passphrase: String) -> napi::Result<serde_json::Value> {
-    let cert_data =
+    let result =
         fiscal_crypto::certificate::load_certificate(&pfx_buffer, &passphrase).map_err(to_napi)?;
-    to_json(&cert_data)
+    to_json(&result)
 }
 
-/// Get certificate metadata (common name, validity dates, serial, issuer).
-#[napi(
-    ts_return_type = "{ commonName: string; validFrom: string; validUntil: string; serialNumber: string; issuer: string }"
-)]
+/// Extract display metadata from a PKCS#12/PFX certificate.
+///
+/// Parses the PFX and reads the X.509 subject, issuer, validity dates,
+/// and serial number without exposing the private key.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The buffer is not a valid PKCS#12 file
+/// - The passphrase is incorrect
+/// - The certificate fields cannot be parsed
+#[napi(ts_return_type = "Record<string, unknown>")]
 pub fn get_certificate_info(
     pfx_buffer: Buffer,
     passphrase: String,
 ) -> napi::Result<serde_json::Value> {
-    let info = fiscal_crypto::certificate::get_certificate_info(&pfx_buffer, &passphrase)
+    let result = fiscal_crypto::certificate::get_certificate_info(&pfx_buffer, &passphrase)
         .map_err(to_napi)?;
-    to_json(&info)
+    to_json(&result)
 }
 
-/// Sign an NF-e XML using RSA-SHA1 (default algorithm).
+/// Sign an NF-e XML with RSA-SHA1 enveloped XMLDSig signature.
+///
+/// Produces a `<Signature>` element inserted inside `<NFe>` after `</infNFe>`,
+/// using C14N canonicalization, SHA-1 digest, and RSA-SHA1 signing.
+///
+/// The signed element is identified by the `Id` attribute on `<infNFe>`.
+///
+/// For SHA-256 support, use [`sign_xml_with_algorithm`].
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infNFe>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_xml(xml: String, private_key: String, certificate: String) -> napi::Result<String> {
     fiscal_crypto::certificate::sign_xml(&xml, &private_key, &certificate).map_err(to_napi)
 }
 
-/// Sign an NF-e XML using a specific algorithm ("sha1" or "sha256").
+/// Sign an NF-e XML with the specified hash algorithm.
+///
+/// Same as [`sign_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infNFe>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_xml_with_algorithm(
     xml: String,
@@ -52,7 +92,18 @@ pub fn sign_xml_with_algorithm(
         .map_err(to_napi)
 }
 
-/// Sign an event XML using RSA-SHA1 (default algorithm).
+/// Sign a SEFAZ event XML with RSA-SHA1 enveloped XMLDSig signature.
+///
+/// Same algorithm as [`sign_xml`] but targets `<infEvento>` inside `<evento>`.
+///
+/// For SHA-256 support, use [`sign_event_xml_with_algorithm`].
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infEvento>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_event_xml(
     xml: String,
@@ -62,7 +113,17 @@ pub fn sign_event_xml(
     fiscal_crypto::certificate::sign_event_xml(&xml, &private_key, &certificate).map_err(to_napi)
 }
 
-/// Sign an event XML using a specific algorithm ("sha1" or "sha256").
+/// Sign a SEFAZ event XML with the specified hash algorithm.
+///
+/// Same as [`sign_event_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infEvento>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_event_xml_with_algorithm(
     xml: String,
@@ -80,7 +141,18 @@ pub fn sign_event_xml_with_algorithm(
     .map_err(to_napi)
 }
 
-/// Sign an inutilização XML using RSA-SHA1 (default algorithm).
+/// Sign a SEFAZ inutilização XML with RSA-SHA1 enveloped XMLDSig signature.
+///
+/// Same algorithm as [`sign_xml`] but targets `<infInut>` inside `<inutNFe>`.
+///
+/// For SHA-256 support, use [`sign_inutilizacao_xml_with_algorithm`].
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infInut>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_inutilizacao_xml(
     xml: String,
@@ -91,7 +163,17 @@ pub fn sign_inutilizacao_xml(
         .map_err(to_napi)
 }
 
-/// Sign an inutilização XML using a specific algorithm ("sha1" or "sha256").
+/// Sign a SEFAZ inutilização XML with the specified hash algorithm.
+///
+/// Same as [`sign_inutilizacao_xml`] but allows choosing between SHA-1 and SHA-256.
+/// Use [`SignatureAlgorithm::Sha256`] for ICP-Brasil v5 certificates.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if:
+/// - The XML does not contain an `<infInut>` element with an `Id` attribute
+/// - The private key or certificate PEM cannot be parsed
+/// - The signing operation fails
 #[napi]
 pub fn sign_inutilizacao_xml_with_algorithm(
     xml: String,

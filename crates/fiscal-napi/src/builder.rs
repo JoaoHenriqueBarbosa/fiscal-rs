@@ -9,8 +9,6 @@ use fiscal_core::xml_builder::InvoiceBuilder;
 ///
 /// Accepts the full invoice data as a single JSON object and returns
 /// `{ xml: string, accessKey: string }`.
-///
-/// This is the primary entry point for generating fiscal documents.
 #[napi(ts_return_type = "{ xml: string; accessKey: string }")]
 pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Value> {
     let cfg: BuildInvoiceConfig = serde_json::from_value(config)
@@ -18,76 +16,53 @@ pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Valu
 
     let mut builder = InvoiceBuilder::new(cfg.issuer, cfg.environment, cfg.model);
 
-    // Apply optional overrides
     if let Some(v) = cfg.series {
         builder = builder.series(v);
     }
     if let Some(v) = cfg.invoice_number {
         builder = builder.invoice_number(v);
     }
+    if let Some(v) = cfg.emission_type {
+        builder = builder.emission_type(v);
+    }
     if let Some(v) = cfg.schema_version {
         builder = builder.schema_version(v);
     }
-    if let Some(v) = cfg.emission_type {
-        builder = builder.emission_type(v);
+    if let Some(ref v) = cfg.issued_at {
+        let dt = chrono::DateTime::parse_from_rfc3339(v)
+            .map_err(|e| napi::Error::from_reason(format!("Invalid issued_at: {e}")))?;
+        builder = builder.issued_at(dt);
     }
     if let Some(v) = cfg.operation_nature {
         builder = builder.operation_nature(v);
     }
-    if let Some(v) = cfg.issued_at {
-        let dt = chrono::DateTime::parse_from_rfc3339(&v)
-            .map_err(|e| napi::Error::from_reason(format!("Invalid issuedAt: {e}")))?;
-        builder = builder.issued_at(dt);
+    if let Some(v) = cfg.add_item {
+        builder = builder.add_item(v);
     }
-    if let Some(v) = cfg.only_ascii {
-        builder = builder.only_ascii(v);
-    }
-    if let Some(v) = cfg.calculation_method {
-        builder = builder.calculation_method(v);
-    }
-
-    // Items
     builder = builder.items(cfg.items);
-
-    // Payments
-    builder = builder.payments(cfg.payments);
-
-    // Recipient
     if let Some(v) = cfg.recipient {
         builder = builder.recipient(v);
     }
-
-    // Change amount
+    builder = builder.payments(cfg.payments);
     if let Some(v) = cfg.change_amount {
         builder = builder.change_amount(v);
     }
-
-    // Payment card details
     if let Some(v) = cfg.payment_card_details {
         builder = builder.payment_card_details(v);
     }
-
-    // Contingency
     if let Some(v) = cfg.contingency {
         builder = builder.contingency(v);
     }
-
-    // Exit at
-    if let Some(v) = cfg.exit_at {
-        let dt = chrono::DateTime::parse_from_rfc3339(&v)
-            .map_err(|e| napi::Error::from_reason(format!("Invalid exitAt: {e}")))?;
+    if let Some(ref v) = cfg.exit_at {
+        let dt = chrono::DateTime::parse_from_rfc3339(v)
+            .map_err(|e| napi::Error::from_reason(format!("Invalid exit_at: {e}")))?;
         builder = builder.exit_at(dt);
     }
-
-    // IDE overrides
     if let Some(v) = cfg.operation_type {
         builder = builder.operation_type(v);
     }
     if let Some(v) = cfg.purpose_code {
         builder = builder.purpose_code(v);
-    }
-    if let Some(v) = cfg.destination_indicator {
-        builder = builder.destination_indicator(v);
     }
     if let Some(v) = cfg.intermediary_indicator {
         builder = builder.intermediary_indicator(v);
@@ -104,14 +79,15 @@ pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Valu
     if let Some(v) = cfg.print_format {
         builder = builder.print_format(v);
     }
+    if let Some(v) = cfg.destination_indicator {
+        builder = builder.destination_indicator(v);
+    }
     if let Some(v) = cfg.ver_proc {
         builder = builder.ver_proc(v);
     }
     if let Some(v) = cfg.references {
         builder = builder.references(v);
     }
-
-    // Optional groups
     if let Some(v) = cfg.transport {
         builder = builder.transport(v);
     }
@@ -160,11 +136,22 @@ pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Valu
     if let Some(v) = cfg.pag_antecipado {
         builder = builder.pag_antecipado(v);
     }
+    if let Some(v) = cfg.is_tot {
+        builder = builder.is_tot(v);
+    }
+    if let Some(v) = cfg.ibs_cbs_tot {
+        builder = builder.ibs_cbs_tot(v);
+    }
+    if let Some(v) = cfg.only_ascii {
+        builder = builder.only_ascii(v);
+    }
+    if let Some(v) = cfg.calculation_method {
+        builder = builder.calculation_method(v);
+    }
     if let Some(v) = cfg.v_nf_tot_override {
         builder = builder.v_nf_tot_override(v);
     }
 
-    // Build
     let built = builder
         .build()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
@@ -176,9 +163,6 @@ pub fn build_invoice(config: serde_json::Value) -> napi::Result<serde_json::Valu
 }
 
 /// Build and sign an NF-e/NFC-e XML in one step.
-///
-/// Same as `buildInvoice` but also signs the XML using the provided
-/// PEM-encoded private key and certificate.
 #[napi(ts_return_type = "{ xml: string; signedXml: string; accessKey: string }")]
 pub fn build_and_sign_invoice(
     config: serde_json::Value,
@@ -199,10 +183,8 @@ pub fn build_and_sign_invoice(
     }))
 }
 
-// ── Config type (the only napi-specific type) ───────────────────────────────
+// ── Config (auto-generated from InvoiceBuilder<Draft> setters) ──
 
-/// Internal config struct for deserializing the JS object.
-/// All fields map 1:1 to InvoiceBuilder methods.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BuildInvoiceConfig {
@@ -210,42 +192,32 @@ struct BuildInvoiceConfig {
     issuer: IssuerData,
     environment: SefazEnvironment,
     model: InvoiceModel,
-    items: Vec<InvoiceItemData>,
-    payments: Vec<PaymentData>,
-
-    // Optional with defaults
     series: Option<u32>,
     invoice_number: Option<u32>,
-
-    // Optional overrides
-    schema_version: Option<SchemaVersion>,
     emission_type: Option<EmissionType>,
-    operation_nature: Option<String>,
-    /// ISO 8601 date-time string (e.g. "2026-01-15T10:30:00-03:00")
+    schema_version: Option<SchemaVersion>,
+    /// ISO 8601 string
     issued_at: Option<String>,
-    only_ascii: Option<bool>,
-    calculation_method: Option<CalculationMethod>,
-
+    operation_nature: Option<String>,
+    add_item: Option<InvoiceItemData>,
+    items: Vec<InvoiceItemData>,
     recipient: Option<RecipientData>,
+    payments: Vec<PaymentData>,
     change_amount: Option<Cents>,
     payment_card_details: Option<Vec<PaymentCardDetail>>,
     contingency: Option<ContingencyData>,
-    /// ISO 8601 date-time string
+    /// ISO 8601 string
     exit_at: Option<String>,
-
-    // IDE overrides
     operation_type: Option<u8>,
     purpose_code: Option<u8>,
-    destination_indicator: Option<String>,
     intermediary_indicator: Option<String>,
     emission_process: Option<String>,
     consumer_type: Option<String>,
     buyer_presence: Option<String>,
     print_format: Option<String>,
+    destination_indicator: Option<String>,
     ver_proc: Option<String>,
     references: Option<Vec<ReferenceDoc>>,
-
-    // Optional groups
     transport: Option<TransportData>,
     billing: Option<BillingData>,
     withdrawal: Option<LocationData>,
@@ -262,5 +234,9 @@ struct BuildInvoiceConfig {
     agropecuario: Option<AgropecuarioData>,
     compra_gov: Option<CompraGovData>,
     pag_antecipado: Option<PagAntecipadoData>,
+    is_tot: Option<fiscal_core::tax_ibs_cbs::IsTotData>,
+    ibs_cbs_tot: Option<fiscal_core::tax_ibs_cbs::IbsCbsTotData>,
+    only_ascii: Option<bool>,
+    calculation_method: Option<fiscal_core::types::CalculationMethod>,
     v_nf_tot_override: Option<Cents>,
 }
