@@ -24,10 +24,10 @@
     "type": "git",
     "url": "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
   },
-  "os": [
-    "darwin"
-  ],
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "os": [
+    "darwin"
+  ]
 }

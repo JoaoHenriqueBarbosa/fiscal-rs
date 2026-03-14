@@ -24,13 +24,13 @@
     "type": "git",
     "url": "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "os": [
     "linux"
   ],
   "libc": [
     "glibc"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  ]
 }

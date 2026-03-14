@@ -1,12 +1,12 @@
 {
-  "name": "@fiscal-rs/node-darwin-x64",
+  "name": "@fiscal-rs/node-win32-arm64-msvc",
   "version": "0.1.0",
   "cpu": [
-    "x64"
+    "arm64"
   ],
-  "main": "fiscal.darwin-x64.node",
+  "main": "fiscal.win32-arm64-msvc.node",
   "files": [
-    "fiscal.darwin-x64.node"
+    "fiscal.win32-arm64-msvc.node"
   ],
   "description": "Node.js native binding for fiscal-rs — Brazilian fiscal document library (NF-e/NFC-e)",
   "keywords": [
@@ -28,6 +28,6 @@
     "access": "public"
   },
   "os": [
-    "darwin"
+    "win32"
   ]
 }
