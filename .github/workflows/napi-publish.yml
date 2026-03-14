@@ -142,7 +142,7 @@ jobs:
 
       - name: Move artifacts to npm dirs
         working-directory: crates/fiscal-napi
-        run: bunx napi artifacts --dir artifacts
+        run: bunx napi artifacts --output-dir artifacts
 
       - name: List packages
         working-directory: crates/fiscal-napi
