@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.0...fiscal-v0.6.1) - 2026-04-29
+
+### Fixed
+
+- *(deps)* update rand 0.9.2 → 0.9.4 (RUSTSEC-2026-0097)
+
+### Other
+
+- Merge pull request #24 from JoaoHenriqueBarbosa/dependabot/github_actions/master/actions/upload-artifact-7
+- Merge pull request #31 from JoaoHenriqueBarbosa/dependabot/cargo/master/patch-and-minor-8e79fdc9d4
+- *(deps)* bump actions/download-artifact from 4 to 8
+
 ## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.5.1...fiscal-v0.6.0) - 2026-03-14
 
 ### Added
