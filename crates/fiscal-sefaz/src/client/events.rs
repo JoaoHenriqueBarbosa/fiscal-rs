@@ -291,6 +291,55 @@ impl SefazClient {
         response_parsers::parse_cancellation_response(&raw)
     }
 
+    /// Cancel an NFC-e (`RecepcaoEvento4`, tpEvento=110111).
+    ///
+    /// Used exclusively for NFC-e (model 65). The event is sent to
+    /// `RecepcaoEvento` of the issuing state.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NFC-e being cancelled.
+    /// * `protocol` — Authorization protocol of the original NFC-e.
+    /// * `justification` — Reason for cancellation.
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn cancel_nfce(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        protocol: &str,
+        justification: &str,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancela_request(
+            access_key,
+            protocol,
+            justification,
+            1,
+            environment,
+            tax_id,
+        );
+        let raw = self
+            .send_model(
+                SefazService::RecepcaoEvento,
+                uf,
+                environment,
+                &request_xml,
+                65,
+            )
+            .await?;
+        response_parsers::parse_cancellation_response(&raw)
+    }
+
+
     /// Cancel an NFC-e by substitution (`RecepcaoEvento4`, tpEvento=110112).
     ///
     /// Used exclusively for NFC-e (model 65). The event is sent to
