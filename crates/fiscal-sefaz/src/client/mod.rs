@@ -70,6 +70,10 @@ fn svrs_org_override(uf: &str) -> Option<&'static str> {
 /// The certificate is loaded once and reused for all requests.
 pub struct SefazClient {
     http: Client,
+    /// PEM-encoded private key, used to sign event XML before transmit.
+    private_key: String,
+    /// PEM-encoded X.509 certificate, embedded in event signatures.
+    certificate: String,
 }
 
 impl fmt::Debug for SefazClient {
@@ -98,6 +102,11 @@ impl SefazClient {
         let identity = Identity::from_pkcs12_der(&modern_pfx, passphrase)
             .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
 
+        // Also extract the PEM key + certificate so the client can sign event
+        // XML (cancelamento, CC-e, …) before transmitting — SEFAZ rejects
+        // unsigned `<infEvento>` elements.
+        let cert_data = fiscal_crypto::certificate::load_certificate(pfx_buffer, passphrase)?;
+
         let http = Client::builder()
             .use_native_tls()
             .identity(identity)
@@ -108,7 +117,66 @@ impl SefazClient {
             .build()
             .map_err(|e| FiscalError::Network(format!("Failed to build HTTP client: {e}")))?;
 
-        Ok(Self { http })
+        Ok(Self {
+            http,
+            private_key: cert_data.private_key,
+            certificate: cert_data.certificate,
+        })
+    }
+
+    /// Sign a built event request XML in place, inserting a `<Signature>`
+    /// over the `<infEvento>` element inside `<evento>`.
+    ///
+    /// Uses RSA-SHA1, matching the library default for NF-e and inutilização
+    /// signing (`fiscal_crypto::sign_xml` / `sign_inutilizacao_xml`).
+    pub(crate) fn sign_event(&self, request_xml: &str) -> Result<String, FiscalError> {
+        fiscal_crypto::certificate::sign_event_xml(
+            request_xml,
+            &self.private_key,
+            &self.certificate,
+        )
+    }
+
+    /// Sign every `<evento>` element inside a batch `<envEvento>` request.
+    ///
+    /// `sign_event` signs a single `<evento>`; a batch (`event_batch` /
+    /// `manifest_batch`) carries multiple `<evento>` siblings that must each
+    /// receive their own `<Signature>`. This splits the batch on
+    /// `</evento>` boundaries, signs each segment, and reassembles the wrapper.
+    pub(crate) fn sign_event_batch(&self, request_xml: &str) -> Result<String, FiscalError> {
+        const CLOSE: &str = "</evento>";
+
+        let Some(first) = request_xml.find("<evento") else {
+            // No events to sign (should not happen for a valid batch).
+            return Ok(request_xml.to_string());
+        };
+
+        let mut out = String::with_capacity(request_xml.len() + 2048);
+        out.push_str(&request_xml[..first]);
+
+        let body = &request_xml[first..];
+        let mut rest = body;
+        loop {
+            match rest.find(CLOSE) {
+                Some(idx) => {
+                    let end = idx + CLOSE.len();
+                    let event = &rest[..end];
+                    out.push_str(&self.sign_event(event)?);
+                    rest = &rest[end..];
+                    if !rest.contains("<evento") {
+                        // Trailing wrapper (e.g. "</envEvento>").
+                        out.push_str(rest);
+                        break;
+                    }
+                }
+                None => {
+                    out.push_str(rest);
+                    break;
+                }
+            }
+        }
+
+        Ok(out)
     }
 
     // ── Low-level ────────────────────────────────────────────────────────
@@ -439,5 +507,71 @@ mod tests {
     fn rejects_empty_pfx_buffer() {
         let err = SefazClient::new(&[], "").unwrap_err();
         assert!(matches!(err, FiscalError::Certificate(_)));
+    }
+
+    // Test certificate fixture shared with the `fiscal-crypto` test suite.
+    fn test_pfx() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../..",
+            "/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx"
+        );
+        std::fs::read(path).expect("test PFX not found")
+    }
+
+    const TEST_PASSWORD: &str = "minhasenha";
+    const TEST_ACCESS_KEY: &str = "41250106157250000116550010000000011000000017";
+
+    #[test]
+    fn signs_cancel_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_cancela_request(
+            TEST_ACCESS_KEY,
+            "141250000000017",
+            "Cancelamento de teste com justificativa valida",
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        // The unsigned builder output must NOT already contain a signature.
+        assert!(!request_xml.contains("<Signature"));
+
+        let signed = client.sign_event(&request_xml).expect("event signs");
+
+        // A <Signature> referencing the <infEvento> Id must now be present,
+        // nested inside <evento> (before its closing tag).
+        assert!(
+            signed.contains("<Signature"),
+            "missing <Signature>: {signed}"
+        );
+        assert!(
+            signed.contains("Reference URI=\"#ID110111"),
+            "signature must reference the infEvento Id"
+        );
+        assert!(signed.contains("<X509Certificate>"));
+        let sig_pos = signed.find("<Signature").unwrap();
+        let evento_close = signed.find("</evento>").unwrap();
+        assert!(
+            sig_pos < evento_close,
+            "<Signature> must sit inside <evento>"
+        );
+    }
+
+    #[test]
+    fn signs_cce_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_cce_request(
+            TEST_ACCESS_KEY,
+            "Correcao do endereco de entrega",
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        let signed = client.sign_event(&request_xml).expect("event signs");
+
+        assert!(signed.contains("<Signature"));
+        assert!(signed.contains("Reference URI=\"#ID110110"));
     }
 }

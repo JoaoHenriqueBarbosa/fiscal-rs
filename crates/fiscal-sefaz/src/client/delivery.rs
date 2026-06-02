@@ -59,8 +59,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .send_an(SefazService::RecepcaoEvento, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -106,8 +107,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .send_an(SefazService::RecepcaoEvento, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -141,8 +143,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .send_an(SefazService::RecepcaoEvento, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -190,8 +193,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .send_an(SefazService::RecepcaoEvento, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -225,8 +229,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send_an(SefazService::RecepcaoEvento, environment, &request_xml)
+            .send_an(SefazService::RecepcaoEvento, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -273,8 +278,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
+            .send(SefazService::RecepcaoEvento, uf, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
@@ -317,8 +323,9 @@ impl SefazClient {
             environment,
             tax_id,
         );
+        let signed_xml = self.sign_event(&request_xml)?;
         let raw = self
-            .send(SefazService::RecepcaoEvento, uf, environment, &request_xml)
+            .send(SefazService::RecepcaoEvento, uf, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
