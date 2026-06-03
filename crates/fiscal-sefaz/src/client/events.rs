@@ -46,7 +46,10 @@ impl SefazClient {
         let raw = self
             .send(SefazService::RecepcaoEvento, uf, environment, &signed_xml)
             .await?;
-        response_parsers::parse_cancellation_response(&raw)
+        let mut resp = response_parsers::parse_cancellation_response(&raw)?;
+        resp.signed_event_xml = signed_xml;
+        resp.raw_response = raw;
+        Ok(resp)
     }
 
     /// Send a Carta de Correcao / CCe (`RecepcaoEvento4`, tpEvento=110110).
@@ -77,7 +80,10 @@ impl SefazClient {
         let raw = self
             .send(SefazService::RecepcaoEvento, uf, environment, &signed_xml)
             .await?;
-        response_parsers::parse_cancellation_response(&raw)
+        let mut resp = response_parsers::parse_cancellation_response(&raw)?;
+        resp.signed_event_xml = signed_xml;
+        resp.raw_response = raw;
+        Ok(resp)
     }
 
     /// Submit an inutilizacao request to void unused number ranges
