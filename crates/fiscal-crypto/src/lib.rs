@@ -8,10 +8,19 @@
 //!
 //! # Signature algorithms
 //!
-//! By default, XML signing uses RSA-SHA1 for backwards compatibility.
-//! For ICP-Brasil v5 certificates or SEFAZs that reject SHA-1
-//! (rejeição 297), use [`SignatureAlgorithm::Sha256`] with the
-//! `*_with_algorithm` signing functions.
+//! By default, XML signing uses RSA-SHA1, which is **mandatory for NF-e /
+//! NFC-e (and their events / inutilização)**: the `xmldsig-core` schema
+//! bundled in the NF-e layout *fixes* the `SignatureMethod`/`DigestMethod`
+//! `Algorithm` attributes to `rsa-sha1` / `sha1`. A SHA-256 signature is
+//! therefore rejected by SEFAZ with **cStat 225 ("Falha no Schema XML")** —
+//! verified live against SEFAZ-SP Homologação. This is independent of the
+//! certificate's own signature algorithm: an ICP-Brasil v5 certificate (whose
+//! certificate is itself SHA-256-signed) still produces a SHA-1 XML-DSig for
+//! NF-e and is accepted (cStat 100).
+//!
+//! Use [`SignatureAlgorithm::Sha256`] (via the `*_with_algorithm` functions)
+//! only for document types / services that explicitly document requiring it —
+//! NOT for NF-e/NFC-e, where SHA-256 is a schema violation.
 
 /// Digital certificate loading, management, and XML signing.
 pub mod certificate;
