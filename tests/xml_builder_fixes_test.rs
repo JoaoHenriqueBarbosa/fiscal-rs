@@ -718,6 +718,113 @@ fn vtottrib_accumulated_from_multiple_items() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Fix 9: xFant — empty trade_name must NOT emit <xFant> (cStat 225 fix)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// `xFant` has minLength=1 in the NF-e schema.  An empty or blank value would
+/// produce `<xFant></xFant>` which SEFAZ rejects with cStat 225.  Calling
+/// `.trade_name("")` (or any whitespace-only string) must behave as if the
+/// field was never set.
+#[test]
+fn empty_trade_name_does_not_emit_xfant() {
+    let issuer = IssuerData::new(
+        "12345678000199",
+        "123456789",
+        "Test Company",
+        TaxRegime::SimplesNacional,
+        "SP",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "Av Paulista",
+        "1000",
+        "Bela Vista",
+        "01310100",
+    )
+    .trade_name(""); // empty — must be suppressed
+
+    let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfce)
+        .series(1)
+        .invoice_number(1)
+        .issued_at(fixed_issued_at())
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+
+    assert!(
+        !xml.contains("<xFant"),
+        "empty trade_name must not emit <xFant> (cStat 225 would be returned by SEFAZ): {xml}"
+    );
+}
+
+#[test]
+fn whitespace_trade_name_does_not_emit_xfant() {
+    let issuer = IssuerData::new(
+        "12345678000199",
+        "123456789",
+        "Test Company",
+        TaxRegime::SimplesNacional,
+        "SP",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "Av Paulista",
+        "1000",
+        "Bela Vista",
+        "01310100",
+    )
+    .trade_name("   "); // whitespace-only — must also be suppressed
+
+    let built = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, InvoiceModel::Nfe)
+        .series(1)
+        .invoice_number(1)
+        .issued_at(fixed_issued_at())
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+
+    assert!(
+        !xml.contains("<xFant"),
+        "whitespace-only trade_name must not emit <xFant>: {xml}"
+    );
+}
+
+#[test]
+fn non_empty_trade_name_emits_xfant() {
+    let issuer = IssuerData::new(
+        "12345678000199",
+        "123456789",
+        "Test Company",
+        TaxRegime::SimplesNacional,
+        "SP",
+        IbgeCode("3550308".to_string()),
+        "Sao Paulo",
+        "Av Paulista",
+        "1000",
+        "Bela Vista",
+        "01310100",
+    )
+    .trade_name("Loja do João");
+
+    let built = InvoiceBuilder::new(issuer, SefazEnvironment::Production, InvoiceModel::Nfe)
+        .series(1)
+        .invoice_number(1)
+        .issued_at(fixed_issued_at())
+        .add_item(sample_item())
+        .payments(vec![sample_payment()])
+        .build()
+        .unwrap();
+    let xml = built.xml();
+
+    assert!(
+        xml.contains("<xFant>Loja do João</xFant>"),
+        "non-empty trade_name must emit <xFant> with the correct value: {xml}"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Fix 8: indIntermed conditional
 // ═══════════════════════════════════════════════════════════════════════════
 

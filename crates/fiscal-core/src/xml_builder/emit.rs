@@ -15,7 +15,11 @@ pub(crate) fn build_emit(data: &InvoiceBuildData) -> String {
     ];
 
     if let Some(ref trade_name) = iss.trade_name {
-        children.push(tag("xFant", &[], TagContent::Text(trade_name)));
+        // `xFant` has minLength=1 in the NF-e schema; an empty or blank string
+        // causes SEFAZ to return cStat 225 (schema validation failure).
+        if !trade_name.trim().is_empty() {
+            children.push(tag("xFant", &[], TagContent::Text(trade_name)));
+        }
     }
 
     children.push(tag(
