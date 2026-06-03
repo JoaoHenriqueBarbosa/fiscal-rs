@@ -574,4 +574,245 @@ mod tests {
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("Reference URI=\"#ID110110"));
     }
+
+    /// Build a minimal [`request_builders::EpecData`] fixture without parsing a
+    /// full NF-e XML, so the test stays focused on the signing behavior.
+    fn test_epec_data() -> request_builders::EpecData {
+        request_builders::EpecData {
+            access_key: TEST_ACCESS_KEY.to_string(),
+            c_orgao_autor: "41".to_string(),
+            ver_aplic: "1.0.0".to_string(),
+            dh_emi: "2025-01-01T10:00:00-03:00".to_string(),
+            tp_nf: "1".to_string(),
+            emit_ie: "111111111".to_string(),
+            dest_uf: "SP".to_string(),
+            dest_id_tag: "<CNPJ>99999999000191</CNPJ>".to_string(),
+            dest_ie: Some("222222222".to_string()),
+            v_nf: "100.00".to_string(),
+            v_icms: "18.00".to_string(),
+            v_st: "0.00".to_string(),
+            tax_id: "06157250000116".to_string(),
+        }
+    }
+
+    // ── Batch signing ────────────────────────────────────────────────────
+
+    /// A 2-`<evento>` batch gets exactly two `<Signature>` elements, each
+    /// nested inside its own `<evento>...</evento>`.
+    #[test]
+    fn signs_every_evento_in_batch() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let events = [
+            request_builders::EventItem {
+                access_key: TEST_ACCESS_KEY.to_string(),
+                event_type: 210210, // Ciência da Operação
+                seq: 1,
+                tax_id: "06157250000116".to_string(),
+                additional_tags: String::new(),
+            },
+            request_builders::EventItem {
+                access_key: TEST_ACCESS_KEY.to_string(),
+                event_type: 210200, // Confirmação da Operação
+                seq: 1,
+                tax_id: "06157250000116".to_string(),
+                additional_tags: String::new(),
+            },
+        ];
+        let request_xml = request_builders::build_event_batch_request(
+            "AN",
+            &events,
+            Some("1"),
+            SefazEnvironment::Homologation,
+        );
+        // Unsigned batch must carry no signatures yet.
+        assert!(!request_xml.contains("<Signature "));
+        assert_eq!(request_xml.matches("<evento ").count(), 2);
+
+        let signed = client.sign_event_batch(&request_xml).expect("batch signs");
+
+        // Exactly two root <Signature> elements, one per evento. Count the
+        // opening tag with its xmlns to avoid matching <SignatureMethod> /
+        // <SignatureValue>.
+        assert_eq!(
+            signed.matches("<Signature xmlns").count(),
+            2,
+            "expected one <Signature> per <evento>: {signed}"
+        );
+        assert_eq!(signed.matches("<evento ").count(), 2);
+
+        // Each <evento> must hold exactly one signature.
+        for event in signed.split_inclusive("</evento>") {
+            if event.contains("<infEvento") {
+                assert_eq!(
+                    event.matches("<Signature xmlns").count(),
+                    1,
+                    "each <evento> must hold its own <Signature>: {event}"
+                );
+            }
+        }
+        assert!(signed.contains("Reference URI=\"#ID210210"));
+        assert!(signed.contains("Reference URI=\"#ID210200"));
+    }
+
+    /// A batch with no `<evento>` round-trips unchanged (nothing to sign).
+    #[test]
+    fn signs_empty_batch_roundtrips_unchanged() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let batch = "<envEvento xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"1.00\">\
+             <idLote>1</idLote></envEvento>";
+        let signed = client.sign_event_batch(batch).expect("empty batch ok");
+
+        assert_eq!(signed, batch, "empty batch must be returned untouched");
+        assert!(!signed.contains("<Signature"));
+    }
+
+    /// A batch whose `<infEvento>` lacks an `Id=` propagates the signing error.
+    #[test]
+    fn batch_without_inf_evento_id_propagates_error() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let batch = "<envEvento xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"1.00\">\
+             <idLote>1</idLote>\
+             <evento xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"1.00\">\
+             <infEvento><cOrgao>91</cOrgao></infEvento>\
+             </evento></envEvento>";
+        let err = client
+            .sign_event_batch(batch)
+            .expect_err("missing Id must fail");
+        assert!(
+            matches!(err, FiscalError::Certificate(_)),
+            "expected Certificate error, got: {err}"
+        );
+    }
+
+    // ── EPEC signing ─────────────────────────────────────────────────────
+
+    /// An EPEC event (`tpEvento=110140`) gets signed with a Signature that
+    /// references the `#ID110140…` infEvento Id.
+    #[test]
+    fn signs_epec_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml =
+            request_builders::build_epec_request(&test_epec_data(), SefazEnvironment::Homologation);
+        assert!(!request_xml.contains("<Signature"));
+
+        let signed = client.sign_event(&request_xml).expect("EPEC event signs");
+
+        assert!(
+            signed.contains("<Signature"),
+            "missing <Signature>: {signed}"
+        );
+        assert!(
+            signed.contains("Reference URI=\"#ID110140"),
+            "EPEC signature must reference the #ID110140 infEvento Id"
+        );
+        let sig_pos = signed.find("<Signature").unwrap();
+        let evento_close = signed.find("</evento>").unwrap();
+        assert!(
+            sig_pos < evento_close,
+            "<Signature> must sit inside <evento>"
+        );
+    }
+
+    // ── Manifest signing ─────────────────────────────────────────────────
+
+    /// A manifestação event (Ciência da Operação, `tpEvento=210210`) is signed
+    /// referencing the correct `infEvento Id` (`#ID210210{key}{seq}`).
+    #[test]
+    fn signs_manifest_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_manifesta_request(
+            TEST_ACCESS_KEY,
+            "210210",
+            None,
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        assert!(!request_xml.contains("<Signature"));
+
+        let signed = client
+            .sign_event(&request_xml)
+            .expect("manifest event signs");
+
+        assert!(
+            signed.contains("<Signature"),
+            "missing <Signature>: {signed}"
+        );
+        let expected_ref = format!("Reference URI=\"#ID210210{TEST_ACCESS_KEY}01");
+        assert!(
+            signed.contains(&expected_ref),
+            "manifest signature must reference {expected_ref}: {signed}"
+        );
+    }
+
+    // ── Signed evento structure ──────────────────────────────────────────
+
+    /// Structural snapshot of a fully signed cancelamento `<evento>`: asserts
+    /// the placement and presence of the XMLDSig sub-elements
+    /// (`Signature`/`SignedInfo`/`Reference`/`DigestValue`/`SignatureValue`/
+    /// `X509Certificate`) inside `<evento>`.
+    ///
+    /// NOTE: We assert structure instead of a `cargo insta` `.snap`. The signed
+    /// XML embeds a base64 `SignatureValue` that is deterministic for RSA-SHA1
+    /// over fixed input, but pulling in the `insta` dev-dependency (plus its
+    /// transitive tree) on a crate we intend to upstream would expand the
+    /// `cargo-deny` surface for no extra coverage here, so a structural
+    /// assertion is preferred.
+    #[test]
+    fn signed_cancelamento_evento_has_full_signature_structure() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_cancela_request(
+            TEST_ACCESS_KEY,
+            "141250000000017",
+            "Cancelamento de teste com justificativa valida",
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        let signed = client.sign_event(&request_xml).expect("event signs");
+
+        // The signature block lives between the signed <infEvento> and the
+        // closing </evento>.
+        let inf_close = signed.find("</infEvento>").expect("infEvento closes");
+        let evento_close = signed.find("</evento>").expect("evento closes");
+        let sig_start = signed.find("<Signature").expect("Signature present");
+        assert!(
+            inf_close < sig_start && sig_start < evento_close,
+            "<Signature> must sit after </infEvento> and before </evento>"
+        );
+
+        // All XMLDSig sub-elements must be present, in canonical order.
+        let order = [
+            "<Signature xmlns",
+            "<SignedInfo",
+            "<Reference URI=\"#ID110111",
+            "<DigestValue>",
+            "<SignatureValue>",
+            "<X509Certificate>",
+        ];
+        let mut last = 0usize;
+        for needle in order {
+            let pos = signed[last..]
+                .find(needle)
+                .unwrap_or_else(|| panic!("missing {needle} in signed XML: {signed}"));
+            last += pos;
+        }
+
+        // Exactly one root signature for a single-evento request.
+        assert_eq!(signed.matches("<Signature xmlns").count(), 1);
+    }
+
+    // NOTE: The `SefazClient::new` certificate-load error branch (PFX that
+    // parses for TLS via `Identity::from_pkcs12_der` but whose certificate
+    // fails `fiscal_crypto::certificate::load_certificate`) is not reachable
+    // without crafting a bespoke malformed-but-TLS-loadable PFX fixture. The
+    // generic `FiscalError::Certificate` construction path is already covered
+    // by `rejects_invalid_pfx_buffer` / `rejects_empty_pfx_buffer`, so this
+    // sub-case is intentionally skipped to keep the fixture set small.
 }
