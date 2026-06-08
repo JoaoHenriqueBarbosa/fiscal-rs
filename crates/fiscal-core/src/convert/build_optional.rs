@@ -4,7 +4,7 @@ use super::helpers::*;
 use super::parser::NFeParser;
 use crate::xml_utils::escape_xml;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_inf_adic(&self) -> String {
         let mut c = Vec::new();
         if let Some(v) = self.inf_adic_fields.get("infAdFisco") {

@@ -675,9 +675,8 @@ mod tests {
         );
 
         // vNF = vProd - vDesc - vICMSDeson + ... = 1000.00 - 0 - 100.00 = 900.00
-        assert_eq!(
+        assert!(
             xml.contains("<vNF>900.00</vNF>"),
-            true,
             "vNF deve ser 900.00 quando indDeduzDeson=1 e vICMSDeson=100.00. XML: {}",
             xml
         );
@@ -705,9 +704,8 @@ mod tests {
         );
 
         // vNF = vProd = 1000.00 (desoneração NÃO deduzida)
-        assert_eq!(
+        assert!(
             xml.contains("<vNF>1000.00</vNF>"),
-            true,
             "vNF deve ser 1000.00 quando indDeduzDeson=false. XML: {}",
             xml
         );
@@ -733,9 +731,8 @@ mod tests {
         );
 
         // vNF = vProd + vServ = 1000.00 + 500.00 = 1500.00
-        assert_eq!(
+        assert!(
             xml.contains("<vNF>1500.00</vNF>"),
-            true,
             "vNF deve ser 1500.00 incluindo vServ=500.00. XML: {}",
             xml
         );

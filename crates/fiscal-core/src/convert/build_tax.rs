@@ -4,7 +4,7 @@ use super::helpers::*;
 use super::parser::NFeParser;
 use super::types::ItemBuild;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_imposto(&self, item: &ItemBuild) -> String {
         let mut c = Vec::new();
         if !item.v_tot_trib.is_empty() {

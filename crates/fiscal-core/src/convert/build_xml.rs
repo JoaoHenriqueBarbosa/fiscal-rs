@@ -3,7 +3,7 @@
 use super::parser::NFeParser;
 use crate::constants::NFE_NAMESPACE;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_xml(&self) -> String {
         let mut parts = Vec::new();
 

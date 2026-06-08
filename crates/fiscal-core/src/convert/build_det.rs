@@ -4,7 +4,7 @@ use super::helpers::*;
 use super::parser::NFeParser;
 use super::types::ItemBuild;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_det(&self, item: &ItemBuild, n_item: usize) -> String {
         let mut c = Vec::new();
         c.push(self.build_prod(item));
