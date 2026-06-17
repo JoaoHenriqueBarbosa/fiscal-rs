@@ -17,9 +17,6 @@ fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
 fiscal-crypto = { path = "../fiscal-crypto", version = "0.4.0" }
 fiscal-sefaz = { path = "../fiscal-sefaz", version = "0.6.2" }
 
-# Vendor OpenSSL so cross-compiled CI builds don't need system OpenSSL
-openssl = { version = "0.10", features = ["vendored"] }
-
 napi = { version = "3", features = ["napi9", "async", "serde-json"] }
 napi-derive = "3"
 serde = { version = "1", features = ["derive"] }

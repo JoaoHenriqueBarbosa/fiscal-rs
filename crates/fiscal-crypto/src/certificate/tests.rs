@@ -2,7 +2,6 @@ use super::c14n::*;
 use super::pfx::*;
 use super::sign::*;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use openssl::hash::MessageDigest;
 
 // Path to the test PFX in the fixtures directory
 fn test_pfx_cnpj() -> Vec<u8> {
@@ -523,14 +522,30 @@ fn sign_xml_sha256_verify_roundtrip() {
         1,
     );
 
-    // Verify the signature using the certificate's public key
-    let cert = openssl::x509::X509::from_pem(cert_data.certificate.as_bytes()).unwrap();
-    let pubkey = cert.public_key().unwrap();
+    // Verify the signature using the certificate's public key (pure Rust)
+    use pkcs8::DecodePrivateKey as _;
+    use rsa::pkcs1v15::Pkcs1v15Sign;
 
-    let mut verifier = openssl::sign::Verifier::new(MessageDigest::sha256(), &pubkey).unwrap();
-    verifier.update(canonical_signed_info.as_bytes()).unwrap();
+    // Parse private key and extract public key
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(&cert_data.private_key).unwrap();
+    let pubkey = private_key.to_public_key();
+
+    // SHA-256 DigestInfo prefix
+    const SHA256_PREFIX: &[u8] = &[
+        0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+        0x05, 0x00, 0x04, 0x20,
+    ];
+
+    // Compute raw SHA-256 hash of canonical SignedInfo
+    use sha2::Digest as _;
+    let hash = sha2::Sha256::digest(canonical_signed_info.as_bytes());
+
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(32),
+        prefix: SHA256_PREFIX.into(),
+    };
     assert!(
-        verifier.verify(&sig_bytes).unwrap(),
+        pubkey.verify(scheme, &hash, &sig_bytes).is_ok(),
         "RSA-SHA256 signature verification failed"
     );
 }

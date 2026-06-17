@@ -11,8 +11,20 @@ categories = ["cryptography"]
 
 [dependencies]
 fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
-openssl = "0.10"
 base64 = "0.22"
+der = { version = "0.7", features = ["derive", "oid", "alloc"] }
+x509-cert = { version = "0.2", features = ["pem"] }
+pkcs8 = { version = "0.10", features = ["pem", "alloc"] }
+rsa = { version = "0.9" }
+pkcs5 = { version = "0.8", features = ["pbes2", "sha1-insecure", "3des"] }
+rc2 = "0.9"
+cbc = "0.2"
+cipher = "0.5"
+aes = "0.9"
+des = "0.9"
+pbkdf2 = "0.12"
+hmac = "0.12"
+rand = "0.9"
 sha1 = "0.10"
 sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
