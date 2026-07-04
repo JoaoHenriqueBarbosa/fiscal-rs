@@ -1,0 +1,6 @@
+#!/bin/sh
+# Rejeita commit com co-autoria de Claude/Anthropic na mensagem.
+if grep -qiE 'co-authored-by:.*(claude|anthropic)' "$1"; then
+  echo "BLOQUEADO: Co-Authored-By de Claude/Anthropic na mensagem do commit." >&2
+  exit 1
+fi

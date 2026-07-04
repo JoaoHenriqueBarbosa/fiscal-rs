@@ -1,0 +1,21 @@
+#!/bin/sh
+# Varre os commits que estão saindo e bloqueia o push se algum tiver
+# co-autoria de Claude/Anthropic ou autor/committer @anthropic.com.
+# Pega tudo: commits próprios, rebases de PR de fork, merges.
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha --not --remotes"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  bad=$(git log --format='%h %an <%ae> %cn <%ce> %(trailers:key=Co-Authored-By,valueonly,separator=,)' $range 2>/dev/null \
+    | grep -iE 'claude|anthropic' || true)
+  if [ -n "$bad" ]; then
+    echo "BLOQUEADO: commits com co-autoria/autoria de IA no push:" >&2
+    echo "$bad" >&2
+    echo "Limpe com: git rebase -i / filter-branch --msg-filter antes de pushar." >&2
+    exit 1
+  fi
+done
+exit 0
