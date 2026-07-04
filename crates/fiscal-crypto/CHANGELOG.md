@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.2.5...fiscal-crypto-v0.3.0) - 2026-07-04
+
+### Added
+
+- *(crypto)* signing wrappers for CT-e family, BP-e and NFS-e (DPS/events)
+
+### Fixed
+
+- *(crypto)* replace deprecated Asn1StringRef::as_utf8 with NUL-safe from_utf8
+
+### Other
+
+- Merge pull request #47 from tfiliano/pr/crypto-cte
+
 ## [0.2.5](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.2.4...fiscal-crypto-v0.2.5) - 2026-03-14
 
 ### Other

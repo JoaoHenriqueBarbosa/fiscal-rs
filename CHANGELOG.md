@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.1...fiscal-v0.6.2) - 2026-07-04
+
+### Other
+
+- Merge pull request #54 from JoaoHenriqueBarbosa/dependabot/github_actions/master/actions/cache-6
+- Merge pull request #52 from JoaoHenriqueBarbosa/dependabot/github_actions/master/actions/checkout-7
+
 ## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.0...fiscal-v0.6.1) - 2026-04-29
 
 ### Fixed
