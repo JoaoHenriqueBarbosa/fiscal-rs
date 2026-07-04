@@ -610,3 +610,62 @@ fn compute_digest_sha1_and_sha256_differ() {
     let sha256_result = compute_digest(data, SignatureAlgorithm::Sha256);
     assert_ne!(sha1_result, sha256_result);
 }
+
+// ── CT-e family / DPS signing wrappers ────────────────────────
+
+/// Helper: a minimal document with `<inf_tag Id="...">` wrapped in `<parent>`.
+fn minimal_doc(parent: &str, inf_tag: &str) -> String {
+    format!(
+        r#"<{parent} versao="4.00"><{inf_tag} Id="ID12345678901234567890123456789012345678901234"><c/></{inf_tag}></{parent}>"#
+    )
+}
+
+#[test]
+fn sign_cte_xml_inserts_signature_in_cte() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let xml = minimal_doc("CTe", "infCte");
+    let signed = sign_cte_xml(&xml, &cert.private_key, &cert.certificate).expect("should sign");
+    assert!(signed.contains("<Signature"));
+    assert!(signed.contains("<SignatureValue>"));
+    // Signature is inserted as a child of the parent <CTe>, after </infCte>.
+    assert!(signed.contains("</infCte><Signature"));
+}
+
+#[test]
+fn sign_cteos_xml_inserts_signature_in_cteos() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let xml = minimal_doc("CTeOS", "infCte");
+    let signed = sign_cteos_xml(&xml, &cert.private_key, &cert.certificate).expect("should sign");
+    assert!(signed.contains("</infCte><Signature"));
+}
+
+#[test]
+fn sign_gtve_xml_inserts_signature_in_gtve() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let xml = minimal_doc("GTVe", "infCte");
+    let signed = sign_gtve_xml(&xml, &cert.private_key, &cert.certificate).expect("should sign");
+    assert!(signed.contains("</infCte><Signature"));
+}
+
+#[test]
+fn sign_bpe_xml_inserts_signature_in_bpe() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let xml = minimal_doc("BPe", "infBPe");
+    let signed = sign_bpe_xml(&xml, &cert.private_key, &cert.certificate).expect("should sign");
+    assert!(signed.contains("</infBPe><Signature"));
+}
+
+#[test]
+fn sign_dps_xml_inserts_signature_in_dps() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let xml = minimal_doc("DPS", "infDPS");
+    let signed = sign_dps_xml(&xml, &cert.private_key, &cert.certificate).expect("should sign");
+    assert!(signed.contains("</infDPS><Signature"));
+}
+
+#[test]
+fn sign_cte_xml_missing_inf_cte_errors() {
+    let cert = load_certificate(&test_pfx_cnpj(), PASSWORD).unwrap();
+    let result = sign_cte_xml("<CTe><other/></CTe>", &cert.private_key, &cert.certificate);
+    assert!(result.is_err());
+}
