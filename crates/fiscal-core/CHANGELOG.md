@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.7.1...fiscal-core-v0.7.2) - 2026-07-04
+
+### Fixed
+
+- *(deps)* bump quick-xml to 0.41 and anyhow to 1.0.103 for RUSTSEC advisories
+
 ## [0.7.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.7.0...fiscal-core-v0.7.1) - 2026-07-04
 
 ### Fixed

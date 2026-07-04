@@ -13,9 +13,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core", version = "0.7.1" }
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.3.0" }
-fiscal-sefaz = { path = "../fiscal-sefaz", version = "0.6.0" }
+fiscal-core = { path = "../fiscal-core", version = "0.7.2" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.3.1" }
+fiscal-sefaz = { path = "../fiscal-sefaz", version = "0.6.1" }
 
 # Vendor OpenSSL so cross-compiled CI builds don't need system OpenSSL
 openssl = { version = "0.10", features = ["vendored"] }
