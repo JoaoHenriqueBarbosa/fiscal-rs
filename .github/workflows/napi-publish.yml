@@ -1,11 +1,24 @@
 name: Publish @fiscal-rs/node to npm
 
-# Runs on every push to master.
-# Compares the highest crate version with npm — if different, publishes.
+# Publica via Trusted Publishing (OIDC) — sem token de longa duração.
+#
+# MANUTENÇÃO (o que pode quebrar a publicação):
+#   1. Renomear este arquivo: o npm confia no caminho "napi-publish.yml".
+#      Se renomear, atualize o trusted publisher de cada pacote em npmjs.com.
+#   2. Mover o repo: a confiança aponta para JoaoHenriqueBarbosa/fiscal-rs.
+#      Repo novo = reconfigurar os publishers.
+#   3. Adicionar um pacote de plataforma novo: a confiança é por pacote.
+#      Cada @fiscal-rs/node-* precisa do publisher configurado na UI do npm,
+#      senão só ele falha com erro de permissão.
+#
+# Dispara na tag do fiscal-core (fiscal-core-v*), criada pelo release-plz.
+# A versão do npm segue sempre o fiscal-core (é a maior entre os crates),
+# então a tag dele é o sinal de release. O job check-version confere contra
+# o registry e só publica se a versão mudou.
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'fiscal-core-v*'
 
 permissions:
   contents: read
@@ -117,16 +130,25 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     needs: [check-version, build]
+    permissions:
+      id-token: write # OIDC: mina o token efêmero do trusted publishing
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Configure npm registry auth
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # setup-node configura o registry-url que o OIDC usa e garante Node 22+.
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing exige npm >= 11.5.1; o que vem no Node 22 é mais antigo.
+      - name: Upgrade npm for OIDC support
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         working-directory: crates/fiscal-napi
@@ -162,13 +184,19 @@ jobs:
         working-directory: crates/fiscal-napi
         run: bunx napi prepublish --no-gh-release --skip-optional-publish -t npm
 
+      # Publica cada platform package. Tolera apenas "já publicado"
+      # (idempotência em rerun); qualquer outro erro — auth, permissão — falha.
       - name: Publish platform packages
         working-directory: crates/fiscal-napi
         run: |
           for pkg in npm/*/; do
-            cd "$pkg"
-            npm publish --access public || true
-            cd ../..
+            ( cd "$pkg"
+              out=$(npm publish --access public 2>&1) || {
+                echo "$out"
+                echo "$out" | grep -qiE "cannot publish over|previously published|EPUBLISHCONFLICT" || exit 1
+                echo "já publicado, ignorando"
+              }
+            )
           done
 
       - name: Publish main package
