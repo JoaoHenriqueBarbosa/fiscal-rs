@@ -14,7 +14,7 @@ default = ["client"]
 client = ["dep:reqwest"]
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core", version = "0.7.2" }
+fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
 fiscal-crypto = { path = "../fiscal-crypto", version = "0.3.1" }
 chrono = { version = "0.4", features = ["serde"] }
 quick-xml = "0.41"

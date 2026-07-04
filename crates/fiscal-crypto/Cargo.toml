@@ -10,7 +10,7 @@ keywords = ["nfe", "xml-dsig", "certificate", "pkcs12", "signing"]
 categories = ["cryptography"]
 
 [dependencies]
-fiscal-core = { path = "../fiscal-core", version = "0.7.2" }
+fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
 openssl = "0.10"
 base64 = "0.22"
 sha1 = "0.10"
