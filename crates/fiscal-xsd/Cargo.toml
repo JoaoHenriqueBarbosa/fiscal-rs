@@ -1,0 +1,31 @@
+[package]
+name = "fiscal-xsd"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Fast, opt-in XSD schema validation for Brazilian fiscal documents (NF-e, MDF-e, …). Compile-once per thread, validate in sub-millisecond."
+license = "MIT"
+repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+keywords = ["xsd", "fiscal", "brazil", "nfe", "mdfe"]
+categories = ["encoding"]
+
+[dependencies]
+libxml = "0.3"
+tempfile = "3"
+
+[features]
+default = []
+## Embed the official MDF-e 3.00 schemas + expose `schemas::mdfe()`.
+mdfe = []
+## Embed the official NF-e/NFC-e 4.00 schemas + expose `schemas::nfe_lote()`.
+nfe = []
+## Embed the official CT-e 4.00 schemas + expose `schemas::cte()`.
+cte = []
+## Embed the official BP-e 1.00 schemas + expose `schemas::bpe()`.
+bpe = []
+## Embed the official NFS-e Nacional 1.01 (RTC) schemas + expose `schemas::dps()`.
+nfse = []
+## Embed os schemas ABRASF 2.03 + expõe schemas::abrasf_gerar_nfse().
+abrasf = []
+## Embed os schemas SP (PMSP) v01 + expõe schemas::sp_lote_rps().
+saopaulo = []

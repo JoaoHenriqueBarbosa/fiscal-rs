@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://nfse.abrasf.org.br" xmlns:ns2="http://www.w3.org/2000/09/xmldsig#" xmlns:ns1="http://www.abrasf.org.br/nfse.xsd" elementFormDefault="unqualified" targetNamespace="http://nfse.abrasf.org.br" version="1.0">
+
+  <xs:import namespace="http://www.abrasf.org.br/nfse.xsd"/>
+
+  <xs:import namespace="http://www.w3.org/2000/09/xmldsig#"/>
+
+  <xs:element name="CancelarNfse" type="tns:CancelarNfse"/>
+
+  <xs:element name="CancelarNfseResponse" type="tns:CancelarNfseResponse"/>
+
+  <xs:element name="ConsultarLoteRps" type="tns:ConsultarLoteRps"/>
+
+  <xs:element name="ConsultarLoteRpsResponse" type="tns:ConsultarLoteRpsResponse"/>
+
+  <xs:element name="ConsultarNfseFaixa" type="tns:ConsultarNfseFaixa"/>
+
+  <xs:element name="ConsultarNfseFaixaResponse" type="tns:ConsultarNfseFaixaResponse"/>
+
+  <xs:element name="ConsultarNfsePorRps" type="tns:ConsultarNfsePorRps"/>
+
+  <xs:element name="ConsultarNfsePorRpsResponse" type="tns:ConsultarNfsePorRpsResponse"/>
+
+  <xs:element name="ConsultarNfseServicoPrestado" type="tns:ConsultarNfseServicoPrestado"/>
+
+  <xs:element name="ConsultarNfseServicoPrestadoResponse" type="tns:ConsultarNfseServicoPrestadoResponse"/>
+
+  <xs:element name="ConsultarNfseServicoTomado" type="tns:ConsultarNfseServicoTomado"/>
+
+  <xs:element name="ConsultarNfseServicoTomadoResponse" type="tns:ConsultarNfseServicoTomadoResponse"/>
+
+  <xs:element name="GerarNfse" type="tns:GerarNfse"/>
+
+  <xs:element name="GerarNfseResponse" type="tns:GerarNfseResponse"/>
+
+  <xs:element name="RecepcionarLoteRps" type="tns:RecepcionarLoteRps"/>
+
+  <xs:element name="RecepcionarLoteRpsResponse" type="tns:RecepcionarLoteRpsResponse"/>
+
+  <xs:element name="RecepcionarLoteRpsSincrono" type="tns:RecepcionarLoteRpsSincrono"/>
+
+  <xs:element name="RecepcionarLoteRpsSincronoResponse" type="tns:RecepcionarLoteRpsSincronoResponse"/>
+
+  <xs:element name="SubstituirNfse" type="tns:SubstituirNfse"/>
+
+  <xs:element name="SubstituirNfseResponse" type="tns:SubstituirNfseResponse"/>
+
+  <xs:complexType name="ConsultarNfsePorRps">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseRpsEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="IdentificacaoRps" type="ns1:tcIdentificacaoRps"/>
+            <xs:element name="Prestador" type="ns1:tcIdentificacaoPrestador"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfsePorRpsResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseRpsResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="CompNfse" type="ns1:tcCompNfse"/>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="MensagemRetorno" type="ns1:tcMensagemRetorno"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseServicoTomado">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseServicoTomadoEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Consulente" type="ns1:tcIdentificacaoConsulente"/>
+            <xs:element minOccurs="0" name="NumeroNfse" type="xs:nonNegativeInteger"/>
+            <xs:element minOccurs="0" name="PeriodoEmissao">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="DataInicial" type="xs:date"/>
+                  <xs:element name="DataFinal" type="xs:date"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="PeriodoCompetencia">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="DataInicial" type="xs:date"/>
+                  <xs:element name="DataFinal" type="xs:date"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Prestador" type="ns1:tcIdentificacaoPrestador"/>
+            <xs:element minOccurs="0" name="Tomador" type="ns1:tcIdentificacaoTomador"/>
+            <xs:element minOccurs="0" name="Intermediario" type="ns1:tcIdentificacaoIntermediario"/>
+            <xs:element name="Pagina" type="xs:nonNegativeInteger"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseServicoTomadoResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseServicoTomadoResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ProximaPagina" type="xs:nonNegativeInteger"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RecepcionarLoteRps">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="EnviarLoteRpsEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="LoteRps" type="ns1:tcLoteRps"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RecepcionarLoteRpsResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="EnviarLoteRpsResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="NumeroLote" type="xs:nonNegativeInteger"/>
+            <xs:element minOccurs="0" name="DataRecebimento" type="xs:dateTime"/>
+            <xs:element minOccurs="0" name="Protocolo" type="xs:string"/>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RecepcionarLoteRpsSincrono">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="EnviarLoteRpsSincronoEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="LoteRps" type="ns1:tcLoteRps"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RecepcionarLoteRpsSincronoResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="EnviarLoteRpsSincronoResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="NumeroLote" type="xs:nonNegativeInteger"/>
+            <xs:element minOccurs="0" name="DataRecebimento" type="xs:dateTime"/>
+            <xs:element minOccurs="0" name="Protocolo" type="xs:string"/>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ListaMensagemAlertaRetorno">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element maxOccurs="unbounded" name="MensagemRetorno" type="ns1:tcMensagemRetorno"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+            <xs:element minOccurs="0" name="ListaMensagemRetornoLote">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="MensagemRetorno" type="ns1:tcMensagemRetornoLote"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseServicoPrestado">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseServicoPrestadoEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Prestador" type="ns1:tcIdentificacaoPrestador"/>
+            <xs:element minOccurs="0" name="NumeroNfse" type="xs:nonNegativeInteger"/>
+            <xs:element minOccurs="0" name="PeriodoEmissao">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="DataInicial" type="xs:date"/>
+                  <xs:element name="DataFinal" type="xs:date"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="PeriodoCompetencia">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="DataInicial" type="xs:date"/>
+                  <xs:element name="DataFinal" type="xs:date"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Tomador" type="ns1:tcIdentificacaoTomador"/>
+            <xs:element minOccurs="0" name="Intermediario" type="ns1:tcIdentificacaoIntermediario"/>
+            <xs:element name="Pagina" type="xs:nonNegativeInteger"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseServicoPrestadoResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseServicoPrestadoResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ProximaPagina" type="xs:nonNegativeInteger"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CancelarNfse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="CancelarNfseEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Pedido" type="ns1:tcPedidoCancelamento"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CancelarNfseResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="CancelarNfseResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="RetCancelamento" type="ns1:tcRetCancelamento"/>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarLoteRps">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarLoteRpsEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Prestador" type="ns1:tcIdentificacaoPrestador"/>
+            <xs:element name="Protocolo" type="xs:string"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarLoteRpsResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarLoteRpsResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Situacao" type="xs:byte"/>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ListaMensagemAlertaRetorno"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+            <xs:element minOccurs="0" name="ListaMensagemRetornoLote"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseFaixa">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseFaixaEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Prestador" type="ns1:tcIdentificacaoPrestador"/>
+            <xs:element name="Faixa">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="NumeroNfseInicial" type="xs:nonNegativeInteger"/>
+                  <xs:element minOccurs="0" name="NumeroNfseFinal" type="xs:nonNegativeInteger"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="Pagina" type="xs:nonNegativeInteger"/>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ConsultarNfseFaixaResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ConsultarNfseFaixaResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element maxOccurs="unbounded" name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ProximaPagina" type="xs:nonNegativeInteger"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="GerarNfse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="GerarNfseEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Rps" type="ns1:tcDeclaracaoPrestacaoServico"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="GerarNfseResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="GerarNfseResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="ListaNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="CompNfse" type="ns1:tcCompNfse"/>
+                  <xs:element minOccurs="0" name="ListaMensagemAlertaRetorno"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SubstituirNfse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="SubstituirNfseEnvio">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="SubstituicaoNfse">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="Pedido" type="ns1:tcPedidoCancelamento"/>
+                  <xs:element name="Rps" type="ns1:tcDeclaracaoPrestacaoServico"/>
+                </xs:sequence>
+                <xs:attribute name="Id" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+            <xs:element form="qualified" minOccurs="0" name="Signature" type="ns2:SignatureType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SubstituirNfseResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="SubstituirNfseResposta">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" name="RetSubstituicao">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="NfseSubstituida">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CompNfse" type="ns1:tcCompNfse"/>
+                        <xs:element minOccurs="0" name="ListaMensagemAlertaRetorno"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                  <xs:element name="NfseSubstituidora">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="CompNfse" type="ns1:tcCompNfse"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="ListaMensagemRetorno"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>
