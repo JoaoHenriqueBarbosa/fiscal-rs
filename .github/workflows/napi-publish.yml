@@ -123,11 +123,17 @@ jobs:
         if: ${{ matrix.cross }}
         run: bunx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
 
+      # Sobe o binário nativo E o wrapper JS gerado (index.js/index.d.ts).
+      # O wrapper é idêntico entre targets, mas o pacote main precisa dele:
+      # sem ele o npm publica só o package.json e require() falha.
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: bindings-${{ matrix.target }}
-          path: crates/fiscal-napi/fiscal.*.node
+          path: |
+            crates/fiscal-napi/fiscal.*.node
+            crates/fiscal-napi/index.js
+            crates/fiscal-napi/index.d.ts
           if-no-files-found: error
 
   publish:
@@ -172,6 +178,18 @@ jobs:
         with:
           path: crates/fiscal-napi/artifacts
 
+      # Recupera o wrapper JS de um dos artefatos para a raiz do pacote main,
+      # ANTES de `napi artifacts` (que consome os subdirs). O npm publica o
+      # pacote main a partir daqui e `files` exige index.js/index.d.ts; sem
+      # esta cópia o pacote sai sem entrypoint e require() falha.
+      - name: Restore JS binding wrapper for main package
+        working-directory: crates/fiscal-napi
+        run: |
+          src=$(ls -d artifacts/bindings-*/ | head -1)
+          cp "${src}index.js" "${src}index.d.ts" .
+          test -f index.js && test -f index.d.ts
+          echo "wrapper restaurado de $src"
+
       - name: Move artifacts to npm dirs
         working-directory: crates/fiscal-napi
         run: bunx napi artifacts --output-dir artifacts
@@ -180,6 +198,7 @@ jobs:
         working-directory: crates/fiscal-napi
         run: |
           echo "Version: ${{ needs.check-version.outputs.version }}"
+          echo "main package files: $(ls index.js index.d.ts 2>/dev/null | tr '\n' ' ')"
           for d in npm/*/; do
             echo "$d: $(ls "$d"fiscal.*.node 2>/dev/null | wc -l) binary"
           done
