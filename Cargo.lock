@@ -398,7 +398,7 @@ version = "0.7.3"
 dependencies = [
  "base64",
  "chrono",
- "quick-xml 0.41.0",
+ "quick-xml",
  "serde",
  "serde_json",
  "sha1",
@@ -426,7 +426,7 @@ dependencies = [
  "fiscal-core",
  "fiscal-crypto",
  "fiscal-xsd",
- "quick-xml 0.39.4",
+ "quick-xml",
  "serde",
  "serde_json",
  "thiserror",
@@ -440,7 +440,7 @@ dependencies = [
  "chrono",
  "fiscal-core",
  "fiscal-crypto",
- "quick-xml 0.39.4",
+ "quick-xml",
  "serde",
  "serde_json",
  "thiserror",
@@ -497,7 +497,7 @@ dependencies = [
  "fiscal-core",
  "fiscal-crypto",
  "flate2",
- "quick-xml 0.41.0",
+ "quick-xml",
  "reqwest",
  "serde",
 ]
@@ -1401,16 +1401,6 @@ name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
-
-[[package]]
-name = "quick-xml"
-version = "0.39.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
-dependencies = [
- "memchr",
- "serde",
-]
 
 [[package]]
 name = "quick-xml"
