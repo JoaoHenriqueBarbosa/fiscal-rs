@@ -47,6 +47,18 @@ pub struct CancellationResponse {
     pub status_message: String,
     /// Protocol number (`nProt`), present when the event was registered.
     pub protocol_number: Option<String>,
+    /// Signed `<evento>` XML that was sent to SEFAZ, for archival.
+    ///
+    /// Populated by the client event methods (`cancel`, `cce`, …) after a
+    /// successful submission; empty when the struct is produced directly by
+    /// the parser.
+    pub signed_event_xml: String,
+    /// Full raw SEFAZ response (SOAP envelope containing `<retEvento>`), for
+    /// archival.
+    ///
+    /// Populated by the client event methods after a successful submission;
+    /// empty when the struct is produced directly by the parser.
+    pub raw_response: String,
 }
 
 /// Parsed result of a SEFAZ DistDFe (`retDistDFeInt`) response.

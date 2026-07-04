@@ -13,14 +13,18 @@ impl SefazClient {
     // ── RTC (Reforma Tributaria) typed convenience methods ──────────────
 
     /// Send an RTC event via SVRS RecepcaoEvento.
+    ///
+    /// The built `<infEvento>` is signed before transmit — SEFAZ rejects
+    /// unsigned events.
     async fn send_rtc_event(
         &self,
         uf: &str,
         environment: SefazEnvironment,
         request_xml: &str,
     ) -> Result<CancellationResponse, FiscalError> {
+        let signed_xml = self.sign_event(request_xml)?;
         let raw = self
-            .send(SefazService::RecepcaoEvento, uf, environment, request_xml)
+            .send(SefazService::RecepcaoEvento, uf, environment, &signed_xml)
             .await?;
         response_parsers::parse_cancellation_response(&raw)
     }
