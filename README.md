@@ -12,7 +12,6 @@
   <a href="https://docs.rs/fiscal"><img src="https://docs.rs/fiscal/badge.svg" alt="docs.rs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs"><img src="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs/branch/master/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1000%2B%20passing-brightgreen" alt="tests" /></a>
   <a href="https://fiscal-rs-docs.vercel.app/"><img src="https://img.shields.io/badge/docs-passing-brightgreen" alt="docs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/fiscal.svg" alt="license" /></a>
 </p>
@@ -25,7 +24,7 @@
 
 ---
 
-Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 1000+ testes (94% de cobertura).
+Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 1834 testes (94% de cobertura).
 
 Durante o desenvolvimento, [contribuímos 370 testes de volta ao sped-nfe](https://github.com/nfephp-org/sped-nfe/pull/1313) (PR #1313, mergeado), elevando a cobertura de **40% para 86,5%**.
 
@@ -81,7 +80,7 @@ O ecossistema Rust para documentos fiscais brasileiros é fragmentado e incomple
 | Protocolo (nfeProc) | - | - | - | **Yes** |
 | Eventos (cancel/CCe/manifest) | - | - | - | **Yes** |
 | TXT → XML (SPED) | - | - | - | **Yes** |
-| Testes | Few | Some | Some | **739+** |
+| Testes | Few | Some | Some | **1834** |
 | crates.io | Yes | No | Yes | [**Yes**](https://crates.io/crates/fiscal) |
 
 ## Benchmarks
@@ -134,7 +133,7 @@ Reproduza você mesmo:
 
 ## Metodologia de porting
 
-1. **Portar todos os testes 1:1** do PHP/TypeScript (739+ testes)
+1. **Portar todos os testes 1:1** do PHP/TypeScript (1834 testes)
 2. **Implementar código Rust** até todos passarem
 3. **Validar** contra ambiente de homologação SEFAZ real
 4. **Contribuir de volta**: 370 testes enviados ao [sped-nfe original](https://github.com/nfephp-org/sped-nfe/pull/1313) (cobertura 40% → 86,5%)
@@ -144,7 +143,7 @@ Reproduza você mesmo:
 ```bash
 git clone --recurse-submodules https://github.com/JoaoHenriqueBarbosa/fiscal-rs
 ./scripts/install-hooks.sh   # instala pre-push hook
-cargo test                   # 739+ testes
+cargo test                   # 1834 testes
 ```
 
 Usamos [conventional commits](https://www.conventionalcommits.org/) e [release-plz](https://release-plz.ieni.dev/) para releases automáticos. Veja o [guia completo de contribuição](https://fiscal-rs-docs.vercel.app/docs/contributing).
