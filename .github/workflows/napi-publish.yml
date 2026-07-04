@@ -11,14 +11,18 @@ name: Publish @fiscal-rs/node to npm
 #      Cada @fiscal-rs/node-* precisa do publisher configurado na UI do npm,
 #      senão só ele falha com erro de permissão.
 #
-# Dispara na tag do fiscal-core (fiscal-core-v*), criada pelo release-plz.
-# A versão do npm segue sempre o fiscal-core (é a maior entre os crates),
-# então a tag dele é o sinal de release. O job check-version confere contra
-# o registry e só publica se a versão mudou.
+# Dispara em todo push na master. O job check-version compara a maior versão
+# entre os crates com a do npm e só publica se mudou.
+#
+# Por que push:master e não a tag do release: o release-plz cria as tags
+# (fiscal-core-v*) autenticado com GITHUB_TOKEN, e o GitHub NÃO dispara
+# workflows por push de bot com esse token (proteção anti-loop). Então um
+# gatilho on:push:tags nunca rodaria após um release. O merge do PR de
+# release, porém, é um push na master que dispara normalmente.
 on:
   push:
-    tags:
-      - 'fiscal-core-v*'
+    branches:
+      - master
 
 permissions:
   contents: read
