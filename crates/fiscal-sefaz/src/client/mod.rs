@@ -217,15 +217,44 @@ impl SefazClient {
         model: u8,
     ) -> Result<String, FiscalError> {
         let url = get_sefaz_url_for_model(uf, environment, service.url_key(), model)?;
+        self.send_to_url(service, &url, uf, request_xml).await
+    }
+
+    /// Send a raw request XML to a caller-resolved SEFAZ endpoint URL.
+    ///
+    /// Core POST path shared by [`send_model`](Self::send_model) and
+    /// contingency transmission
+    /// ([`authorize_contingency`](Self::authorize_contingency)). The `url` is
+    /// resolved by the caller for the correct authorizer (real UF, SVC-AN, or
+    /// SVC-RS), while `envelope_uf` selects the `<cUF>` used to build the SOAP
+    /// envelope.
+    ///
+    /// For SVC contingency the endpoint changes but the protocol keeps the
+    /// **issuer's** `cUF`, so `url` points at the SVC authorizer while
+    /// `envelope_uf` stays the issuer's real state abbreviation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::InvalidStateCode`] if `envelope_uf` is not a
+    /// valid Brazilian state abbreviation.
+    ///
+    /// Returns [`FiscalError::Network`] if the HTTP request fails.
+    async fn send_to_url(
+        &self,
+        service: SefazService,
+        url: &str,
+        envelope_uf: &str,
+        request_xml: &str,
+    ) -> Result<String, FiscalError> {
         let meta = service.meta();
-        let envelope = soap::build_envelope(request_xml, uf, &meta)?;
+        let envelope = soap::build_envelope(request_xml, envelope_uf, &meta)?;
         let action = soap::build_action(&meta);
 
         let content_type = format!("application/soap+xml;charset=utf-8;action=\"{action}\"");
 
         let response = self
             .http
-            .post(&url)
+            .post(url)
             .header("Content-Type", &content_type)
             .body(envelope)
             .send()
