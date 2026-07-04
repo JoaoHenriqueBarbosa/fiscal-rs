@@ -21,8 +21,8 @@ name: Publish @fiscal-rs/node to npm
 # release, porém, é um push na master que dispara normalmente.
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'fiscal-core-v*'
 
 permissions:
   contents: read
