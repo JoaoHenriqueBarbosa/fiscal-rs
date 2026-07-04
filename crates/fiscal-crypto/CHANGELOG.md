@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.3.1...fiscal-crypto-v0.4.0) - 2026-07-04
+
+### Added
+
+- *(nfse-mun)* add fiscal-nfse-mun — municipal NFS-e (SP/ABRASF/Simpliss)
+- *(mdfe)* add fiscal-mdfe — MDF-e (model 58) support
+
+### Fixed
+
+- *(core)* bump fiscal-core to 0.7.3 to ship the fixed npm package
+
 ## [0.3.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.3.0...fiscal-crypto-v0.3.1) - 2026-07-04
 
 ### Other
