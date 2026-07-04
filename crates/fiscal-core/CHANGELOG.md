@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.7.0...fiscal-core-v0.7.1) - 2026-07-04
+
+### Fixed
+
+- *(core)* clean clippy -D warnings in fiscal-core
+
+### Other
+
+- Merge pull request #40 from tfiliano/fix/xfant-empty
+
 ## [0.7.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-core-v0.6.1...fiscal-core-v0.7.0) - 2026-03-14
 
 ### Added

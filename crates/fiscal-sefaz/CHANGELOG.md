@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.5.0...fiscal-sefaz-v0.6.0) - 2026-07-04
+
+### Added
+
+- *(sefaz)* expose signed event + raw response XML for archival
+
+### Fixed
+
+- *(sefaz)* sign event XML before transmit
+
+### Other
+
+- Merge pull request #39 from tfiliano/feat/svc-contingency
+- *(sefaz)* cover event batch/EPEC/manifest signing + signed evento snapshot
+
 ## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.4.4...fiscal-sefaz-v0.5.0) - 2026-03-14
 
 ### Added
