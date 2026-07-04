@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.6.1...fiscal-sefaz-v0.6.2) - 2026-07-04
+
+### Fixed
+
+- *(core)* bump fiscal-core to 0.7.3 to ship the fixed npm package
+
 ## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.6.0...fiscal-sefaz-v0.6.1) - 2026-07-04
 
 ### Fixed
