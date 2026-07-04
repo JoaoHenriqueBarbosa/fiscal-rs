@@ -12,6 +12,7 @@
   <a href="https://docs.rs/fiscal"><img src="https://docs.rs/fiscal/badge.svg" alt="docs.rs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml"><img src="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs"><img src="https://codecov.io/gh/JoaoHenriqueBarbosa/fiscal-rs/branch/master/graph/badge.svg" alt="coverage" /></a>
+  <a href="https://www.npmjs.com/package/@fiscal-rs/node"><img src="https://img.shields.io/npm/v/@fiscal-rs/node.svg?label=npm" alt="npm" /></a>
   <a href="https://fiscal-rs-docs.vercel.app/"><img src="https://img.shields.io/badge/docs-passing-brightgreen" alt="docs" /></a>
   <a href="https://github.com/JoaoHenriqueBarbosa/fiscal-rs/blob/master/LICENSE"><img src="https://img.shields.io/crates/l/fiscal.svg" alt="license" /></a>
 </p>
@@ -24,9 +25,9 @@
 
 ---
 
-Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 1834 testes (94% de cobertura).
+Port completo do [sped-nfe](https://github.com/nfephp-org/sped-nfe) (PHP) — a biblioteca fiscal brasileira mais usada (2.400+ stars) — reescrito em Rust com tipos algébricos, typestate pattern e 1834 testes.
 
-Durante o desenvolvimento, [contribuímos 370 testes de volta ao sped-nfe](https://github.com/nfephp-org/sped-nfe/pull/1313) (PR #1313, mergeado), elevando a cobertura de **40% para 86,5%**.
+Durante o desenvolvimento, [contribuímos 370 testes de volta ao sped-nfe](https://github.com/nfephp-org/sped-nfe/pull/1313) (PR #1313, mergeado).
 
 ## Quick Start
 
@@ -61,6 +62,62 @@ let invoice = InvoiceBuilder::new(issuer, SefazEnvironment::Homologation, Invoic
 println!("Chave: {}", invoice.access_key());
 println!("XML: {}", invoice.xml());
 ```
+
+### Node.js
+
+O mesmo núcleo Rust roda no Node.js via addon nativo ([napi-rs](https://napi.rs)),
+publicado como [`@fiscal-rs/node`](https://www.npmjs.com/package/@fiscal-rs/node).
+
+```bash
+npm install @fiscal-rs/node
+```
+
+```javascript
+import { buildInvoice } from '@fiscal-rs/node';
+
+const { xml, accessKey } = buildInvoice({
+  model: 'nfe',
+  environment: 'homologation',
+  operationNature: 'VENDA',
+  issuer: {
+    taxId: '12345678000199',
+    stateTaxId: '123456789',
+    companyName: 'Minha Empresa',
+    taxRegime: 'simplesNacional',
+    stateCode: 'SP',
+    cityCode: '3550308',
+    cityName: 'Sao Paulo',
+    street: 'Av Paulista',
+    streetNumber: '1000',
+    district: 'Bela Vista',
+    zipCode: '01310100',
+  },
+  items: [{
+    itemNumber: 1,
+    productCode: '001',
+    description: 'Produto Teste',
+    ncm: '18069000',
+    cfop: '5102',
+    unitOfMeasure: 'UN',
+    quantity: 1,
+    unitPrice: 10000,   // R$ 100,00 em centavos
+    totalPrice: 10000,
+    icmsCst: '102',
+    icmsRate: 0,
+    icmsAmount: 0,
+    pisCst: '99',
+    cofinsCst: '99',
+  }],
+});
+
+console.log(`Chave: ${accessKey}`); // 44 dígitos
+console.log(xml);
+```
+
+Binários pré-compilados são publicados para Linux (x64, arm64), macOS
+(x64, arm64) e Windows (x64, arm64). Os alvos Windows arm64, macOS x64 e
+Linux arm64 são cross-compilados; os binários nativos são gerados no CI mas
+ainda não têm smoke test de runtime automatizado por plataforma.
 
 ## Por que fiscal-rs?
 
