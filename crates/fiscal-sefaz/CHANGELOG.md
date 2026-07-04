@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.6.0...fiscal-sefaz-v0.6.1) - 2026-07-04
+
+### Fixed
+
+- *(deps)* bump quick-xml to 0.41 and anyhow to 1.0.103 for RUSTSEC advisories
+
 ## [0.6.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.5.0...fiscal-sefaz-v0.6.0) - 2026-07-04
 
 ### Added
