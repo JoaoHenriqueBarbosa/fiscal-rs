@@ -1,0 +1,26 @@
+[package]
+name = "fiscal-mdfe"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Types and XML builder for the Brazilian MDF-e (Manifesto Eletrônico de Documentos Fiscais, model 58)"
+license = "MIT"
+repository = "https://github.com/JoaoHenriqueBarbosa/fiscal-rs"
+readme = "README.md"
+keywords = ["mdfe", "fiscal", "brazil", "xml", "transport"]
+categories = ["encoding"]
+
+[features]
+ts = ["dep:ts-rs", "fiscal-core/ts"]
+
+[dependencies]
+fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.3.1" }
+quick-xml = { version = "0.39", features = ["serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+ts-rs = { version = "12", features = ["serde-compat", "chrono-impl"], optional = true }
+
+[dev-dependencies]

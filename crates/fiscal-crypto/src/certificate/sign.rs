@@ -255,6 +255,37 @@ pub fn sign_gtve_xml_with_algorithm(
     sign_xml_generic(xml, private_key, certificate, "infCte", "GTVe", algorithm)
 }
 
+/// Sign an MDF-e (model 58) XML with RSA-SHA1 — `<Signature>` as a child of
+/// the `<MDFe>` root, referencing `<infMDFe>`.
+///
+/// The MDF-e uses the same enveloped XML-DSig as the NF-e (RSA-SHA1, SHA-1
+/// digest). SEFAZ rejects SHA-256 for MDF-e.
+///
+/// # Errors
+///
+/// See [`sign_cte_xml`] (here the signed element is `<infMDFe>`).
+pub fn sign_mdfe_xml(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+) -> Result<String, FiscalError> {
+    sign_mdfe_xml_with_algorithm(xml, private_key, certificate, SignatureAlgorithm::Sha1)
+}
+
+/// Sign an MDF-e XML with the specified hash algorithm.
+///
+/// # Errors
+///
+/// See [`sign_mdfe_xml`].
+pub fn sign_mdfe_xml_with_algorithm(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+    algorithm: SignatureAlgorithm,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(xml, private_key, certificate, "infMDFe", "MDFe", algorithm)
+}
+
 /// Sign a BP-e (model 63) XML with RSA-SHA1 — `<Signature>` as a child of the
 /// `<BPe>` root, referencing `<infBPe>`.
 ///
