@@ -2,6 +2,8 @@
 members = [
     "crates/fiscal-core",
     "crates/fiscal-crypto",
+    "crates/fiscal-cte",
+    "crates/fiscal-nfse",
     "crates/fiscal-sefaz",
     "crates/fiscal-napi",
     "crates/fiscal-xsd",
