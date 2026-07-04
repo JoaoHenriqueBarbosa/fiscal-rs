@@ -234,7 +234,7 @@ pub fn get_certificate_info(
 /// Extract the Common Name (CN) from an X509Name.
 fn extract_cn_from_x509_name(name: &openssl::x509::X509NameRef) -> String {
     for entry in name.entries_by_nid(openssl::nid::Nid::COMMONNAME) {
-        if let Ok(s) = entry.data().as_utf8() {
+        if let Ok(s) = std::str::from_utf8(entry.data().as_slice()) {
             return s.to_string();
         }
     }
