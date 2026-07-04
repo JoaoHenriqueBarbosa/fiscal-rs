@@ -3,7 +3,7 @@
 use super::helpers::*;
 use super::parser::NFeParser;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_total(&self) -> String {
         let t = &self.totals_fields;
         let mut c = Vec::new();

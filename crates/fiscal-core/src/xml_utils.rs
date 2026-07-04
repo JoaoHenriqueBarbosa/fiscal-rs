@@ -57,10 +57,11 @@ pub fn extract_xml_tag_value(xml: &str, tag_name: &str) -> Option<String> {
 /// If children is a string, it is escaped. If children is an array
 /// of pre-built strings, they are concatenated as-is.
 pub fn tag(name: &str, attrs: &[(&str, &str)], children: TagContent<'_>) -> String {
-    let attr_str: String = attrs
-        .iter()
-        .map(|(k, v)| format!(" {k}=\"{}\"", escape_xml(v)))
-        .collect();
+    use std::fmt::Write as _;
+    let attr_str: String = attrs.iter().fold(String::new(), |mut s, (k, v)| {
+        let _ = write!(s, " {k}=\"{}\"", escape_xml(v));
+        s
+    });
 
     match children {
         TagContent::None => format!("<{name}{attr_str}></{name}>"),

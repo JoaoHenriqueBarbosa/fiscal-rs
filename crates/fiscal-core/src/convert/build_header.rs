@@ -3,7 +3,7 @@
 use super::helpers::*;
 use super::parser::NFeParser;
 
-impl<'a> NFeParser<'a> {
+impl NFeParser<'_> {
     pub(super) fn build_ide(&self) -> String {
         let d = &self.ide_data;
         let mut c = Vec::new();
