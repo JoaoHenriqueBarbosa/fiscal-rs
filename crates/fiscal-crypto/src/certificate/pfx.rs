@@ -7,18 +7,22 @@ use openssl::pkcs12::Pkcs12;
 use fiscal_core::FiscalError;
 use fiscal_core::types::{CertificateData, CertificateInfo};
 
-/// Hash algorithm used for XML-DSig digest and RSA signature.
+/// Hash algorithm used for the XML-DSig digest and RSA signature.
 ///
-/// Brazilian ICP-Brasil v5 certificates require SHA-256, and some SEFAZs
-/// already reject SHA-1 (rejeição 297). Use [`SignatureAlgorithm::Sha256`]
-/// for new certificates; [`SignatureAlgorithm::Sha1`] is kept for
-/// backwards compatibility.
+/// **For NF-e / NFC-e use [`SignatureAlgorithm::Sha1`] (the default).** The
+/// `xmldsig-core` schema in the NF-e layout fixes the signature/digest
+/// `Algorithm` to `rsa-sha1`/`sha1`; SHA-256 is rejected by SEFAZ with cStat
+/// 225 — independent of the certificate version (an ICP-Brasil v5, SHA-256
+/// *certificate*, still signs the NF-e XML with SHA-1). Reach for
+/// [`SignatureAlgorithm::Sha256`] only where a service/document type
+/// explicitly documents requiring it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SignatureAlgorithm {
-    /// RSA-SHA1 — legacy, kept as default for backwards compatibility.
+    /// RSA-SHA1 — required by the NF-e/NFC-e XML-DSig schema; the default.
     #[default]
     Sha1,
-    /// RSA-SHA256 — required by ICP-Brasil v5 certificates.
+    /// RSA-SHA256 — only for services/document types that explicitly require
+    /// it. NOT valid for NF-e/NFC-e (schema fixes SHA-1 → cStat 225).
     Sha256,
 }
 
