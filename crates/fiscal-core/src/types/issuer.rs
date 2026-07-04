@@ -109,9 +109,15 @@ impl IssuerData {
         }
     }
 
-    /// Set the trade name.
+    /// Set the trade name (`xFant`).
+    ///
+    /// A blank or whitespace-only value is treated as "not set" and will **not**
+    /// emit an `<xFant>` element.  The NF-e schema declares `xFant` with
+    /// `minLength=1`, so an empty element causes SEFAZ to reject the document
+    /// with cStat 225 (schema validation failure).
     pub fn trade_name(mut self, name: impl Into<String>) -> Self {
-        self.trade_name = Some(name.into());
+        let s = name.into();
+        self.trade_name = if s.trim().is_empty() { None } else { Some(s) };
         self
     }
 
