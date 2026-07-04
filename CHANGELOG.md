@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.3...fiscal-v0.7.0) - 2026-07-04
+
+### Added
+
+- *(cte)* add fiscal-cte — CT-e/OS/GTV-e/BP-e + fiscal-nfse (DPS 1.01)
+- *(nfse-mun)* add fiscal-nfse-mun — municipal NFS-e (SP/ABRASF/Simpliss)
+- *(mdfe)* add fiscal-mdfe — MDF-e (model 58) support
+
+### Fixed
+
+- *(deps)* bump quick-xml to 0.41 in fiscal-mdfe and fiscal-cte
+- *(core)* bump fiscal-core to 0.7.3 to ship the fixed npm package
+- *(napi)* ship JS binding wrapper in the main npm package
+
+### Other
+
+- *(crypto)* rustfmt re-exports after conflict resolution
+- *(audit)* run Security Audit on pull_request too
+- *(readme)* add Node.js quick start, drop textual coverage claims
+- *(napi)* trigger publish on push to master, not release tag
+
 ## [0.6.3](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.2...fiscal-v0.6.3) - 2026-07-04
 
 ### Other
