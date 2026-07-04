@@ -408,6 +408,137 @@ pub fn sign_cte_event_xml_with_algorithm(
     )
 }
 
+/// Sign an RSA-SHA1 payload and return the raw Base64 result.
+///
+/// Used by providers that require a raw RSA-SHA1 signature over an arbitrary
+/// byte string (e.g. São Paulo NFS-e per-RPS `<Assinatura>` field or
+/// `AssinaturaCancelamento`).
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if the private key cannot be parsed or
+/// the signing operation fails.
+pub fn rsa_sha1_base64(data: &[u8], private_key_pem: &str) -> Result<String, FiscalError> {
+    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+        .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
+    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
+    signer
+        .update(data)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
+    let sig = signer
+        .sign_to_vec()
+        .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
+    Ok(BASE64.encode(&sig))
+}
+
+/// Sign an ABRASF 2.x NFS-e XML with RSA-SHA1 enveloped XMLDSig signature.
+///
+/// Signs `<InfDeclaracaoPrestacaoServico Id="...">` and inserts `<Signature>`
+/// as the last child of the enclosing `<Rps>` element.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if the XML is missing the signed
+/// element, the private key cannot be parsed, or signing fails.
+pub fn sign_abrasf_xml(
+    xml: &str,
+    private_key: &str,
+    certificate: &str,
+) -> Result<String, FiscalError> {
+    sign_xml_generic(
+        xml,
+        private_key,
+        certificate,
+        "InfDeclaracaoPrestacaoServico",
+        "Rps",
+        SignatureAlgorithm::Sha1,
+    )
+}
+
+/// Sign a São Paulo NFS-e lote XML with RSA-SHA1 enveloped XMLDSig.
+///
+/// Uses `Reference URI=""` (whole-document reference) and inserts `<Signature>`
+/// as the last child of `root_tag`. Used for `PedidoEnvioLoteRPS`,
+/// `PedidoCancelamentoNFe`, `PedidoConsultaNFe`, etc.
+///
+/// # Errors
+///
+/// Returns [`FiscalError::Certificate`] if the closing `root_tag` is missing,
+/// the private key cannot be parsed, or signing fails.
+pub fn sign_sp_lote_xml(
+    xml: &str,
+    root_tag: &str,
+    private_key_pem: &str,
+    certificate_pem: &str,
+) -> Result<String, FiscalError> {
+    // 1. Remove any existing <Signature> (enveloped transform)
+    let without_sig = remove_signature_element(xml);
+
+    // 2. Canonicalize the entire document
+    let canonical = canonicalize_xml(&without_sig);
+
+    // 3. Compute SHA-1 digest
+    let digest = compute_digest(canonical.as_bytes(), SignatureAlgorithm::Sha1);
+
+    // 4. Build SignedInfo with URI="" (whole-document reference)
+    let (sig_method_uri, dig_method_uri) = (
+        "http://www.w3.org/2000/09/xmldsig#rsa-sha1",
+        "http://www.w3.org/2000/09/xmldsig#sha1",
+    );
+    let mut signed_info = String::with_capacity(1024);
+    signed_info.push_str("<SignedInfo>");
+    signed_info.push_str("<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></CanonicalizationMethod>");
+    signed_info.push_str("<SignatureMethod Algorithm=\"");
+    signed_info.push_str(sig_method_uri);
+    signed_info.push_str("\"></SignatureMethod>");
+    signed_info.push_str("<Reference URI=\"\">");
+    signed_info.push_str("<Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform>");
+    signed_info.push_str("<Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"></Transform></Transforms>");
+    signed_info.push_str("<DigestMethod Algorithm=\"");
+    signed_info.push_str(dig_method_uri);
+    signed_info.push_str("\"></DigestMethod>");
+    signed_info.push_str("<DigestValue>");
+    signed_info.push_str(&digest);
+    signed_info.push_str("</DigestValue>");
+    signed_info.push_str("</Reference>");
+    signed_info.push_str("</SignedInfo>");
+
+    // 5. Canonicalize SignedInfo (adds inherited xmlns from <Signature>)
+    let canonical_signed_info = signed_info.replacen(
+        "<SignedInfo>",
+        "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+        1,
+    );
+
+    // 6. RSA-SHA1 sign
+    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+        .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
+    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
+        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
+    signer
+        .update(canonical_signed_info.as_bytes())
+        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
+    let sig_bytes = signer
+        .sign_to_vec()
+        .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
+    let signature_value = BASE64.encode(&sig_bytes);
+
+    // 7. Build full <Signature> element
+    let cert_base64 = extract_cert_base64(certificate_pem);
+    let signature_xml = build_signature_element(&signed_info, &signature_value, &cert_base64);
+
+    // 8. Insert before closing root tag
+    let closing_tag = format!("</{root_tag}>");
+    if let Some(pos) = xml.rfind(&closing_tag) {
+        Ok(format!("{}{signature_xml}{}", &xml[..pos], &xml[pos..]))
+    } else {
+        Err(FiscalError::Certificate(format!(
+            "<{root_tag}> closing tag not found in XML"
+        )))
+    }
+}
+
 // ── Private helpers ─────────────────────────────────────────────────────────
 
 /// Generic XML-DSig signing for both NFe and event documents.
