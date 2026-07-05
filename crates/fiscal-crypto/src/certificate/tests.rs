@@ -570,7 +570,11 @@ fn signature_value_sha1_fixed_vector() {
     let sig_bytes = BASE64.decode(sig_b64).unwrap();
 
     // RSA-2048 produces 256-byte signatures
-    assert_eq!(sig_bytes.len(), 256, "Signature must be 256 bytes (2048-bit RSA)");
+    assert_eq!(
+        sig_bytes.len(),
+        256,
+        "Signature must be 256 bytes (2048-bit RSA)"
+    );
 
     // Verify the signature cryptographically using the cert's public key
     use pkcs8::DecodePrivateKey as _;
