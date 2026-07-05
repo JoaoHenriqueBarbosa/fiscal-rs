@@ -131,6 +131,7 @@ pub fn get_certificate_info(
     ))
 }
 
+
 // ── Private helpers ─────────────────────────────────────────────────────────
 
 /// Convert PKCS#8 DER bytes to PEM string.

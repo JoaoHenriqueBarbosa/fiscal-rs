@@ -419,15 +419,22 @@ pub fn sign_cte_event_xml_with_algorithm(
 /// Returns [`FiscalError::Certificate`] if the private key cannot be parsed or
 /// the signing operation fails.
 pub fn rsa_sha1_base64(data: &[u8], private_key_pem: &str) -> Result<String, FiscalError> {
-    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+    use pkcs8::DecodePrivateKey as _;
+
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
-    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
-    signer
-        .update(data)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
-    let sig = signer
-        .sign_to_vec()
+
+    let hash = sha1::Sha1::digest(data);
+
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(hash.len()),
+        prefix: SHA1_PREFIX.into(),
+    };
+    let sig = private_key
+        .sign(scheme, &hash)
         .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
     Ok(BASE64.encode(&sig))
 }
@@ -511,16 +518,23 @@ pub fn sign_sp_lote_xml(
         1,
     );
 
-    // 6. RSA-SHA1 sign
-    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+    // 6. RSA-SHA1 sign (pure Rust)
+    use pkcs8::DecodePrivateKey as _;
+
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
-    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
-    signer
-        .update(canonical_signed_info.as_bytes())
-        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
-    let sig_bytes = signer
-        .sign_to_vec()
+
+    let raw_hash = sha1::Sha1::digest(canonical_signed_info.as_bytes());
+
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(raw_hash.len()),
+        prefix: SHA1_PREFIX.into(),
+    };
+    let sig_bytes = private_key
+        .sign(scheme, &raw_hash)
         .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
     let signature_value = BASE64.encode(&sig_bytes);
 
