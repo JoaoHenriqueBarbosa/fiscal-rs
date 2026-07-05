@@ -1,14 +1,34 @@
-//! Pure-Rust PKCS#12 (PFX) parser.
+//! Pure-Rust PKCS#12 (PFX) parser using the `pkcs12` crate (RustCrypto).
 //!
-//! Replaces OpenSSL's `Pkcs12::from_der()` and `parse2()`.
-//! Supports both modern (PBES2/AES-256-CBC) and legacy Brazilian A1 certificates
-//! (PBES1/RC2-40-CBC and PBES1/3DES-CBC).
+//! The `pkcs12` crate handles the outer PFX structure (including BER
+//! indefinite-length encoding), provides the correct RFC 7292 Appendix B
+//! key derivation function, and exposes MacData for integrity verification.
 //!
-//! Uses manual DER parsing to avoid complex trait requirements from the `der` crate.
+//! This module keeps minimal DER helpers only for the inner structures that
+//! `pkcs12` v0.1 does not yet handle: EncryptedPrivateKeyInfo, PKCS#12 PBE
+//! params, and certBag value extraction.
+//!
+//! Supports legacy Brazilian A1 certificates (PBES1/RC2-40-CBC,
+//! PBES1/3DES-CBC) and modern certificates (PBES2/AES-128/256-CBC).
 
 use cbc::cipher::block_padding::Pkcs7;
 use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
+use der::Decode;
 use fiscal_core::FiscalError;
+use pkcs12::kdf::{Pkcs12KeyType, derive_key_utf8};
+
+// ── OID constants ────────────────────────────────────────────────────────────
+
+const OID_ID_DATA: &str = "1.2.840.113549.1.7.1";
+const OID_ID_ENCRYPTED_DATA: &str = "1.2.840.113549.1.7.6";
+const OID_PBES1_RC2_40: &str = "1.2.840.113549.1.12.1.6";
+const OID_PBES1_3DES: &str = "1.2.840.113549.1.12.1.3";
+const OID_PBES2: &str = "1.2.840.113549.1.5.13";
+
+const OID_KEY_BAG: &str = "1.2.840.113549.1.12.10.1.1";
+const OID_PKCS8_SHROUDED_KEY_BAG: &str = "1.2.840.113549.1.12.10.1.2";
+const OID_CERT_BAG_PKCS12: &str = "1.2.840.113549.1.12.10.1.3";
+const OID_CERT_BAG_PKCS9: &str = "1.2.840.113549.1.9.22.1";
 
 // ── Parsed PKCS#12 result ────────────────────────────────────────────────────
 
@@ -23,12 +43,16 @@ pub struct ParsedPkcs12 {
     pub ca: Vec<Vec<u8>>,
 }
 
-// ── Minimal DER parsing helpers ──────────────────────────────────────────────
+// ── Minimal DER helpers for inner structures ─────────────────────────────────
 
-/// Read a DER TLV (Tag-Length-Value) from bytes. Returns (tag, value_bytes, rest_of_data).
+/// Read a DER TLV (Tag-Length-Value) from bytes.
+///
+/// Kept for parsing inner structures (EncryptedPrivateKeyInfo, PBE params,
+/// certBag values) that the `pkcs12` crate does not yet handle.
+/// Returns `(tag, value_bytes, rest_of_data)`.
 fn read_tlv(data: &[u8]) -> Result<(u8, &[u8], &[u8]), String> {
     if data.len() < 2 {
-        return Err("DER: too short for TLV header".into());
+        return Err("TLV: too short for header".into());
     }
     let tag = data[0];
     let len_byte = data[1] as usize;
@@ -38,7 +62,7 @@ fn read_tlv(data: &[u8]) -> Result<(u8, &[u8], &[u8]), String> {
     } else {
         let num_len_bytes = len_byte & 0x7F;
         if data.len() < 2 + num_len_bytes {
-            return Err("DER: too short for long length".into());
+            return Err("TLV: too short for long length".into());
         }
         let mut len = 0usize;
         for i in 0..num_len_bytes {
@@ -49,17 +73,18 @@ fn read_tlv(data: &[u8]) -> Result<(u8, &[u8], &[u8]), String> {
 
     if data.len() < header_len + len {
         return Err(format!(
-            "DER: value length {len} exceeds data ({} bytes available)",
+            "TLV: value length {len} exceeds data ({} available)",
             data.len() - header_len
         ));
     }
 
-    let value = &data[header_len..header_len + len];
-    let rest = &data[header_len + len..];
-    Ok((tag, value, rest))
+    Ok((
+        tag,
+        &data[header_len..header_len + len],
+        &data[header_len + len..],
+    ))
 }
 
-/// Read a SEQUENCE: tag=0x30, returns the inner bytes.
 fn read_sequence(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
     let (tag, value, rest) = read_tlv(data)?;
     if tag != 0x30 {
@@ -68,7 +93,6 @@ fn read_sequence(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
     Ok((value, rest))
 }
 
-/// Read an OCTET STRING: tag=0x04, returns the inner bytes.
 fn read_octet_string(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
     let (tag, value, rest) = read_tlv(data)?;
     if tag != 0x04 {
@@ -77,25 +101,6 @@ fn read_octet_string(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
     Ok((value, rest))
 }
 
-/// Read a context-specific [0] EXPLICIT tagged value: tag=0xA0.
-fn read_context0(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
-    let (tag, value, rest) = read_tlv(data)?;
-    if tag != 0xA0 {
-        return Err(format!("Expected [0] EXPLICIT (0xA0), got tag 0x{tag:02x}"));
-    }
-    Ok((value, rest))
-}
-
-/// Read a context-specific [0] IMPLICIT tagged value: tag=0x80.
-fn read_context0_implicit(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
-    let (tag, value, rest) = read_tlv(data)?;
-    if tag != 0x80 {
-        return Err(format!("Expected [0] IMPLICIT (0x80), got tag 0x{tag:02x}"));
-    }
-    Ok((value, rest))
-}
-
-/// Read an OID: tag=0x06, returns the dotted string representation.
 fn read_oid(data: &[u8]) -> Result<(String, &[u8]), String> {
     let (tag, value, rest) = read_tlv(data)?;
     if tag != 0x06 {
@@ -104,9 +109,7 @@ fn read_oid(data: &[u8]) -> Result<(String, &[u8]), String> {
     if value.is_empty() {
         return Err("OID: empty value".into());
     }
-    // Decode OID from bytes
     let mut s = String::new();
-    // First two components: first_byte / 40 . first_byte % 40
     let first = value[0] as u32;
     s.push_str(&format!("{}.{}", first / 40, first % 40));
 
@@ -126,7 +129,6 @@ fn read_oid(data: &[u8]) -> Result<(String, &[u8]), String> {
     Ok((s, rest))
 }
 
-/// Read an INTEGER: tag=0x02, returns as u32.
 fn read_integer_u32(data: &[u8]) -> Result<(u32, &[u8]), String> {
     let (tag, value, rest) = read_tlv(data)?;
     if tag != 0x02 {
@@ -139,18 +141,48 @@ fn read_integer_u32(data: &[u8]) -> Result<(u32, &[u8]), String> {
     Ok((n, rest))
 }
 
-// ── PBES1 key derivation ─────────────────────────────────────────────────────
+// ── PBE params parsing ───────────────────────────────────────────────────────
 
-/// Derive key and IV for PBES1 (RFC 8018, Section 6.1).
-fn pbes1_derive_key_iv(password: &[u8], salt: &[u8], key_len: usize) -> (Vec<u8>, Vec<u8>) {
-    use sha1::Digest as _;
-    let mut hasher = sha1::Sha1::new();
-    sha1::Digest::update(&mut hasher, password);
-    sha1::Digest::update(&mut hasher, salt);
-    let hash = sha1::Digest::finalize(hasher);
-    let key = hash[..key_len].to_vec();
-    let iv = hash[key_len..key_len + 8].to_vec();
-    (key, iv)
+/// Parse `pkcs-12PbeParams`:  SEQUENCE { salt OCTET STRING, iterations INTEGER }
+/// Returns `(salt_bytes, iterations)`.
+fn parse_pbes1_params(params_data: &[u8]) -> Result<(&[u8], i32), String> {
+    let (inner, _) = read_sequence(params_data)?;
+    let (salt, remaining) = read_octet_string(inner)?;
+    let mut iterations: i32 = 1; // default per RFC 7292 (deprecated but present)
+    if !remaining.is_empty() {
+        if let Ok((iters, _)) = read_integer_u32(remaining) {
+            iterations = iters as i32;
+        }
+    }
+    Ok((salt, iterations))
+}
+
+// ── PBES1 key derivation (RFC 7292 Appendix B) ───────────────────────────────
+
+/// Derive key and IV using the RFC 7292 Appendix B KDF (via `pkcs12::kdf`).
+///
+/// Uses `derive_key_utf8` which encodes the password as BMPString
+/// (UTF-16BE + null terminator, no BOM), applies the diversifier
+/// (ID=1 for key, ID=2 for IV), and iterates the hash `iterations` times.
+fn pbes1_derive_key_iv(
+    password: &str,
+    salt: &[u8],
+    iterations: i32,
+    key_len: usize,
+) -> Result<(Vec<u8>, Vec<u8>), FiscalError> {
+    let key = derive_key_utf8::<sha1::Sha1>(
+        password,
+        salt,
+        Pkcs12KeyType::EncryptionKey,
+        iterations,
+        key_len,
+    )
+    .map_err(|e| FiscalError::Certificate(format!("PBES1 key derivation: {e}")))?;
+
+    let iv = derive_key_utf8::<sha1::Sha1>(password, salt, Pkcs12KeyType::Iv, iterations, 8)
+        .map_err(|e| FiscalError::Certificate(format!("PBES1 IV derivation: {e}")))?;
+
+    Ok((key, iv))
 }
 
 // ── Decryption functions ──────────────────────────────────────────────────────
@@ -160,28 +192,35 @@ fn decrypt_rc2_40_cbc(
     encrypted: &[u8],
     password: &str,
     salt: &[u8],
+    iterations: i32,
 ) -> Result<Vec<u8>, FiscalError> {
-    let (key, iv) = pbes1_derive_key_iv(password.as_bytes(), salt, 5);
+    let (key, iv) = pbes1_derive_key_iv(password, salt, iterations, 5)?;
     type Rc2Cbc = cbc::Decryptor<rc2::Rc2>;
     let decryptor = Rc2Cbc::new_from_slices(&key, &iv)
         .map_err(|e| FiscalError::Certificate(format!("RC2 CBC init: {e:?}")))?;
     let mut buf = encrypted.to_vec();
-    let unpadded = decryptor
+    decryptor
         .decrypt_padded::<Pkcs7>(&mut buf)
-        .map_err(|e| FiscalError::Certificate(format!("RC2 decrypt: {e:?}")))?;
-    Ok(unpadded.to_vec())
+        .map_err(|e| FiscalError::Certificate(format!("RC2 decrypt: {e:?}")))
+        .map(|v| v.to_vec())
 }
 
-fn decrypt_3des_cbc(encrypted: &[u8], password: &str, salt: &[u8]) -> Result<Vec<u8>, FiscalError> {
-    let (key, iv) = pbes1_derive_key_iv(password.as_bytes(), salt, 24);
+/// Decrypt 3DES-CBC encrypted data.
+fn decrypt_3des_cbc(
+    encrypted: &[u8],
+    password: &str,
+    salt: &[u8],
+    iterations: i32,
+) -> Result<Vec<u8>, FiscalError> {
+    let (key, iv) = pbes1_derive_key_iv(password, salt, iterations, 24)?;
     type DesCbc = cbc::Decryptor<des::TdesEde3>;
     let decryptor = DesCbc::new_from_slices(&key, &iv)
         .map_err(|e| FiscalError::Certificate(format!("3DES CBC init: {e:?}")))?;
     let mut buf = encrypted.to_vec();
-    let unpadded = decryptor
+    decryptor
         .decrypt_padded::<Pkcs7>(&mut buf)
-        .map_err(|e| FiscalError::Certificate(format!("3DES decrypt: {e:?}")))?;
-    Ok(unpadded.to_vec())
+        .map_err(|e| FiscalError::Certificate(format!("3DES decrypt: {e:?}")))
+        .map(|v| v.to_vec())
 }
 
 /// Decrypt PBES2 (AES-CBC) encrypted data.
@@ -199,23 +238,21 @@ fn decrypt_pbes2(
     let (_pbkdf2_oid, kdf_params_data) = read_oid(kdf_seq).map_err(FiscalError::Certificate)?;
     let (kdf_params_inner, _) = read_sequence(kdf_params_data).map_err(FiscalError::Certificate)?;
 
-    // KDF params: OCTET STRING (salt), INTEGER (iterations), [INTEGER keyLength], [SEQUENCE prf]
+    // KDF params: OCTET STRING (salt), INTEGER (iterations)
     let (salt_val, remaining) =
         read_octet_string(kdf_params_inner).map_err(FiscalError::Certificate)?;
     let (iterations, remaining) = read_integer_u32(remaining).map_err(FiscalError::Certificate)?;
 
-    // Parse optional keyLength and prf (AlgorithmIdentifier)
+    // Parse optional keyLength and prf
     let mut prf_is_sha256 = false;
-    let mut remaining_salt = remaining;
-    if !remaining_salt.is_empty() && remaining_salt[0] == 0x02 {
-        // Optional keyLength INTEGER
-        if let Ok((_kl, rest)) = read_integer_u32(remaining_salt) {
-            remaining_salt = rest;
+    let mut remaining = remaining;
+    if !remaining.is_empty() && remaining[0] == 0x02 {
+        if let Ok((_kl, rest)) = read_integer_u32(remaining) {
+            remaining = rest;
         }
     }
-    if !remaining_salt.is_empty() && remaining_salt[0] == 0x30 {
-        // Optional PRF SEQUENCE { OID, NULL }
-        if let Ok((prf_inner, _)) = read_sequence(remaining_salt) {
+    if !remaining.is_empty() && remaining[0] == 0x30 {
+        if let Ok((prf_inner, _)) = read_sequence(remaining) {
             if let Ok((prf_oid, _)) = read_oid(prf_inner) {
                 prf_is_sha256 = prf_oid.contains(".2.9");
             }
@@ -266,53 +303,51 @@ fn decrypt_pbes2(
     }
 }
 
-// ── PKCS#12 ContentInfo parsing ──────────────────────────────────────────────
+// ── EncryptedPrivateKeyInfo decryption ────────────────────────────────────────
 
-/// Parse a PKCS#7 ContentInfo INNER (without outer SEQUENCE header).
-/// ContentInfo ::= SEQUENCE { OID, [0] EXPLICIT content }
-/// `data` must be the inner bytes of the ContentInfo SEQUENCE.
-fn parse_content_info_inner(data: &[u8]) -> Result<(String, Vec<u8>), String> {
-    let (oid, after_oid) = read_oid(data)?;
-    let (content, _) = read_context0(after_oid)?;
-    Ok((oid, content.to_vec()))
-}
+/// Decrypt a PKCS#8 EncryptedPrivateKeyInfo (pkcs8ShroudedKeyBag value).
+fn decrypt_pkcs8_key(data: &[u8], password: &str) -> Result<Vec<u8>, FiscalError> {
+    let (epki_inner, _) = read_sequence(data)
+        .map_err(|e| FiscalError::Certificate(format!("EncryptedPrivateKeyInfo outer: {e}")))?;
 
-/// Parse a PKCS#7 ContentInfo with outer SEQUENCE header.
-fn parse_content_info(data: &[u8]) -> Result<(String, Vec<u8>), String> {
-    let (ci_inner, _) = read_sequence(data)?;
-    parse_content_info_inner(ci_inner)
-}
+    // encryptionAlgorithm: SEQUENCE { OID, params }
+    let (algo_seq, after_algo) = read_sequence(epki_inner)
+        .map_err(|e| FiscalError::Certificate(format!("EncryptedPrivateKeyInfo algo: {e}")))?;
+    let (algo_oid, algo_params) = read_oid(algo_seq).map_err(FiscalError::Certificate)?;
 
-// ── PFX outer structure ──────────────────────────────────────────────────────
+    // encryptedData: OCTET STRING
+    let (encrypted, _) = read_octet_string(after_algo).map_err(FiscalError::Certificate)?;
 
-/// Parse the outer PFX: SEQUENCE { INTEGER(3), ContentInfo, [MacData] }
-/// Returns the authSafe content bytes.
-fn parse_pfx(data: &[u8]) -> Result<Vec<u8>, String> {
-    let (pfx_inner, _) = read_sequence(data)?;
-
-    // version INTEGER (must be 3)
-    let (version, after_version) = read_integer_u32(pfx_inner)?;
-    if version != 3 {
-        return Err(format!("PFX version must be 3, got {version}"));
+    match algo_oid.as_str() {
+        OID_PBES1_RC2_40 => {
+            let (salt, iterations) =
+                parse_pbes1_params(algo_params).map_err(FiscalError::Certificate)?;
+            decrypt_rc2_40_cbc(encrypted, password, salt, iterations)
+        }
+        OID_PBES1_3DES => {
+            let (salt, iterations) =
+                parse_pbes1_params(algo_params).map_err(FiscalError::Certificate)?;
+            decrypt_3des_cbc(encrypted, password, salt, iterations)
+        }
+        OID_PBES2 => decrypt_pbes2(encrypted, password, algo_params),
+        _ => Err(FiscalError::Certificate(format!(
+            "Unsupported key encryption: {algo_oid}"
+        ))),
     }
-
-    // authSafe ContentInfo
-    let (_ci_oid, ci_content) = parse_content_info(after_version)?;
-    if !_ci_oid.starts_with("1.2.840.113549.1.7") {
-        return Err(format!("Expected PKCS#7 type OID, got {_ci_oid}"));
-    }
-
-    // The content is an OCTET STRING wrapping the AuthenticatedSafe BER data
-    let (auth_safe, _) = read_octet_string(&ci_content)?;
-    Ok(auth_safe.to_vec())
 }
 
-// ── EncryptedData decryption ─────────────────────────────────────────────────
+// ── EncryptedData decryption (CMS type) ──────────────────────────────────────
 
-/// Decrypt PKCS#7 EncryptedData.
-/// Structure: SEQUENCE { INTEGER(version), SEQUENCE { OID(dataType), SEQUENCE { OID(algo), params }, [0] IMPLICIT OCTET STRING } }
-fn decrypt_encrypted_data(data: &[u8], password: &str) -> Result<Vec<u8>, FiscalError> {
-    let (ed_inner, _) = read_sequence(data).map_err(FiscalError::Certificate)?;
+/// Decrypt a CMS EncryptedData content.
+///
+/// The `content_bytes` are the inner bytes of the `[0] EXPLICIT` field of the
+/// ContentInfo. They contain the EncryptedData SEQUENCE.
+fn decrypt_cms_encrypted_data(ed_inner: &[u8], password: &str) -> Result<Vec<u8>, FiscalError> {
+    // `ed_inner` is the inner value of the EncryptedData SEQUENCE
+    // (already stripped of the outer 0x30 tag).
+    // EncryptedData ::= SEQUENCE {
+    //     version CMSVersion,
+    //     encryptedContentInfo EncryptedContentInfo }
 
     // version
     let (_version, after_version) = read_integer_u32(ed_inner).map_err(FiscalError::Certificate)?;
@@ -320,7 +355,7 @@ fn decrypt_encrypted_data(data: &[u8], password: &str) -> Result<Vec<u8>, Fiscal
     // encryptedContentInfo SEQUENCE
     let (eci_inner, _) = read_sequence(after_version).map_err(FiscalError::Certificate)?;
 
-    // dataType OID
+    // contentType OID
     let (_data_oid, after_dt) = read_oid(eci_inner).map_err(FiscalError::Certificate)?;
 
     // contentEncryptionAlgorithm SEQUENCE { OID, params }
@@ -328,128 +363,143 @@ fn decrypt_encrypted_data(data: &[u8], password: &str) -> Result<Vec<u8>, Fiscal
     let (algo_oid, algo_params) = read_oid(algo_seq).map_err(FiscalError::Certificate)?;
 
     // encryptedContent [0] IMPLICIT OCTET STRING
-    let (encrypted_val, _) =
-        read_context0_implicit(after_algo).map_err(FiscalError::Certificate)?;
+    let (tag, encrypted_val, _rest) = read_tlv(after_algo).map_err(FiscalError::Certificate)?;
+    if tag != 0x80 {
+        return Err(FiscalError::Certificate(format!(
+            "Expected [0] IMPLICIT (0x80), got tag 0x{tag:02x}"
+        )));
+    }
 
     match algo_oid.as_str() {
-        "1.2.840.113549.1.12.1.6" => {
-            // pbeWithSHA1And40BitRC2-CBC
-            let (pbes1_inner, _) = read_sequence(algo_params).map_err(FiscalError::Certificate)?;
-            let (salt_val, _) = read_octet_string(pbes1_inner).map_err(FiscalError::Certificate)?;
-            decrypt_rc2_40_cbc(encrypted_val, password, salt_val)
+        OID_PBES1_RC2_40 => {
+            let (salt, iterations) =
+                parse_pbes1_params(algo_params).map_err(FiscalError::Certificate)?;
+            decrypt_rc2_40_cbc(encrypted_val, password, salt, iterations)
         }
-        "1.2.840.113549.1.12.1.3" => {
-            // pbeWithSHA1And3-KeyTripleDES-CBC
-            let (pbes1_inner, _) = read_sequence(algo_params).map_err(FiscalError::Certificate)?;
-            let (salt_val, _) = read_octet_string(pbes1_inner).map_err(FiscalError::Certificate)?;
-            decrypt_3des_cbc(encrypted_val, password, salt_val)
+        OID_PBES1_3DES => {
+            let (salt, iterations) =
+                parse_pbes1_params(algo_params).map_err(FiscalError::Certificate)?;
+            decrypt_3des_cbc(encrypted_val, password, salt, iterations)
         }
-        "1.2.840.113549.1.5.13" => {
-            // PBES2
-            decrypt_pbes2(encrypted_val, password, algo_params)
-        }
+        OID_PBES2 => decrypt_pbes2(encrypted_val, password, algo_params),
         _ => Err(FiscalError::Certificate(format!(
-            "Unsupported PKCS#12 encryption: {algo_oid}"
+            "Unsupported encryption algorithm: {algo_oid}"
         ))),
     }
 }
 
-// ── PKCS#8 EncryptedPrivateKeyInfo ───────────────────────────────────────────
+// ── SafeBag value extraction ─────────────────────────────────────────────────
 
-/// Decrypt a PKCS#8 EncryptedPrivateKeyInfo (pkcs8ShroudedKeyBag value).
-fn decrypt_pkcs8_key(data: &[u8], password: &str) -> Result<Vec<u8>, FiscalError> {
-    let (epki_inner, _) = read_sequence(data).map_err(FiscalError::Certificate)?;
-
-    // encryptionAlgorithm: SEQUENCE { OID, params }
-    let (algo_seq, after_algo) = read_sequence(epki_inner).map_err(FiscalError::Certificate)?;
-    let (algo_oid, algo_params) = read_oid(algo_seq).map_err(FiscalError::Certificate)?;
-
-    // encryptedData: OCTET STRING
-    let (encrypted, _) = read_octet_string(after_algo).map_err(FiscalError::Certificate)?;
-
-    match algo_oid.as_str() {
-        "1.2.840.113549.1.12.1.6" => {
-            let (pbes1_inner, _) = read_sequence(algo_params).map_err(FiscalError::Certificate)?;
-            let (salt_val, _) = read_octet_string(pbes1_inner).map_err(FiscalError::Certificate)?;
-            decrypt_rc2_40_cbc(encrypted, password, salt_val)
-        }
-        "1.2.840.113549.1.12.1.3" => {
-            let (pbes1_inner, _) = read_sequence(algo_params).map_err(FiscalError::Certificate)?;
-            let (salt_val, _) = read_octet_string(pbes1_inner).map_err(FiscalError::Certificate)?;
-            decrypt_3des_cbc(encrypted, password, salt_val)
-        }
-        "1.2.840.113549.1.5.13" => decrypt_pbes2(encrypted, password, algo_params),
-        _ => Err(FiscalError::Certificate(format!(
-            "Unsupported key encryption: {algo_oid}"
-        ))),
-    }
-}
-
-// ── SafeContents parsing ─────────────────────────────────────────────────────
-
-/// Parse a certBag value: SEQUENCE { OID(certId), [0] EXPLICIT certValue }
+/// Extract X.509 certificate DER from a certBag value.
 ///
-/// For x509Certificate (certId 1.2.840.113549.1.9.22.1),
-/// the certValue is an OCTET STRING wrapping the DER-encoded X.509 certificate.
-fn parse_cert_bag(data: &[u8]) -> Result<Vec<u8>, String> {
-    let (bag_inner, _) = read_sequence(data)?;
+/// `bag_value` is the full TLV of the SafeBag's `[0] EXPLICIT` field.
+/// The structure inside is: SEQUENCE { OID(certId), [0] EXPLICIT { OCTET STRING { cert DER } } }
+fn extract_cert_from_bag_value(bag_value: &[u8]) -> Result<Vec<u8>, String> {
+    // Strip the outer [0] EXPLICIT wrapper (bag_value includes the 0xA0 tag+length)
+    let (tag, inner, _) = read_tlv(bag_value)?;
+    if tag != 0xA0 {
+        return Err(format!(
+            "Expected [0] EXPLICIT (0xA0) wrapping certBag, got 0x{tag:02x}"
+        ));
+    }
+    // inner is: SEQUENCE { OID(certId), [0] EXPLICIT certValue }
+    let (bag_inner, _) = read_sequence(inner)?;
     let (_cert_id, after_cert_id) = read_oid(bag_inner)?;
-    let (cert_val, _) = read_context0(after_cert_id)?;
-    // certValue is an OCTET STRING wrapping the actual DER certificate
+    // [0] EXPLICIT certValue
+    let (tag, cert_val, _rest) = read_tlv(after_cert_id)?;
+    if tag != 0xA0 {
+        return Err(format!(
+            "Expected [0] EXPLICIT (0xA0) for certValue, got 0x{tag:02x}"
+        ));
+    }
+    // certValue is OCTET STRING wrapping DER certificate
     let (cert_der, _) = read_octet_string(cert_val)?;
     Ok(cert_der.to_vec())
 }
 
-/// Parse SafeContents (SEQUENCE OF SafeBag) and extract cert + key.
-fn parse_safe_contents(data: &[u8], password: &str) -> Result<ParsedPkcs12, FiscalError> {
-    let (sc_inner, _) =
-        read_sequence(data).map_err(|e| FiscalError::Certificate(format!("SafeContents: {e}")))?;
+/// Decrypt an EncryptedPrivateKeyInfo from a pkcs8ShroudedKeyBag bag_value.
+///
+/// `bag_value` is the full TLV of the SafeBag's `[0] EXPLICIT` field.
+/// The inner content is the EncryptedPrivateKeyInfo SEQUENCE.
+fn decrypt_key_from_bag_value(bag_value: &[u8], password: &str) -> Result<Vec<u8>, FiscalError> {
+    // Strip the outer [0] EXPLICIT wrapper
+    let (tag, inner, _) = read_tlv(bag_value).map_err(FiscalError::Certificate)?;
+    if tag != 0xA0 {
+        return Err(FiscalError::Certificate(format!(
+            "Expected [0] EXPLICIT (0xA0) wrapping key bag, got 0x{tag:02x}"
+        )));
+    }
+    decrypt_pkcs8_key(inner, password)
+}
 
-    let mut remaining = sc_inner;
+// ── SafeContents parsing ─────────────────────────────────────────────────────
+
+/// Parse SafeContents (SEQUENCE OF SafeBag) from DER bytes using the `pkcs12` crate.
+fn parse_safe_contents_der(data: &[u8]) -> Result<Vec<pkcs12::safe_bag::SafeBag>, FiscalError> {
+    let safe_bags: pkcs12::safe_bag::SafeContents = der::Decode::from_der(data)
+        .map_err(|e| FiscalError::Certificate(format!("SafeContents decode: {e}")))?;
+    Ok(safe_bags)
+}
+
+/// Process parsed SafeBags and extract certificate, private key, and CA chain.
+fn collect_from_safe_bags(
+    safe_bags: &[pkcs12::safe_bag::SafeBag],
+    password: &str,
+) -> Result<ParsedPkcs12, FiscalError> {
     let mut cert_der: Option<Vec<u8>> = None;
     let mut pkey_der: Option<Vec<u8>> = None;
     let mut ca_certs: Vec<Vec<u8>> = Vec::new();
 
-    while !remaining.is_empty() {
-        // Each SafeBag is a SEQUENCE
-        let (bag_inner, rest) = read_sequence(remaining)
-            .map_err(|e| FiscalError::Certificate(format!("SafeBag: {e}")))?;
-        remaining = rest;
-
-        // bagId OID
-        let (bag_id, after_bag_id) =
-            read_oid(bag_inner).map_err(|e| FiscalError::Certificate(format!("bagId: {e}")))?;
-
-        // bagValue [0] EXPLICIT
-        let (bag_value, _after_bag) = read_context0(after_bag_id)
-            .map_err(|e| FiscalError::Certificate(format!("bagValue: {e}")))?;
-
+    for bag in safe_bags {
+        let bag_id = bag.bag_id.to_string();
         match bag_id.as_str() {
-            "1.2.840.113549.1.12.10.1.3" | "1.2.840.113549.1.9.22.1" => {
-                // certBag (PKCS#12 or PKCS#9 OID)
-                if let Ok(cert_bytes) = parse_cert_bag(bag_value) {
-                    if cert_der.is_none() {
-                        cert_der = Some(cert_bytes);
-                    } else {
-                        ca_certs.push(cert_bytes);
+            OID_KEY_BAG => {
+                // keyBag: bag_value is [0] EXPLICIT wrapping PrivateKeyInfo
+                // Strip the wrapper to get the raw PKCS#8 DER
+                if pkey_der.is_none() {
+                    if let Ok((tag, inner, _)) = read_tlv(&bag.bag_value) {
+                        if tag == 0xA0 {
+                            pkey_der = Some(inner.to_vec());
+                        }
                     }
                 }
             }
-            "1.2.840.113549.1.12.10.1.2" => {
-                // pkcs8ShroudedKeyBag
-                if let Ok(decrypted) = decrypt_pkcs8_key(bag_value, password) {
-                    pkey_der = Some(decrypted);
+            OID_PKCS8_SHROUDED_KEY_BAG => {
+                // pkcs8ShroudedKeyBag: bag_value is EncryptedPrivateKeyInfo DER
+                if pkey_der.is_none() {
+                    match decrypt_key_from_bag_value(&bag.bag_value, password) {
+                        Ok(decrypted) => {
+                            pkey_der = Some(decrypted);
+                        }
+                        Err(e) => {
+                            return Err(FiscalError::Certificate(format!(
+                                "Failed to decrypt private key: {e}"
+                            )));
+                        }
+                    }
                 }
             }
-            "1.2.840.113549.1.12.10.1.1" => {
-                // keyBag (unencrypted PKCS#8)
-                pkey_der = Some(bag_value.to_vec());
+            OID_CERT_BAG_PKCS12 | OID_CERT_BAG_PKCS9 => {
+                // certBag: bag_value is SEQUENCE { OID, [0] EXPLICIT certValue }
+                match extract_cert_from_bag_value(&bag.bag_value) {
+                    Ok(cert_bytes) => {
+                        if cert_der.is_none() {
+                            cert_der = Some(cert_bytes);
+                        } else {
+                            ca_certs.push(cert_bytes);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(FiscalError::Certificate(format!(
+                            "Failed to extract certificate: {e}"
+                        )));
+                    }
+                }
             }
             _ => {} // Unknown bag type — skip
         }
     }
 
-    // Return what we found — caller merges across sections
     Ok(ParsedPkcs12 {
         cert: cert_der.unwrap_or_default(),
         pkey: pkey_der.unwrap_or_default(),
@@ -457,47 +507,183 @@ fn parse_safe_contents(data: &[u8], password: &str) -> Result<ParsedPkcs12, Fisc
     })
 }
 
+// ── MAC verification ─────────────────────────────────────────────────────────
+
+/// OID for SHA-256 digest algorithm.
+const OID_SHA256: &str = "2.16.840.1.101.3.4.2.1";
+
+/// Verify the PKCS#12 MAC (HMAC over authSafe bytes).
+///
+/// The KDF hash function matches the MAC digest algorithm (RFC 7292
+/// Appendix B specifies SHA-1, but newer OpenSSL versions use SHA-256
+/// when the MAC algorithm is SHA-256 for consistency).
+///
+/// Returns an error if verification fails (e.g., wrong password).
+fn verify_pfx_mac(
+    mac_data: &pkcs12::mac_data::MacData,
+    auth_safe_bytes: &[u8],
+    password: &str,
+) -> Result<(), FiscalError> {
+    let mac_salt = mac_data.mac_salt.as_bytes();
+    let iterations = mac_data.iterations;
+    let algo_oid = mac_data.mac.algorithm.oid.to_string();
+    let digest_len = mac_data.mac.digest.as_bytes().len();
+
+    let expected = mac_data.mac.digest.as_bytes();
+
+    let ok = if algo_oid == OID_SHA256 {
+        // KDF with SHA-256 (matches newer OpenSSL behavior)
+        let mac_key = derive_key_utf8::<sha2::Sha256>(
+            password,
+            mac_salt,
+            Pkcs12KeyType::Mac,
+            iterations,
+            digest_len,
+        )
+        .map_err(|e| FiscalError::Certificate(format!("MAC key derivation: {e}")))?;
+
+        use hmac::Mac as _;
+        let mut mac = <hmac::Hmac<sha2::Sha256> as hmac::Mac>::new_from_slice(&mac_key)
+            .map_err(|e| FiscalError::Certificate(format!("HMAC-SHA256 init: {e}")))?;
+        mac.update(auth_safe_bytes);
+        let computed = mac.finalize().into_bytes();
+        computed.as_slice() == expected
+    } else {
+        // KDF with SHA-1 (RFC 7292 standard)
+        let mac_key = derive_key_utf8::<sha1::Sha1>(
+            password,
+            mac_salt,
+            Pkcs12KeyType::Mac,
+            iterations,
+            digest_len,
+        )
+        .map_err(|e| FiscalError::Certificate(format!("MAC key derivation: {e}")))?;
+
+        use hmac::Mac as _;
+        let mut mac = <hmac::Hmac<sha1::Sha1> as hmac::Mac>::new_from_slice(&mac_key)
+            .map_err(|e| FiscalError::Certificate(format!("HMAC-SHA1 init: {e}")))?;
+        mac.update(auth_safe_bytes);
+        let computed = mac.finalize().into_bytes();
+        computed.as_slice() == expected
+    };
+
+    if !ok {
+        return Err(FiscalError::Certificate(
+            "PKCS#12 MAC verification failed — password may be incorrect".into(),
+        ));
+    }
+
+    Ok(())
+}
+
+// ── ContentInfo parsing (minimal, avoids depending on `cms` crate directly) ──
+
+/// Parsed ContentInfo inner structure.
+struct ContentInfoInner {
+    content_type: String,
+    /// Raw bytes of the [0] EXPLICIT content value.
+    content: Vec<u8>,
+}
+
+/// Parse a single ContentInfo (without outer SEQUENCE header).
+fn parse_content_info_inner(data: &[u8]) -> Result<ContentInfoInner, String> {
+    let (oid, after_oid) = read_oid(data)?;
+    let (tag, content_val, _rest) = read_tlv(after_oid)?;
+    if tag != 0xA0 {
+        return Err(format!("Expected [0] EXPLICIT (0xA0), got tag 0x{tag:02x}"));
+    }
+    Ok(ContentInfoInner {
+        content_type: oid,
+        content: content_val.to_vec(),
+    })
+}
+
+/// Parse a ContentInfo SEQUENCE: { OID, [0] EXPLICIT { ... } }
+fn parse_content_info(data: &[u8]) -> Result<(ContentInfoInner, &[u8]), String> {
+    let (ci_inner, rest) = read_sequence(data)?;
+    let ci = parse_content_info_inner(ci_inner)?;
+    Ok((ci, rest))
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /// Parse a PKCS#12/PFX DER buffer and extract certificate, private key, and CA chain.
 ///
 /// Handles legacy (PBES1/RC2-40-CBC, PBES1/3DES-CBC) and modern
-/// (PBES2/AES-256-CBC) encryption schemes used in Brazilian A1 certificates.
+/// (PBES2/AES-128/256-CBC) encryption schemes used in Brazilian A1 certificates.
+///
+/// Uses the `pkcs12` crate for correct ASN.1 parsing (including BER
+/// indefinite-length), RFC 7292 Appendix B key derivation, and MAC-based
+/// integrity verification.
 pub fn pkcs12_parse(data: &[u8], password: &str) -> Result<ParsedPkcs12, FiscalError> {
-    // 1. Parse PFX outer structure → get authSafe OCTET STRING bytes
-    let auth_safe = parse_pfx(data)
+    // 1. Parse the outer PFX structure using the pkcs12 crate.
+    //    This handles BER indefinite-length encoding correctly.
+    let pfx = pkcs12::pfx::Pfx::from_der(data)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse PFX: {e}")))?;
 
-    // 2. The authSafe is BER-encoded AuthenticatedSafe: SEQUENCE OF ContentInfo
-    let (auth_safe_inner, _) = read_sequence(&auth_safe)
-        .map_err(|e| FiscalError::Certificate(format!("AuthSafe: {e}")))?;
+    // 2. Extract authSafe bytes from the PFX ContentInfo.
+    //    The authSafe content is: [0] EXPLICIT OCTET STRING { AuthenticatedSafe }
+    //    The der crate's Any::value() returns the OCTET STRING's value bytes
+    //    (i.e. the AuthenticatedSafe BER data), with the OCTET STRING tag
+    //    already stripped by the der decoder.
+    let auth_safe_bytes = pfx.auth_safe.content.value();
 
-    // 3. Process each ContentInfo independently — each one wraps a separate SafeContents
-    let mut remaining = auth_safe_inner;
+    // 3. Verify MAC if present (integrity check + password validation).
+    if let Some(ref mac_data) = pfx.mac_data {
+        verify_pfx_mac(mac_data, auth_safe_bytes, password)?;
+    }
+
+    // 4. Parse the AuthenticatedSafe: SEQUENCE OF ContentInfo (BER).
+    //    We parse this manually to avoid adding `cms` as a direct dependency.
+    let (auth_safe_inner, _) = read_sequence(auth_safe_bytes)
+        .map_err(|e| FiscalError::Certificate(format!("AuthenticatedSafe: {e}")))?;
+
+    // 5. Process each ContentInfo — decrypt if needed, then parse SafeContents
     let mut final_cert: Option<Vec<u8>> = None;
     let mut final_pkey: Option<Vec<u8>> = None;
     let mut final_ca: Vec<Vec<u8>> = Vec::new();
 
+    let mut remaining = auth_safe_inner;
     while !remaining.is_empty() {
-        let (ci_inner, rest) = read_sequence(remaining)
-            .map_err(|e| FiscalError::Certificate(format!("AuthSafe CI: {e}")))?;
+        let (ci, rest) = parse_content_info(remaining).map_err(|e| {
+            FiscalError::Certificate(format!(
+                "AuthSafe ContentInfo at offset {}: {e}",
+                auth_safe_inner.len() - remaining.len()
+            ))
+        })?;
         remaining = rest;
 
-        let (content_type, ci_content) = parse_content_info_inner(ci_inner)
-            .map_err(|e| FiscalError::Certificate(format!("ContentInfo: {e}")))?;
-
-        let safe_contents = if content_type == "1.2.840.113549.1.7.1" {
-            let (sc, _) = read_octet_string(&ci_content)
-                .map_err(|e| FiscalError::Certificate(format!("id-data: {e}")))?;
-            sc.to_vec()
-        } else if content_type == "1.2.840.113549.1.7.6" {
-            decrypt_encrypted_data(&ci_content, password)?
-        } else {
-            continue;
+        let safe_contents_der = match ci.content_type.as_str() {
+            OID_ID_DATA => {
+                // Content is: OCTET STRING { SafeContents }
+                let (tag, inner, _) = read_tlv(&ci.content).map_err(FiscalError::Certificate)?;
+                if tag != 0x04 {
+                    return Err(FiscalError::Certificate(format!(
+                        "Expected OCTET STRING for id-data content, got tag 0x{tag:02x}"
+                    )));
+                }
+                inner.to_vec()
+            }
+            OID_ID_ENCRYPTED_DATA => {
+                // Content is: SEQUENCE { EncryptedData }
+                let (tag, ed_bytes, _) = read_tlv(&ci.content).map_err(FiscalError::Certificate)?;
+                if tag != 0x30 {
+                    return Err(FiscalError::Certificate(format!(
+                        "Expected SEQUENCE for EncryptedData, got tag 0x{tag:02x}"
+                    )));
+                }
+                decrypt_cms_encrypted_data(ed_bytes, password)?
+            }
+            _ => {
+                // Unknown content type — skip this section
+                continue;
+            }
         };
 
-        // Parse this section's SafeContents and merge results
-        let parsed = parse_safe_contents(&safe_contents, password)?;
+        // Parse SafeContents from this section using pkcs12 crate
+        let safe_bags = parse_safe_contents_der(&safe_contents_der)?;
+        let parsed = collect_from_safe_bags(&safe_bags, password)?;
+
         if !parsed.cert.is_empty() {
             if final_cert.is_none() {
                 final_cert = Some(parsed.cert);
@@ -582,5 +768,92 @@ mod tests {
     fn parse_pfx_invalid_data() {
         let result = pkcs12_parse(b"not a valid pfx file", "password");
         assert!(result.is_err(), "Should fail with invalid data");
+    }
+
+    // ── Legacy fixture helpers ────────────────────────────────────────────
+
+    fn test_pfx_legacy_rc2_40() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../..",
+            "/tests/fixtures/certs/legacy_rc2_40_senha_minhasenha.pfx"
+        );
+        std::fs::read(path).expect("legacy RC2-40 fixture not found")
+    }
+
+    fn test_pfx_legacy_3des() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../..",
+            "/tests/fixtures/certs/legacy_3des_senha_minhasenha.pfx"
+        );
+        std::fs::read(path).expect("legacy 3DES fixture not found")
+    }
+
+    fn test_pfx_legacy_windows_style() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../..",
+            "/tests/fixtures/certs/legacy_windows_style_senha_minhasenha.pfx"
+        );
+        std::fs::read(path).expect("legacy Windows-style fixture not found")
+    }
+
+    // ── Legacy encryption tests ───────────────────────────────────────────
+
+    #[test]
+    fn parse_legacy_rc2_40() {
+        let pfx = test_pfx_legacy_rc2_40();
+        let result = pkcs12_parse(&pfx, "minhasenha");
+        assert!(
+            result.is_ok(),
+            "RC2-40 parse failed: {:?}",
+            result.as_ref().err()
+        );
+        let parsed = result.unwrap();
+        assert!(!parsed.cert.is_empty(), "cert must not be empty");
+        assert!(!parsed.pkey.is_empty(), "pkey must not be empty");
+    }
+
+    #[test]
+    fn parse_legacy_3des() {
+        let pfx = test_pfx_legacy_3des();
+        let result = pkcs12_parse(&pfx, "minhasenha");
+        assert!(
+            result.is_ok(),
+            "3DES parse failed: {:?}",
+            result.as_ref().err()
+        );
+        let parsed = result.unwrap();
+        assert!(!parsed.cert.is_empty(), "cert must not be empty");
+        assert!(!parsed.pkey.is_empty(), "pkey must not be empty");
+    }
+
+    #[test]
+    fn parse_legacy_windows_style() {
+        let pfx = test_pfx_legacy_windows_style();
+        let result = pkcs12_parse(&pfx, "minhasenha");
+        assert!(
+            result.is_ok(),
+            "Windows-style parse failed: {:?}",
+            result.as_ref().err()
+        );
+        let parsed = result.unwrap();
+        assert!(!parsed.cert.is_empty(), "cert must not be empty");
+        assert!(!parsed.pkey.is_empty(), "pkey must not be empty");
+    }
+
+    #[test]
+    fn legacy_rc2_40_wrong_password() {
+        let pfx = test_pfx_legacy_rc2_40();
+        let result = pkcs12_parse(&pfx, "wrongpassword");
+        assert!(result.is_err(), "RC2-40 wrong password should fail");
+    }
+
+    #[test]
+    fn legacy_3des_wrong_password() {
+        let pfx = test_pfx_legacy_3des();
+        let result = pkcs12_parse(&pfx, "wrongpassword");
+        assert!(result.is_err(), "3DES wrong password should fail");
     }
 }

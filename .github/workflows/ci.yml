@@ -49,8 +49,6 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
             ${{ runner.os }}-cargo-
 
-      - name: Install system dependencies (OpenSSL)
-
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -75,8 +73,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-test-
             ${{ runner.os }}-cargo-
-
-      - name: Install system dependencies (OpenSSL)
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
@@ -106,8 +102,6 @@ jobs:
             ${{ runner.os }}-cargo-doctest-
             ${{ runner.os }}-cargo-
 
-      - name: Install system dependencies (OpenSSL)
-
       - name: Run doc tests
         run: cargo test --workspace --doc --all-features
 
@@ -132,8 +126,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-docs-
             ${{ runner.os }}-cargo-
-
-      - name: Install system dependencies (OpenSSL)
 
       - name: Build documentation
         env:

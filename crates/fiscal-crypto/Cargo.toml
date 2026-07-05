@@ -16,7 +16,7 @@ der = { version = "0.7", features = ["derive", "oid", "alloc"] }
 x509-cert = { version = "0.2", features = ["pem"] }
 pkcs8 = { version = "0.10", features = ["pem", "alloc"] }
 rsa = { version = "0.9" }
-pkcs5 = { version = "0.8", features = ["pbes2", "sha1-insecure", "3des"] }
+pkcs12 = { version = "0.1", features = ["kdf"] }
 rc2 = "0.9"
 cbc = "0.2"
 cipher = "0.5"

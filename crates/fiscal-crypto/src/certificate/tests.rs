@@ -550,6 +550,71 @@ fn sign_xml_sha256_verify_roundtrip() {
     );
 }
 
+#[test]
+fn signature_value_sha1_fixed_vector() {
+    let pfx = test_pfx_cnpj();
+    let cert_data = load_certificate(&pfx, PASSWORD).unwrap();
+    let xml = concat!(
+        r#"<NFe xmlns="http://www.portalfiscal.inf.br/nfe">"#,
+        r#"<infNFe versao="4.00" Id="NFe41260304123456000190550010000001231123456780">"#,
+        "<ide><cUF>41</cUF></ide>",
+        "</infNFe></NFe>"
+    );
+    let signed =
+        sign_xml(xml, &cert_data.private_key, &cert_data.certificate).expect("should sign");
+
+    // Extract SignatureValue
+    let sig_start = signed.find("<SignatureValue>").unwrap() + "<SignatureValue>".len();
+    let sig_end = signed.find("</SignatureValue>").unwrap();
+    let sig_b64 = &signed[sig_start..sig_end];
+    let sig_bytes = BASE64.decode(sig_b64).unwrap();
+
+    // RSA-2048 produces 256-byte signatures
+    assert_eq!(sig_bytes.len(), 256, "Signature must be 256 bytes (2048-bit RSA)");
+
+    // Verify the signature cryptographically using the cert's public key
+    use pkcs8::DecodePrivateKey as _;
+    use rsa::pkcs1v15::Pkcs1v15Sign;
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(&cert_data.private_key).unwrap();
+    let pubkey = private_key.to_public_key();
+
+    // Get the canonical SignedInfo
+    let si_start = signed.find("<SignedInfo>").unwrap();
+    let si_end = signed.find("</SignedInfo>").unwrap() + "</SignedInfo>".len();
+    let signed_info_raw = &signed[si_start..si_end];
+
+    // C14N inclusive: xmlns is inherited on SignedInfo
+    let canonical_signed_info = signed_info_raw.replacen(
+        "<SignedInfo>",
+        "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">",
+        1,
+    );
+
+    use sha1::Digest as _;
+    let hash = sha1::Sha1::digest(canonical_signed_info.as_bytes());
+
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(20),
+        prefix: SHA1_PREFIX.into(),
+    };
+    assert!(
+        pubkey.verify(scheme, &hash, &sig_bytes).is_ok(),
+        "RSA-SHA1 signature verification failed — compatibility break!"
+    );
+
+    // Fixed vector: if this value changes, the signature format has changed.
+    // This would break SEFAZ compatibility. Do NOT update this value without
+    // verifying that the change is intentional and backward-compatible.
+    const EXPECTED_SIG_VALUE: &str = "oj8FyGhfxzNEgWz+k0P4dqX85UPq1gS50UyTK8hQooiRgLOM3AFxUxQ0Kofa0R6p5l9DpmrtJXjwo921KzZN9flqNVa1cQ0KgsBzzu4SVkwWa1/yPX/+oSu8K+xxjvqlb3hSoqa4ZKxM77/e4yO0lR5SMZL3fXgVRenBznrkOfSW9+zXYP4wTdEjdGX63otn4MAqqLvVEDpqvdXHuw7s+jcwmNprXrJ5yp9ND6B3sjUF5ry7h7iIShqlI2Sa+mPEQKDO6J83R2LhdMCOTgk0edbbauq9VFCa8VTKCk55SrgjiajPP+i6Gbz7+oL/fsVDdlzvrF9HSOYjBCLXe+c0fw==";
+    assert_eq!(
+        sig_b64, EXPECTED_SIG_VALUE,
+        "SignatureValue changed — this would break SEFAZ compatibility!"
+    );
+}
+
 // ── sign_event_xml_with_algorithm (SHA-256) ─────────────────────
 
 #[test]

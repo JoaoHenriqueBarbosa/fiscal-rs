@@ -56,12 +56,16 @@ yanked = "warn"
 # Advisory exceptions with documented reasoning.
 ignore = [
     # RUSTSEC-2023-0071: rsa — Marvin Attack timing sidechannel
-    # Both OpenSSL (former dep) and rsa crate are affected by the same
-    # class of timing leakage. For fiscal-rs this is not a practical risk:
-    #   - NF-e signing happens locally, not on network-exposed servers
-    #   - SEFAZ communication is over TLS 1.2+ (encrypted)
-    #   - No fixed version exists in any RSA implementation yet
-    #   - This is NOT a regression from OpenSSL (same vulnerability)
+    # The rsa crate lacks the blinding/mitigation that OpenSSL implemented
+    # for the Marvin attack (RSA PKCS#1 v1.5 padding oracle). Risk to this
+    # project is low because:
+    #   - XML signing happens locally (batch/CLI), not on a network-exposed
+    #     server where an attacker can send chosen ciphertexts repeatedly
+    #   - SEFAZ communication is over TLS 1.2+ (encrypted in transit)
+    #   - No fixed version of the rsa crate exists yet (tracked at
+    #     https://github.com/RustCrypto/RSA/issues/374)
+    #   - Monitor rsa crate releases for a fix; remove this exception when
+    #     one is available
     "RUSTSEC-2023-0071",
 ]
 

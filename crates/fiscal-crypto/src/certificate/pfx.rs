@@ -28,29 +28,23 @@ pub enum SignatureAlgorithm {
     Sha256,
 }
 
-/// Ensure a PFX buffer can be used with modern TLS stacks.
+/// Validate a PFX buffer and return the original bytes unchanged.
 ///
-/// Parses the PFX, and if it uses legacy encryption (RC2-40-CBC, 3DES-CBC),
-/// returns an error indicating the PFX needs modernization. If the PFX is
-/// already modern (AES-256-CBC), the original bytes are returned as-is.
+/// Since `fiscal-rs` uses a pure-Rust PKCS#12 parser that handles all
+/// encryption schemes (legacy PBES1/RC2-40-CBC, PBES1/3DES-CBC, and modern
+/// PBES2/AES-CBC) transparently, no re-encryption or "modernization" is
+/// needed. This function validates that the PFX is parseable and the
+/// passphrase is correct, and returns the original bytes as-is.
 ///
-/// Brazilian A1 certificates are commonly issued with legacy encryption
-/// (RC2-40-CBC) which is handled natively by the pure-Rust PKCS#12 parser.
-/// The PFX is parsed and re-exported when needed.
+/// This function is kept for backward compatibility; new code can use
+/// [`load_certificate`] directly, which performs the same validation.
 ///
 /// # Errors
 ///
 /// Returns [`FiscalError::Certificate`] if the PFX is invalid or the
 /// passphrase is wrong.
 pub fn ensure_modern_pfx(pfx_buffer: &[u8], passphrase: &str) -> Result<Vec<u8>, FiscalError> {
-    // Parse the PFX to verify it's valid and extract key material
     let _parsed = pkcs12_parser::pkcs12_parse(pfx_buffer, passphrase)?;
-
-    // For now, return the original bytes — the pure-Rust parser handles
-    // both legacy and modern encryption transparently.
-    // In the future, we could re-export with AES-256-CBC for maximum
-    // compatibility, but this isn't needed since we no longer depend
-    // on native-tls/OpenSSL for parsing.
     Ok(pfx_buffer.to_vec())
 }
 
