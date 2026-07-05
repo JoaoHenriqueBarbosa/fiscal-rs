@@ -107,6 +107,11 @@ impl SefazClient {
         )
         .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
 
+        // Also extract the PEM key + certificate so the client can sign event
+        // XML (cancelamento, CC-e, …) before transmitting — SEFAZ rejects
+        // unsigned `<infEvento>` elements.
+        let cert_data = fiscal_crypto::certificate::load_certificate(pfx_buffer, passphrase)?;
+
         let http = Client::builder()
             .use_rustls_tls()
             .identity(identity)
