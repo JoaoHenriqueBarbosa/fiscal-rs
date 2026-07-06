@@ -59,6 +59,11 @@ fn read_tlv(data: &[u8]) -> Result<(u8, &[u8], &[u8]), String> {
 
     let (len, header_len) = if len_byte < 0x80 {
         (len_byte, 2)
+    } else if len_byte == 0x80 {
+        return Err(
+            "BER indefinite-length not supported for inner structures — use DER encoding"
+                .into(),
+        );
     } else {
         let num_len_bytes = len_byte & 0x7F;
         if data.len() < 2 + num_len_bytes {
@@ -855,5 +860,19 @@ mod tests {
         let pfx = test_pfx_legacy_3des();
         let result = pkcs12_parse(&pfx, "wrongpassword");
         assert!(result.is_err(), "3DES wrong password should fail");
+    }
+
+    #[test]
+    fn read_tlv_rejects_indefinite_length() {
+        // 0x30 = SEQUENCE tag, 0x80 = indefinite-length marker
+        let indefinite = [0x30, 0x80, 0x00, 0x00];
+        let result = super::read_tlv(&indefinite);
+        assert!(result.is_err(), "indefinite-length should be rejected");
+        assert!(
+            result
+                .unwrap_err()
+                .contains("indefinite-length not supported"),
+            "error should mention indefinite-length"
+        );
     }
 }
