@@ -9,6 +9,8 @@ on:
       - Cargo.lock
       - "**/Cargo.toml"
       - deny.toml
+      - .cargo/audit.toml
+      - .github/workflows/audit.yml
   pull_request:
     # Roda em todo PR sem filtro de paths: é required check no ruleset da
     # master, e um filtro de paths deixaria o check "pending" pra sempre em
