@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.6.2...fiscal-sefaz-v0.7.0) - 2026-07-06
+
+### Fixed
+
+- *(sefaz)* sign event XML before transmit
+- *(sefaz)* sign event XML before transmit
+
+### Other
+
+- *(client)* remove unused certificate extraction for event signing
+- Merge branch 'master' into refactor/crypto-remove-openssl
+- *(crypto)* [**breaking**] replace OpenSSL with pure-Rust crates (RustCrypto)
+- remove OpenSSL dependency for certificate handling in SefazClient
+- *(crypto)* [**breaking**] replace OpenSSL with pure-Rust crates (RustCrypto)
+
 ## [0.6.2](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-sefaz-v0.6.1...fiscal-sefaz-v0.6.2) - 2026-07-04
 
 ### Fixed

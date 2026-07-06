@@ -14,8 +14,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.4.0" }
-fiscal-sefaz = { path = "../fiscal-sefaz", version = "0.6.2" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.5.0" }
+fiscal-sefaz = { path = "../fiscal-sefaz", version = "0.7.0" }
 
 napi = { version = "3", features = ["napi9", "async", "serde-json"] }
 napi-derive = "3"
