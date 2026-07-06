@@ -98,6 +98,12 @@ impl SefazClient {
     ///
     /// Returns [`FiscalError::Network`] if the HTTP client cannot be built.
     pub fn new(pfx_buffer: &[u8], passphrase: &str) -> Result<Self, FiscalError> {
+        // reqwest usa rustls-no-provider (o provider default, aws-lc-rs,
+        // compila C e quebra o cross-compile aarch64 do napi). Instala o
+        // ring como provider do processo; idempotente, erro só significa
+        // que já havia um provider instalado.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         // Load certificate and private key from PFX using our pure-Rust parser
         let cert_data = fiscal_crypto::certificate::load_certificate(pfx_buffer, passphrase)?;
 

@@ -11,14 +11,19 @@ categories = ["web-programming"]
 
 [features]
 default = ["client"]
-client = ["dep:reqwest"]
+client = ["dep:reqwest", "dep:rustls"]
 
 [dependencies]
 fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
 fiscal-crypto = { path = "../fiscal-crypto", version = "0.5.0" }
 chrono = { version = "0.4", features = ["serde"] }
 quick-xml = "0.41"
-reqwest = { version = "0.13", default-features = false, features = ["rustls"], optional = true }
+# rustls-no-provider + rustls/ring: o provider default do rustls (aws-lc-rs)
+# compila C e quebra o cross-compile aarch64-gnu do napi (falta stdatomic.h
+# no toolchain). O ring cross-compila limpo; com um único provider nas
+# features o rustls o adota como default sem código extra.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"], optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 flate2 = "1"
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
