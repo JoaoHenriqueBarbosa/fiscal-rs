@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.4.0...fiscal-crypto-v0.5.0) - 2026-07-06
+
+### Fixed
+
+- add SHA-1 signature verification test and improve PFX handling
+- migrate remaining OpenSSL calls to pure-Rust in sign.rs and pfx.rs
+
+### Other
+
+- *(crypto)* collapse is_none checks into match arm guards
+- *(pkcs12)* improve error message for indefinite-length encoding in read_tlv function
+- *(pkcs12)* reject indefinite-length encoding in read_tlv function
+- *(pfx)* remove unnecessary blank line in get_certificate_info function
+- Merge branch 'master' into refactor/crypto-remove-openssl
+- format assertion for signature length in SHA-1 test
+- Merge branch 'master' into refactor/crypto-remove-openssl
+- *(crypto)* [**breaking**] replace OpenSSL with pure-Rust crates (RustCrypto)
+
 ## [0.4.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-crypto-v0.3.1...fiscal-crypto-v0.4.0) - 2026-07-04
 
 ### Added

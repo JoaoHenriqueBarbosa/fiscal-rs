@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.7.0...fiscal-v0.8.0) - 2026-07-06
+
+### Fixed
+
+- add SHA-1 signature verification test and improve PFX handling
+
+### Other
+
+- *(audit)* re-run audit when its own config changes
+- *(audit)* ignore RUSTSEC-2023-0071 in cargo-audit, grant checks:write
+- *(napi)* trigger publish on push to master, not release tag
+- *(napi)* migrate npm publish to trusted publishing (OIDC)
+- *(napi)* trigger publish on push to master, not release tag
+- *(napi)* migrate npm publish to trusted publishing (OIDC)
+- *(crypto)* [**breaking**] replace OpenSSL with pure-Rust crates (RustCrypto)
+- block commits with Claude/Anthropic co-author trailers
+
 ## [0.7.0](https://github.com/JoaoHenriqueBarbosa/fiscal-rs/compare/fiscal-v0.6.3...fiscal-v0.7.0) - 2026-07-04
 
 ### Added

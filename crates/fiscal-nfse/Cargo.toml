@@ -1,6 +1,6 @@
 [package]
 name = "fiscal-nfse"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.85"
 description = "NFS-e Nacional (DPS 1.01, SEFIN) — tipos e builder para a Declaração de Prestação de Serviço"
@@ -16,5 +16,5 @@ serde = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.4.0" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.5.0" }
 fiscal-xsd = { path = "../fiscal-xsd", version = "0.1.0", features = ["nfse"] }
