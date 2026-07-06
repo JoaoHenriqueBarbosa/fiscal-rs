@@ -40,6 +40,10 @@ jobs:
   audit:
     name: cargo-audit (RustSec)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # audit-check cria um check-run pra reportar advisories encontradas.
+      checks: write
     steps:
       - uses: actions/checkout@v7
 
