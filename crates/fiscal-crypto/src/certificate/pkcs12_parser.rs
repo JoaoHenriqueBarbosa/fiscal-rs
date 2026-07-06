@@ -61,8 +61,7 @@ fn read_tlv(data: &[u8]) -> Result<(u8, &[u8], &[u8]), String> {
         (len_byte, 2)
     } else if len_byte == 0x80 {
         return Err(
-            "BER indefinite-length not supported for inner structures — use DER encoding"
-                .into(),
+            "BER indefinite-length not supported for inner structures — use DER encoding".into(),
         );
     } else {
         let num_len_bytes = len_byte & 0x7F;
