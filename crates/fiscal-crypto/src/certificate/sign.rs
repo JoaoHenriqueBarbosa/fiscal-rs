@@ -1,11 +1,11 @@
 //! XML-DSig signing for NF-e, events, and inutilização documents.
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use openssl::hash::MessageDigest;
-use openssl::pkey::PKey;
-use openssl::sign::Signer;
-use sha1::{Digest as _, Sha1};
+use rsa::pkcs1v15::Pkcs1v15Sign;
+use sha1::Sha1;
 use sha2::Sha256;
+// Digest trait from sha1 covers both (same digest::Digest trait)
+use sha1::Digest as _;
 
 use fiscal_core::FiscalError;
 
@@ -419,15 +419,22 @@ pub fn sign_cte_event_xml_with_algorithm(
 /// Returns [`FiscalError::Certificate`] if the private key cannot be parsed or
 /// the signing operation fails.
 pub fn rsa_sha1_base64(data: &[u8], private_key_pem: &str) -> Result<String, FiscalError> {
-    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+    use pkcs8::DecodePrivateKey as _;
+
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
-    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
-    signer
-        .update(data)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
-    let sig = signer
-        .sign_to_vec()
+
+    let hash = sha1::Sha1::digest(data);
+
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(hash.len()),
+        prefix: SHA1_PREFIX.into(),
+    };
+    let sig = private_key
+        .sign(scheme, &hash)
         .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
     Ok(BASE64.encode(&sig))
 }
@@ -511,16 +518,23 @@ pub fn sign_sp_lote_xml(
         1,
     );
 
-    // 6. RSA-SHA1 sign
-    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+    // 6. RSA-SHA1 sign (pure Rust)
+    use pkcs8::DecodePrivateKey as _;
+
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
-    let mut signer = Signer::new(MessageDigest::sha1(), &pkey)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
-    signer
-        .update(canonical_signed_info.as_bytes())
-        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
-    let sig_bytes = signer
-        .sign_to_vec()
+
+    let raw_hash = sha1::Sha1::digest(canonical_signed_info.as_bytes());
+
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(raw_hash.len()),
+        prefix: SHA1_PREFIX.into(),
+    };
+    let sig_bytes = private_key
+        .sign(scheme, &raw_hash)
         .map_err(|e| FiscalError::Certificate(format!("RSA-SHA1 signing failed: {e}")))?;
     let signature_value = BASE64.encode(&sig_bytes);
 
@@ -592,29 +606,34 @@ fn sign_xml_generic(
     );
 
     // 9. RSA sign the canonical SignedInfo with the selected digest algorithm
-    let pkey = PKey::private_key_from_pem(private_key_pem.as_bytes())
+    use pkcs8::DecodePrivateKey as _;
+
+    let private_key = rsa::RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|e| FiscalError::Certificate(format!("Failed to parse private key: {e}")))?;
 
-    let openssl_digest = match algorithm {
-        SignatureAlgorithm::Sha1 => MessageDigest::sha1(),
-        SignatureAlgorithm::Sha256 => MessageDigest::sha256(),
+    // Compute raw digest bytes (not base64)
+    let raw_digest = compute_raw_digest(canonical_signed_info.as_bytes(), algorithm);
+
+    // PKCS#1 v1.5 DigestInfo prefixes (DER-encoded AlgorithmIdentifier + hash prefix)
+    const SHA1_PREFIX: &[u8] = &[
+        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+    ];
+    const SHA256_PREFIX: &[u8] = &[
+        0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+        0x05, 0x00, 0x04, 0x20,
+    ];
+
+    let scheme = Pkcs1v15Sign {
+        hash_len: Some(raw_digest.len()),
+        prefix: match algorithm {
+            SignatureAlgorithm::Sha1 => SHA1_PREFIX.into(),
+            SignatureAlgorithm::Sha256 => SHA256_PREFIX.into(),
+        },
     };
 
-    let mut signer = Signer::new(openssl_digest, &pkey)
-        .map_err(|e| FiscalError::Certificate(format!("Failed to create signer: {e}")))?;
-
-    signer
-        .update(canonical_signed_info.as_bytes())
-        .map_err(|e| FiscalError::Certificate(format!("Failed to update signer: {e}")))?;
-
-    let algo_name = match algorithm {
-        SignatureAlgorithm::Sha1 => "RSA-SHA1",
-        SignatureAlgorithm::Sha256 => "RSA-SHA256",
-    };
-
-    let signature_bytes = signer
-        .sign_to_vec()
-        .map_err(|e| FiscalError::Certificate(format!("{algo_name} signing failed: {e}")))?;
+    let signature_bytes = private_key
+        .sign(scheme, &raw_digest)
+        .map_err(|e| FiscalError::Certificate(format!("RSA signing failed: {e}")))?;
 
     let signature_value = BASE64.encode(&signature_bytes);
 
@@ -635,6 +654,22 @@ fn sign_xml_generic(
     };
 
     Ok(result)
+}
+
+/// Compute the raw digest bytes of `data` using the selected algorithm.
+fn compute_raw_digest(data: &[u8], algorithm: SignatureAlgorithm) -> Vec<u8> {
+    match algorithm {
+        SignatureAlgorithm::Sha1 => {
+            let mut hasher = Sha1::new();
+            sha1::Digest::update(&mut hasher, data);
+            sha1::Digest::finalize(hasher).to_vec()
+        }
+        SignatureAlgorithm::Sha256 => {
+            let mut hasher = Sha256::new();
+            sha2::Digest::update(&mut hasher, data);
+            sha2::Digest::finalize(hasher).to_vec()
+        }
+    }
 }
 
 /// Compute the Base64-encoded digest of `data` using the selected algorithm.

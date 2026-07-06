@@ -98,20 +98,19 @@ impl SefazClient {
     ///
     /// Returns [`FiscalError::Network`] if the HTTP client cannot be built.
     pub fn new(pfx_buffer: &[u8], passphrase: &str) -> Result<Self, FiscalError> {
-        let modern_pfx = fiscal_crypto::certificate::ensure_modern_pfx(pfx_buffer, passphrase)?;
-        let identity = Identity::from_pkcs12_der(&modern_pfx, passphrase)
-            .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
-
-        // Also extract the PEM key + certificate so the client can sign event
-        // XML (cancelamento, CC-e, …) before transmitting — SEFAZ rejects
-        // unsigned `<infEvento>` elements.
+        // Load certificate and private key from PFX using our pure-Rust parser
         let cert_data = fiscal_crypto::certificate::load_certificate(pfx_buffer, passphrase)?;
 
+        // Build PEM-based identity (works with both native-tls and rustls)
+        let identity = Identity::from_pem(
+            format!("{}\n{}", cert_data.private_key, cert_data.certificate).as_bytes(),
+        )
+        .map_err(|e| FiscalError::Certificate(format!("Failed to load PFX identity: {e}")))?;
+
         let http = Client::builder()
-            .use_native_tls()
+            .use_rustls_tls()
             .identity(identity)
             .danger_accept_invalid_certs(true)
-            .min_tls_version(reqwest::tls::Version::TLS_1_2)
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
             .build()

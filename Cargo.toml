@@ -40,7 +40,8 @@ insta = { version = "1", features = ["yaml"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde_json = "1"
 divan = "0.1"
-openssl = "0.10"
+rsa = "0.9"
+pkcs8 = "0.10"
 tokio = { version = "1", features = ["full"] }
 sha1 = "0.10"
 base64 = "0.22"

@@ -16,7 +16,6 @@
 #   ISC:                 (none currently, kept for future transitive deps)
 #   Unicode-3.0:         unicode-ident (Unicode License Agreement v3)
 #   Unicode-DFS-2016:    unicode-ident (Unicode data files)
-#   OpenSSL:             openssl-sys (links against system libssl/libcrypto)
 allow = [
     "MIT",
     "Apache-2.0",
@@ -25,7 +24,6 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-3.0",
-    "OpenSSL",
     # MIT-0 is used by some unicode crates as a permissive fallback
     "MIT-0",
     # Zlib is used by several compression/utility crates
@@ -55,6 +53,21 @@ unmaintained = "workspace"
 unsound = "all"
 # Warn on yanked crates.
 yanked = "warn"
+# Advisory exceptions with documented reasoning.
+ignore = [
+    # RUSTSEC-2023-0071: rsa — Marvin Attack timing sidechannel
+    # The rsa crate lacks the blinding/mitigation that OpenSSL implemented
+    # for the Marvin attack (RSA PKCS#1 v1.5 padding oracle). Risk to this
+    # project is low because:
+    #   - XML signing happens locally (batch/CLI), not on a network-exposed
+    #     server where an attacker can send chosen ciphertexts repeatedly
+    #   - SEFAZ communication is over TLS 1.2+ (encrypted in transit)
+    #   - No fixed version of the rsa crate exists yet (tracked at
+    #     https://github.com/RustCrypto/RSA/issues/374)
+    #   - Monitor rsa crate releases for a fix; remove this exception when
+    #     one is available
+    "RUSTSEC-2023-0071",
+]
 
 [sources]
 # Allow packages from crates.io and path-based workspace members only.
