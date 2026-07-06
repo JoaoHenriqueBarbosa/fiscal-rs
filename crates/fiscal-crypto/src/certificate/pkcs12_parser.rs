@@ -457,29 +457,25 @@ fn collect_from_safe_bags(
     for bag in safe_bags {
         let bag_id = bag.bag_id.to_string();
         match bag_id.as_str() {
-            OID_KEY_BAG => {
+            OID_KEY_BAG if pkey_der.is_none() => {
                 // keyBag: bag_value is [0] EXPLICIT wrapping PrivateKeyInfo
                 // Strip the wrapper to get the raw PKCS#8 DER
-                if pkey_der.is_none() {
-                    if let Ok((tag, inner, _)) = read_tlv(&bag.bag_value) {
-                        if tag == 0xA0 {
-                            pkey_der = Some(inner.to_vec());
-                        }
+                if let Ok((tag, inner, _)) = read_tlv(&bag.bag_value) {
+                    if tag == 0xA0 {
+                        pkey_der = Some(inner.to_vec());
                     }
                 }
             }
-            OID_PKCS8_SHROUDED_KEY_BAG => {
+            OID_PKCS8_SHROUDED_KEY_BAG if pkey_der.is_none() => {
                 // pkcs8ShroudedKeyBag: bag_value is EncryptedPrivateKeyInfo DER
-                if pkey_der.is_none() {
-                    match decrypt_key_from_bag_value(&bag.bag_value, password) {
-                        Ok(decrypted) => {
-                            pkey_der = Some(decrypted);
-                        }
-                        Err(e) => {
-                            return Err(FiscalError::Certificate(format!(
-                                "Failed to decrypt private key: {e}"
-                            )));
-                        }
+                match decrypt_key_from_bag_value(&bag.bag_value, password) {
+                    Ok(decrypted) => {
+                        pkey_der = Some(decrypted);
+                    }
+                    Err(e) => {
+                        return Err(FiscalError::Certificate(format!(
+                            "Failed to decrypt private key: {e}"
+                        )));
                     }
                 }
             }
