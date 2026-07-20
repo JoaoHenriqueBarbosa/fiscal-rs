@@ -168,7 +168,7 @@ jobs:
 
       # setup-node configura o registry-url que o OIDC usa e garante Node 22+.
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
