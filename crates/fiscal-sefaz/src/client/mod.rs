@@ -592,6 +592,44 @@ mod tests {
         );
     }
 
+    /// The NFC-e cancellation path (`cancel_nfce`) uses the same
+    /// `build_cancela_request` + `sign_event` pipeline as `cancel`, but routes
+    /// via `send_model(..., 65)` for model 65 (NFC-e). The signing behaviour is
+    /// identical — this test validates that the NFC-e cancel event produces a
+    /// correctly structured `<Signature>` referencing `#ID110111`.
+    #[test]
+    fn signs_cancel_nfce_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_cancela_request(
+            TEST_ACCESS_KEY,
+            "141250000000017",
+            "Cancelamento de NFC-e de teste com justificativa valida",
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        assert!(!request_xml.contains("<Signature"));
+
+        let signed = client.sign_event(&request_xml).expect("event signs");
+
+        assert!(
+            signed.contains("<Signature"),
+            "missing <Signature>: {signed}"
+        );
+        assert!(
+            signed.contains("Reference URI=\"#ID110111"),
+            "signature must reference the infEvento Id"
+        );
+        assert!(signed.contains("<X509Certificate>"));
+        let sig_pos = signed.find("<Signature").unwrap();
+        let evento_close = signed.find("</evento>").unwrap();
+        assert!(
+            sig_pos < evento_close,
+            "<Signature> must sit inside <evento>"
+        );
+    }
+
     #[test]
     fn signs_cce_event_before_transmit() {
         let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
@@ -607,6 +645,42 @@ mod tests {
 
         assert!(signed.contains("<Signature"));
         assert!(signed.contains("Reference URI=\"#ID110110"));
+    }
+
+    /// The NFC-e CC-e path (`cce_nfce`) uses the same `build_cce_request` +
+    /// `sign_event` pipeline as `cce`, but routes via `send_model(..., 65)`
+    /// for model 65 (NFC-e). This test validates that the CC-e event for NFC-e
+    /// produces a correctly structured `<Signature>` referencing `#ID110110`.
+    #[test]
+    fn signs_cce_nfce_event_before_transmit() {
+        let client = SefazClient::new(&test_pfx(), TEST_PASSWORD).expect("client builds");
+
+        let request_xml = request_builders::build_cce_request(
+            TEST_ACCESS_KEY,
+            "Correcao de NFC-e com justificativa valida para teste",
+            1,
+            SefazEnvironment::Homologation,
+            "06157250000116",
+        );
+        assert!(!request_xml.contains("<Signature"));
+
+        let signed = client.sign_event(&request_xml).expect("event signs");
+
+        assert!(
+            signed.contains("<Signature"),
+            "missing <Signature>: {signed}"
+        );
+        assert!(
+            signed.contains("Reference URI=\"#ID110110"),
+            "CC-e NFC-e signature must reference #ID110110"
+        );
+        assert!(signed.contains("<X509Certificate>"));
+        let sig_pos = signed.find("<Signature").unwrap();
+        let evento_close = signed.find("</evento>").unwrap();
+        assert!(
+            sig_pos < evento_close,
+            "<Signature> must sit inside <evento>"
+        );
     }
 
     /// Build a minimal [`request_builders::EpecData`] fixture without parsing a

@@ -52,6 +52,57 @@ impl SefazClient {
         Ok(resp)
     }
 
+    /// Cancel an NFC-e (`RecepcaoEvento4`, tpEvento=110111).
+    ///
+    /// Used exclusively for NFC-e (model 65). The event is sent to
+    /// `RecepcaoEvento` of the issuing state.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NFC-e being cancelled.
+    /// * `protocol` — Authorization protocol of the original NFC-e.
+    /// * `justification` — Reason for cancellation (min 15 characters).
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn cancel_nfce(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        protocol: &str,
+        justification: &str,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml = request_builders::build_cancela_request(
+            access_key,
+            protocol,
+            justification,
+            1,
+            environment,
+            tax_id,
+        );
+        let signed_xml = self.sign_event(&request_xml)?;
+        let raw = self
+            .send_model(
+                SefazService::RecepcaoEvento,
+                uf,
+                environment,
+                &signed_xml,
+                65,
+            )
+            .await?;
+        let mut resp = response_parsers::parse_cancellation_response(&raw)?;
+        resp.signed_event_xml = signed_xml;
+        resp.raw_response = raw;
+        Ok(resp)
+    }
+
     /// Send a Carta de Correcao / CCe (`RecepcaoEvento4`, tpEvento=110110).
     ///
     /// # Arguments
@@ -86,6 +137,53 @@ impl SefazClient {
         Ok(resp)
     }
 
+    /// Send a Carta de Correcao / CCe for NFC-e (`RecepcaoEvento4`,
+    /// tpEvento=110110).
+    ///
+    /// Used exclusively for NFC-e (model 65). The event is sent to
+    /// `RecepcaoEvento` of the issuing state.
+    ///
+    /// # Arguments
+    ///
+    /// * `uf` — State abbreviation of the issuer.
+    /// * `environment` — SEFAZ environment.
+    /// * `access_key` — 44-digit access key of the NFC-e to correct.
+    /// * `correction` — Correction text describing the change.
+    /// * `seq` — Event sequence number (increments per correction on same
+    ///   NFC-e).
+    /// * `tax_id` — CNPJ or CPF of the issuer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    /// Returns [`FiscalError::XmlParsing`] if the response is malformed.
+    pub async fn cce_nfce(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        access_key: &str,
+        correction: &str,
+        seq: u32,
+        tax_id: &str,
+    ) -> Result<CancellationResponse, FiscalError> {
+        let request_xml =
+            request_builders::build_cce_request(access_key, correction, seq, environment, tax_id);
+        let signed_xml = self.sign_event(&request_xml)?;
+        let raw = self
+            .send_model(
+                SefazService::RecepcaoEvento,
+                uf,
+                environment,
+                &signed_xml,
+                65,
+            )
+            .await?;
+        let mut resp = response_parsers::parse_cancellation_response(&raw)?;
+        resp.signed_event_xml = signed_xml;
+        resp.raw_response = raw;
+        Ok(resp)
+    }
+
     /// Submit an inutilizacao request to void unused number ranges
     /// (`NFeInutilizacao4`).
     ///
@@ -107,6 +205,35 @@ impl SefazClient {
     ) -> Result<String, FiscalError> {
         self.send(SefazService::Inutilizacao, uf, environment, signed_inut_xml)
             .await
+    }
+
+    /// Submit an inutilizacao request for NFC-e (model 65) to void unused
+    /// number ranges (`NFeInutilizacao4`).
+    ///
+    /// The signed `<inutNFe>` XML must be pre-built via
+    /// [`request_builders::build_inutilizacao_request`] and signed with
+    /// `fiscal_crypto::sign_xml` before calling this method.
+    ///
+    /// Returns the raw SEFAZ response XML. Parse it with
+    /// [`response_parsers`] or extract fields manually.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FiscalError::Network`] on transport failure.
+    pub async fn inutilize_nfce(
+        &self,
+        uf: &str,
+        environment: SefazEnvironment,
+        signed_inut_xml: &str,
+    ) -> Result<String, FiscalError> {
+        self.send_model(
+            SefazService::Inutilizacao,
+            uf,
+            environment,
+            signed_inut_xml,
+            65,
+        )
+        .await
     }
 
     /// Submit a manifestacao do destinatario event (`RecepcaoEvento4`).
