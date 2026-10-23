@@ -90,10 +90,13 @@ jobs:
           # Native Windows build
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-          # Cross-compiled Linux builds (use --use-napi-cross)
+          # aarch64 Linux via zig (cargo-zigbuild): o gcc do toolchain
+          # @napi-rs/cross-toolchain é antigo demais pro C/asm do ring
+          # (sem stdatomic.h nem __ARM_ARCH); o zig é clang moderno e
+          # ainda mira glibc antiga, mantendo compatibilidade.
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            cross: true
+            zig: true
           # Cross-compiled Windows ARM64
           - target: aarch64-pc-windows-msvc
             os: windows-latest
@@ -113,15 +116,29 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Build: use --use-napi-cross for cross targets, plain build for native
-      # OpenSSL is vendored (compiled from source) so no system dependency needed
+      - name: Setup Zig
+        if: ${{ matrix.zig }}
+        uses: mlugg/setup-zig@v2
+
+      - name: Install cargo-zigbuild
+        if: ${{ matrix.zig }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      # Build: napi-cross para os targets cross que não compilam C moderno,
+      # zig (cargo-zigbuild) para aarch64-linux, build normal para nativos
       - name: Build native addon
-        if: ${{ !matrix.cross }}
+        if: ${{ !matrix.cross && !matrix.zig }}
         run: bunx napi build --release --platform --target ${{ matrix.target }}
 
       - name: Build native addon (cross)
         if: ${{ matrix.cross }}
         run: bunx napi build --release --platform --target ${{ matrix.target }} --use-napi-cross
+
+      - name: Build native addon (zig)
+        if: ${{ matrix.zig }}
+        run: bunx napi build --release --platform --target ${{ matrix.target }} --cross-compile
 
       # Sobe o binário nativo E o wrapper JS gerado (index.js/index.d.ts).
       # O wrapper é idêntico entre targets, mas o pacote main precisa dele:

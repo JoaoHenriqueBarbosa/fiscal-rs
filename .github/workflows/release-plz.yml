@@ -24,9 +24,6 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install system dependencies (OpenSSL)
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
-
       - name: Run release-plz release
         uses: release-plz/action@v0.5
         with:
@@ -53,9 +50,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies (OpenSSL)
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
 
       - name: Run release-plz PR
         uses: release-plz/action@v0.5

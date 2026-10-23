@@ -1,6 +1,6 @@
 [package]
 name = "fiscal-cte"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.85"
 description = "Types and XML builder for CT-e (57), CT-e OS (67), GTV-e (64) and BP-e (63) — Brazilian transport fiscal documents"
@@ -15,7 +15,7 @@ ts = ["dep:ts-rs", "fiscal-core/ts"]
 
 [dependencies]
 fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.4.0" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.5.0" }
 quick-xml = { version = "0.41", features = ["serialize"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

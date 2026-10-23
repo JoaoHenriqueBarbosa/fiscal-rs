@@ -1,6 +1,6 @@
 [package]
 name = "fiscal-nfse-mun"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.85"
 description = "NFS-e municipal (ABRASF + sistemas próprios) — interface padrão por provedor"
@@ -17,7 +17,7 @@ client = ["dep:reqwest", "dep:async-trait"]
 
 [dependencies]
 fiscal-core = { path = "../fiscal-core", version = "0.7.3" }
-fiscal-crypto = { path = "../fiscal-crypto", version = "0.4.0" }
+fiscal-crypto = { path = "../fiscal-crypto", version = "0.5.0" }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = { version = "0.1", optional = true }

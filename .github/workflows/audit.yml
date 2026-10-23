@@ -9,6 +9,8 @@ on:
       - Cargo.lock
       - "**/Cargo.toml"
       - deny.toml
+      - .cargo/audit.toml
+      - .github/workflows/audit.yml
   pull_request:
     # Roda em todo PR sem filtro de paths: é required check no ruleset da
     # master, e um filtro de paths deixaria o check "pending" pra sempre em
@@ -40,6 +42,10 @@ jobs:
   audit:
     name: cargo-audit (RustSec)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # audit-check cria um check-run pra reportar advisories encontradas.
+      checks: write
     steps:
       - uses: actions/checkout@v7
 

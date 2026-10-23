@@ -7,6 +7,7 @@
 
 mod c14n;
 mod pfx;
+mod pkcs12_parser;
 mod sign;
 
 #[cfg(test)]

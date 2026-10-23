@@ -1,0 +1,12 @@
+# Configuração do cargo-audit (rustsec/audit-check no CI).
+# Mantenha em sincronia com os ignores justificados do deny.toml.
+
+[advisories]
+ignore = [
+    # Marvin Attack (crate rsa, timing sidechannel). Mesma justificativa do
+    # deny.toml: a assinatura acontece localmente (CLI/servidor próprio do
+    # emissor), não há oráculo de decriptação exposto a atacante de rede, e
+    # não existe fix upstream (RustCrypto/RSA#19). Reavaliar quando a rsa
+    # publicar a implementação constant-time.
+    "RUSTSEC-2023-0071",
+]

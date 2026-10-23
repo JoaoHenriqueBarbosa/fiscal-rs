@@ -1,22 +1,16 @@
 use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
 
-/// Ensure a PFX buffer can be used with modern TLS stacks.
+/// Validate a PFX buffer and return the original bytes unchanged.
 ///
-/// Brazilian A1 certificates are commonly issued with legacy encryption
-/// (RC2-40-CBC) which OpenSSL 3.x rejects by default. This function loads
-/// the OpenSSL legacy provider (process-wide) so the PFX can be parsed.
-///
-/// If the PFX uses legacy encryption and the legacy provider loaded
-/// successfully, the PFX is re-exported with modern algorithms (AES-256-CBC)
-/// via the OpenSSL API — no external CLI dependency.
-///
-/// If the PFX is already modern, the original bytes are returned as-is.
+/// The pure-Rust PKCS#12 parser handles all encryption schemes (legacy
+/// PBES1/RC2-40-CBC, PBES1/3DES-CBC, and modern PBES2/AES-CBC)
+/// transparently. This function validates that the PFX is parseable and
+/// the passphrase is correct.
 ///
 /// # Errors
 ///
-/// Returns [`FiscalError::Certificate`] if the PFX is invalid, the
-/// passphrase is wrong, or the legacy provider cannot be loaded.
+/// Returns an error if the PFX is invalid or the passphrase is wrong.
 #[napi]
 pub fn ensure_modern_pfx(
     pfx_buffer: Buffer,

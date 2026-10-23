@@ -1795,41 +1795,12 @@ fn make_sample_unsigned_nfe_xml() -> String {
 }
 
 fn make_test_keypair() -> (String, String) {
-    use openssl::bn::BigNum;
-    use openssl::hash::MessageDigest;
-    use openssl::pkey::PKey;
-    use openssl::rsa::Rsa;
-    use openssl::x509::{X509, X509NameBuilder};
-
-    let rsa = Rsa::generate(2048).unwrap();
-    let pkey = PKey::from_rsa(rsa).unwrap();
-
-    let mut name_builder = X509NameBuilder::new().unwrap();
-    name_builder
-        .append_entry_by_text("CN", "Bench Test")
-        .unwrap();
-    let name = name_builder.build();
-
-    let mut builder = X509::builder().unwrap();
-    builder.set_version(2).unwrap();
-    let serial = BigNum::from_u32(1).unwrap();
-    builder
-        .set_serial_number(&serial.to_asn1_integer().unwrap())
-        .unwrap();
-    builder.set_subject_name(&name).unwrap();
-    builder.set_issuer_name(&name).unwrap();
-    builder
-        .set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    builder
-        .set_not_after(&openssl::asn1::Asn1Time::days_from_now(365).unwrap())
-        .unwrap();
-    builder.set_pubkey(&pkey).unwrap();
-    builder.sign(&pkey, MessageDigest::sha256()).unwrap();
-    let cert = builder.build();
-
-    let private_key_pem = String::from_utf8(pkey.private_key_to_pem_pkcs8().unwrap()).unwrap();
-    let cert_pem = String::from_utf8(cert.to_pem().unwrap()).unwrap();
-
-    (private_key_pem, cert_pem)
+    // Load from the test PFX fixture — no runtime key generation overhead
+    let pfx_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/certs/novo_cert_cnpj_06157250000116_senha_minhasenha.pfx"
+    );
+    let pfx = std::fs::read(pfx_path).expect("test PFX not found");
+    let cert_data = fiscal::certificate::load_certificate(&pfx, "minhasenha").unwrap();
+    (cert_data.private_key, cert_data.certificate)
 }
