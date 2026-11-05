@@ -81,7 +81,7 @@ pub(crate) fn build_det(
 
     let is_simples = matches!(
         data.issuer.tax_regime,
-        TaxRegime::SimplesNacional | TaxRegime::SimplesExcess
+        TaxRegime::SimplesNacional | TaxRegime::SimplesExcess | TaxRegime::Mei
     );
 
     let has_issqn = item.issqn.is_some();

@@ -1089,6 +1089,21 @@ fn csosn_empty_defaults_to_102() {
 }
 
 #[test]
+fn mei_issuer_uses_csosn() {
+    // CRT=4 (MEI) follows the Simples rules: ICMS is CSOSN, not CST.
+    let item = InvoiceItemData::new(
+        1, "001", "Produto", "27101259", "5102", "UN", 1.0, Cents(1000), Cents(1000),
+        "102", Rate(0), Cents(0), "99", "99",
+    );
+    let mut data = sample_build_data();
+    data.issuer.tax_regime = TaxRegime::Mei;
+    let result = build_det(&item, &data).expect("build_det should succeed");
+
+    assert!(result.xml.contains("<ICMSSN102>"), "{}", result.xml);
+    assert!(result.xml.contains("<CSOSN>102</CSOSN>"));
+}
+
+#[test]
 fn csosn_103_produces_correct_xml() {
     let item = InvoiceItemData::new(
         1,
