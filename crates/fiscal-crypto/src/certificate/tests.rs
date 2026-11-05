@@ -753,3 +753,14 @@ fn sign_cte_xml_missing_inf_cte_errors() {
     let result = sign_cte_xml("<CTe><other/></CTe>", &cert.private_key, &cert.certificate);
     assert!(result.is_err());
 }
+
+#[test]
+fn canonicalize_preserves_literal_apostrophe_and_quote() {
+    // Literal ' and " in text content must survive canonicalization unchanged so
+    // the digest matches SEFAZ's re-canonicalization (rejeicao cStat 297 fix).
+    let xml = "<xNome>D'ALESSANDRO \"JR\"</xNome>";
+    let c = canonicalize_xml(xml);
+    assert!(c.contains("D'ALESSANDRO \"JR\""));
+    assert!(!c.contains("&apos;"));
+    assert!(!c.contains("&quot;"));
+}
