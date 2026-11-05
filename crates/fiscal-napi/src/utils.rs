@@ -345,8 +345,9 @@ pub fn timezone_for_uf(uf: String) -> napi::Result<Option<String>> {
 
 // ── XML Utils ───────────────────────────────────────────────────
 
-/// Escape special XML characters in text content and attribute values,
-/// replacing `&`, `<`, `>`, `"`, and `'` with their XML entity equivalents.
+/// Escape XML **text content** per Canonical XML 1.0: replaces `&`, `<`,
+/// `>` and CR. Apostrophes and double quotes stay literal, so this is not
+/// safe for attribute values; use `escapeXmlAttr` for those.
 ///
 /// # Examples
 ///
@@ -357,6 +358,20 @@ pub fn timezone_for_uf(uf: String) -> napi::Result<Option<String>> {
 #[napi]
 pub fn escape_xml(s: String) -> napi::Result<String> {
     Ok(fiscal_core::xml_utils::escape_xml(&s))
+}
+
+/// Escape an XML **attribute value** (double-quoted) per Canonical XML 1.0:
+/// replaces `&`, `<`, `"` and tab/LF/CR.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::xml_utils::escape_xml_attr;
+/// assert_eq!(escape_xml_attr(r#"a "b" & c"#), "a &quot;b&quot; &amp; c");
+/// ```
+#[napi]
+pub fn escape_xml_attr(s: String) -> napi::Result<String> {
+    Ok(fiscal_core::xml_utils::escape_xml_attr(&s))
 }
 
 /// Extract the text content of the first occurrence of a simple XML tag in a

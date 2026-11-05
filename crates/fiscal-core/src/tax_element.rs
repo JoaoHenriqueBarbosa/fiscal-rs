@@ -61,27 +61,12 @@ pub fn filter_fields(fields: Vec<Option<TaxField>>) -> Vec<TaxField> {
     fields.into_iter().flatten().collect()
 }
 
-/// Escape XML special characters in a value
-fn escape_xml_value(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            c => result.push(c),
-        }
-    }
-    result
-}
-
 /// Serialize a TaxField to XML: <name>value</name>
 fn serialize_field(field: &TaxField) -> String {
     format!(
         "<{name}>{value}</{name}>",
         name = field.name,
-        value = escape_xml_value(&field.value)
+        value = crate::xml_utils::escape_xml(&field.value)
     )
 }
 
@@ -105,9 +90,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn escape_xml_value_with_ampersand_and_quotes() {
-        let result = escape_xml_value("Tom & Jerry \"cats\" <dogs>");
-        assert_eq!(result, "Tom &amp; Jerry &quot;cats&quot; &lt;dogs&gt;");
+    fn serialize_field_escapes_text_per_c14n() {
+        let result = serialize_field(&TaxField::new("xCampo", "Tom & Jerry \"cats\" <dogs>"));
+        assert_eq!(
+            result,
+            "<xCampo>Tom &amp; Jerry \"cats\" &lt;dogs&gt;</xCampo>"
+        );
     }
 
     #[test]
