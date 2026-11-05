@@ -3,7 +3,7 @@
 //! This module provides two main enum types:
 //! - [`IcmsCst`] — for normal tax regime (Lucro Real / Lucro Presumido), covering
 //!   CSTs 00, 02, 10, 15, 20, 30, 40, 41, 50, 51, 53, 60, 61, 70, and 90.
-//! - [`IcmsCsosn`] — for Simples Nacional regime (CRT 1/2), covering CSOSNs
+//! - [`IcmsCsosn`] — for Simples Nacional regime (CRT 1/2/4), covering CSOSNs
 //!   101, 102, 103, 201, 202, 203, 300, 400, 500, and 900.
 //!
 //! Both are wrapped by the [`IcmsVariant`] enum, which is consumed by
@@ -61,7 +61,7 @@ fn fc4_raw(v: Option<i64>) -> Option<String> {
 pub enum IcmsVariant {
     /// Normal tax regime (Lucro Real / Presumido).
     Cst(Box<IcmsCst>),
-    /// Simples Nacional tax regime (CRT 1/2).
+    /// Simples Nacional tax regime (CRT 1/2/4).
     Csosn(Box<IcmsCsosn>),
 }
 

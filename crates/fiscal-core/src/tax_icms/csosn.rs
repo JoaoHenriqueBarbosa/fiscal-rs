@@ -1,4 +1,4 @@
-//! IcmsCsosn enum — Simples Nacional (CRT 1/2) + XML builder.
+//! IcmsCsosn enum — Simples Nacional (CRT 1/2/4) + XML builder.
 
 use crate::FiscalError;
 use crate::newtypes::{Cents, Rate};
@@ -9,7 +9,7 @@ use super::{accum, fc2, fc4};
 
 // ── IcmsCsosn enum (Simples Nacional) ────────────────────────────────────────
 
-/// ICMS CSOSN variant for Simples Nacional tax regime (CRT 1/2).
+/// ICMS CSOSN variant for Simples Nacional tax regime (CRT 1/2/4).
 ///
 /// Each variant carries **only** the fields that are valid for that CSOSN,
 /// giving compile-time safety instead of runtime string matching against a

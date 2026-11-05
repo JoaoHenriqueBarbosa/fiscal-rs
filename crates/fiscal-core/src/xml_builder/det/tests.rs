@@ -2555,12 +2555,57 @@ fn v_item_adds_ibs_cbs_only_from_2027() {
 
 #[test]
 fn decimal_str_to_cents_parses_xml_decimals() {
-    assert_eq!(super::decimal_str_to_cents("1234.56"), 123456);
-    assert_eq!(super::decimal_str_to_cents("10"), 1000);
-    assert_eq!(super::decimal_str_to_cents("0.5"), 50);
-    assert_eq!(super::decimal_str_to_cents("1.005"), 101);
-    assert_eq!(super::decimal_str_to_cents("-2.50"), -250);
-    assert_eq!(super::decimal_str_to_cents("abc"), 0);
+    use crate::format_utils::decimal_str_to_cents;
+    assert_eq!(decimal_str_to_cents("1234.56"), 123456);
+    assert_eq!(decimal_str_to_cents("10"), 1000);
+    assert_eq!(decimal_str_to_cents("0.5"), 50);
+    assert_eq!(decimal_str_to_cents("1.005"), 101);
+    assert_eq!(decimal_str_to_cents("-2.50"), -250);
+    assert_eq!(decimal_str_to_cents("abc"), 0);
+    assert_eq!(decimal_str_to_cents("+1.00"), 0);
+    // overflow on int * 100 falls back to 0 instead of panicking/wrapping
+    assert_eq!(decimal_str_to_cents("92233720368547759"), 0);
+}
+
+/// vItem (as cents) for `item` issued on Jan 2nd of `year`.
+fn v_item_cents_at(item: &InvoiceItemData, year: i32) -> i64 {
+    use chrono::TimeZone;
+    let mut data = pl010_build_data();
+    data.items = vec![item.clone()];
+    data.issued_at = chrono::FixedOffset::west_opt(3 * 3600)
+        .unwrap()
+        .with_ymd_and_hms(year, 1, 2, 10, 0, 0)
+        .unwrap();
+    let xml = build_det(item, &data).expect("build_det").xml;
+    let a = xml.find("<vItem>").expect("vItem") + "<vItem>".len();
+    let b = xml[a..].find("</vItem>").unwrap() + a;
+    crate::format_utils::decimal_str_to_cents(&xml[a..b])
+}
+
+/// NT 2026.008 VB01-10: vTotIBSMonoItem + vTotCBSMonoItem only from 2027.
+#[test]
+fn v_item_adds_mono_totals_only_from_2027() {
+    use crate::tax_ibs_cbs::{GIbsCbsMonoData, IbsCbsData};
+    let mono = GIbsCbsMonoData::new("2.00", "3.00");
+    let item = sample_item().ibs_cbs(IbsCbsData::new("620", "620001").g_ibs_cbs_mono(mono));
+    assert_eq!(
+        v_item_cents_at(&item, 2027) - v_item_cents_at(&item, 2026),
+        500
+    );
+}
+
+/// NT 2026.008 VB01-10: vIS only from 2027.
+#[test]
+fn v_item_adds_is_only_from_2027() {
+    use crate::tax_ibs_cbs::IbsCbsData;
+    use crate::tax_is::IsData;
+    let item = sample_item()
+        .ibs_cbs(IbsCbsData::new("000", "000001"))
+        .is_data(IsData::new("00", "001", "5.00"));
+    assert_eq!(
+        v_item_cents_at(&item, 2027) - v_item_cents_at(&item, 2026),
+        500
+    );
 }
 
 #[test]

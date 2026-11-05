@@ -7,6 +7,7 @@ mod prod;
 mod tests;
 
 use crate::FiscalError;
+use crate::format_utils::decimal_str_to_cents;
 use crate::format_utils::{format_cents, format_decimal, format_rate4};
 use crate::newtypes::{Cents, Rate4};
 use crate::tax_ibs_cbs;
@@ -65,7 +66,6 @@ pub struct DetResult {
     pub has_issqn: bool,
 }
 
-/// Build a `<det nItem="N">` element for one invoice item.
 /// Parcela RTC do `vItem` (NT 2026.008, regras VB01-10/20): a partir de 2027
 /// o vItem soma também vIBS + vCBS + vIS + vTotIBSMonoItem + vTotCBSMonoItem.
 /// Em 2025/2026 a regra manda NÃO somar (Exceção 1) → 0. Usa os mesmos valores
@@ -92,34 +92,7 @@ fn v_item_rtc_2027(item: &InvoiceItemData, data: &InvoiceBuildData) -> i64 {
     total
 }
 
-/// `"1234.56"` → `123456` centavos. Aceita sem decimais ou com 1 casa; casas
-/// além da 2ª são arredondadas (half-up). Valor inválido → 0.
-fn decimal_str_to_cents(v: &str) -> i64 {
-    let v = v.trim();
-    let (neg, v) = match v.strip_prefix('-') {
-        Some(rest) => (true, rest),
-        None => (false, v),
-    };
-    let (int_part, frac_part) = v.split_once('.').unwrap_or((v, ""));
-    let Ok(int) = (if int_part.is_empty() {
-        Ok(0)
-    } else {
-        int_part.parse::<i64>()
-    }) else {
-        return 0;
-    };
-    if !frac_part.chars().all(|c| c.is_ascii_digit()) {
-        return 0;
-    }
-    let digits: Vec<i64> = frac_part.chars().map(|c| c as i64 - '0' as i64).collect();
-    let d = |i: usize| digits.get(i).copied().unwrap_or(0);
-    let mut cents = int * 100 + d(0) * 10 + d(1);
-    if d(2) >= 5 {
-        cents += 1;
-    }
-    if neg { -cents } else { cents }
-}
-
+/// Build a `<det nItem="N">` element for one invoice item.
 pub(crate) fn build_det(
     item: &InvoiceItemData,
     data: &InvoiceBuildData,
