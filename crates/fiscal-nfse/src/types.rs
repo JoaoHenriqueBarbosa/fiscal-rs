@@ -64,6 +64,8 @@ pub struct Prestador {
     /// `IM` — inscrição municipal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub im: Option<String>,
+    /// `xNome` — razão social. Omitted from the XML when `tpEmit=1` (Sefin
+    /// E0121: the name comes from the CNC) or when empty.
     pub x_nome: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end: Option<EnderNac>,
@@ -79,6 +81,10 @@ pub struct Prestador {
 pub struct RegTrib {
     /// `opSimpNac` — `1` não optante, `2` MEI, `3` ME/EPP.
     pub op_simp_nac: String,
+    /// `regApTribSN` — regime de apuração do SN (`1`/`2`/`3`); obrigatório
+    /// para ME/EPP (`opSimpNac = 3`, Sefin E0166).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reg_ap_trib_sn: Option<String>,
     /// `regEspTrib` — regime especial de tributação (`0` nenhum, ...).
     pub reg_esp_trib: String,
 }
@@ -122,6 +128,9 @@ pub struct Servico {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub c_trib_mun: Option<String>,
     pub x_desc_serv: String,
+    /// `cNBS` — código NBS (9 dígitos), exigido junto ao grupo IBS/CBS.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub c_nbs: Option<String>,
 }
 
 /// `<valores>` — valores e tributos.
@@ -139,6 +148,10 @@ pub struct Trib {
     /// `tribFed` — PIS/COFINS/IR/CSLL (opcional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trib_fed: Option<TribFed>,
+    /// `pTotTribSN` — % aproximado dos tributos pela alíquota do SN. Para
+    /// ME/EPP substitui o `indTotTrib` (Sefin E0712). `None` → `indTotTrib=0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub p_tot_trib_sn: Option<String>,
 }
 
 /// `<tribMun>` — ISSQN.
