@@ -2,6 +2,21 @@
 
 use fiscal_core::FiscalError;
 
+/// Byte offset of the `>` that closes the tag starting at `s[0]`, ignoring
+/// any `>` inside a quoted attribute value (C14N leaves `>` literal there).
+fn find_tag_end(s: &str) -> Option<usize> {
+    let mut quote: Option<char> = None;
+    for (i, c) in s.char_indices() {
+        match (quote, c) {
+            (None, '"' | '\'') => quote = Some(c),
+            (Some(q), _) if c == q => quote = None,
+            (None, '>') => return Some(i),
+            _ => {}
+        }
+    }
+    None
+}
+
 /// Extract the `Id` attribute value from the first occurrence of `<tag_name ... Id="...">`.
 pub(super) fn extract_element_id(xml: &str, tag_name: &str) -> Result<String, FiscalError> {
     let pattern = format!("<{tag_name}");
@@ -13,8 +28,10 @@ pub(super) fn extract_element_id(xml: &str, tag_name: &str) -> Result<String, Fi
 
     let rest = &xml[tag_start..];
     // Find the closing > of this opening tag
-    let tag_end = rest
-        .find('>')
+    // Unbalanced quotes: fall back to the first '>' so the Id check below
+    // reports the malformed attribute.
+    let tag_end = find_tag_end(rest)
+        .or_else(|| rest.find('>'))
         .ok_or_else(|| FiscalError::Certificate(format!("<{tag_name}> tag is malformed")))?;
 
     let tag_content = &rest[..tag_end];
@@ -43,7 +60,7 @@ pub(super) fn extract_element_id(xml: &str, tag_name: &str) -> Result<String, Fi
 /// This matches PHP DOMDocument's C14N behavior.
 pub(super) fn ensure_inherited_namespace(element: &str, full_xml: &str, tag_name: &str) -> String {
     // Check if the element already has xmlns
-    let open_end = element.find('>').unwrap_or(element.len());
+    let open_end = find_tag_end(element).unwrap_or(element.len());
     let open_tag = &element[..open_end];
     if open_tag.contains("xmlns=") {
         return element.to_string();
@@ -118,12 +135,19 @@ pub(super) fn canonicalize_xml(xml: &str) -> String {
 
     while let Some(ch) = chars.next() {
         if ch == '<' {
-            // Collect everything up to '>'
+            // Collect everything up to the closing '>', skipping any '>'
+            // inside a quoted attribute value.
             let mut tag = String::from('<');
+            let mut quote: Option<char> = None;
             for c in chars.by_ref() {
                 tag.push(c);
-                if c == '>' {
-                    break;
+                match (quote, c) {
+                    (None, '"' | '\'') if !tag.starts_with("<!") && !tag.starts_with("<?") => {
+                        quote = Some(c)
+                    }
+                    (Some(q), _) if c == q => quote = None,
+                    (None, '>') => break,
+                    _ => {}
                 }
             }
 

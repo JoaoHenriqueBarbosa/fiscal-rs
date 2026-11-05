@@ -2,7 +2,7 @@
 
 use super::helpers::*;
 use super::parser::NFeParser;
-use crate::xml_utils::escape_xml;
+use crate::xml_utils::{escape_xml, escape_xml_attr};
 
 impl NFeParser<'_> {
     pub(super) fn build_inf_adic(&self) -> String {
@@ -23,7 +23,7 @@ impl NFeParser<'_> {
                 let texto = obs.get("xTexto").map(|s| s.as_str()).unwrap_or("");
                 c.push(format!(
                     "<obsCont xCampo=\"{}\">{}</obsCont>",
-                    escape_xml(campo),
+                    escape_xml_attr(campo),
                     xml_tag("xTexto", &escape_xml(texto))
                 ));
             }
@@ -34,7 +34,7 @@ impl NFeParser<'_> {
                 let texto = obs.get("xTexto").map(|s| s.as_str()).unwrap_or("");
                 c.push(format!(
                     "<obsFisco xCampo=\"{}\">{}</obsFisco>",
-                    escape_xml(campo),
+                    escape_xml_attr(campo),
                     xml_tag("xTexto", &escape_xml(texto))
                 ));
             }

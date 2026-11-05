@@ -41,7 +41,7 @@ mod tag_tests {
         );
         assert_eq!(
             tag("name", &[], TagContent::Text(r#"<"test">"#)),
-            "<name>&lt;&quot;test&quot;&gt;</name>"
+            "<name>&lt;\"test\"&gt;</name>"
         );
     }
 

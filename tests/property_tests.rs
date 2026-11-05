@@ -156,7 +156,8 @@ proptest! {
         let escaped = escape_xml(&input);
         for (i, ch) in escaped.char_indices() {
             match ch {
-                '<' | '>' | '"' | '\'' => {
+                // C14N text nodes: only & < > and CR are escaped; ' and " stay literal.
+                '<' | '>' | '\r' => {
                     prop_assert!(false, "found raw special char at position {}", i);
                 }
                 '&' => {
@@ -165,8 +166,7 @@ proptest! {
                         rest.starts_with("&amp;")
                             || rest.starts_with("&lt;")
                             || rest.starts_with("&gt;")
-                            || rest.starts_with("&quot;")
-                            || rest.starts_with("&apos;"),
+                            || rest.starts_with("&#xD;"),
                         "found '&' not part of known entity at position {}", i
                     );
                 }

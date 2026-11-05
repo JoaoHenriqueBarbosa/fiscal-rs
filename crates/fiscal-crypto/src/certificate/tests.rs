@@ -753,3 +753,32 @@ fn sign_cte_xml_missing_inf_cte_errors() {
     let result = sign_cte_xml("<CTe><other/></CTe>", &cert.private_key, &cert.certificate);
     assert!(result.is_err());
 }
+
+#[test]
+fn canonicalize_preserves_literal_apostrophe_and_quote() {
+    // Literal ' and " in text content must survive canonicalization unchanged so
+    // the digest matches SEFAZ's re-canonicalization (rejeicao cStat 297 fix).
+    let xml = "<xNome>D'ALESSANDRO \"JR\"</xNome>";
+    let c = canonicalize_xml(xml);
+    assert!(c.contains("D'ALESSANDRO \"JR\""));
+    assert!(!c.contains("&apos;"));
+    assert!(!c.contains("&quot;"));
+}
+
+#[test]
+fn canonicalize_keeps_gt_inside_attribute_value() {
+    // A '>' inside a quoted attribute (e.g. obsCont xCampo from user input)
+    // must not end the tag, otherwise the digest diverges from SEFAZ's (cStat 297).
+    let xml = r#"<obsCont xCampo="A>B" b="1"><xTexto>x</xTexto></obsCont>"#;
+    let c = canonicalize_xml(xml);
+    assert_eq!(
+        c,
+        r#"<obsCont b="1" xCampo="A>B"><xTexto>x</xTexto></obsCont>"#
+    );
+}
+
+#[test]
+fn extract_element_id_ignores_gt_in_earlier_attribute() {
+    let xml = r#"<infNFe a="x>y" Id="NFe123" versao="4.00"></infNFe>"#;
+    assert_eq!(extract_element_id(xml, "infNFe").unwrap(), "NFe123");
+}

@@ -4,8 +4,12 @@
 //! on `&str` slices and return owned `String`s, with no external XML library
 //! dependency.
 
-/// Escape special XML characters in text content and attribute values,
-/// replacing `&`, `<`, `>`, `"`, and `'` with their XML entity equivalents.
+/// Escape special XML characters for **text-node content** per Canonical XML
+/// 1.0: replaces `&`, `<`, `>` and carriage return (`\r`) only. `"` and `'`
+/// are left literal - escaping them in text nodes yields `&quot;`/`&apos;`
+/// entity refs that this crate's C14N does not normalise while SEFAZ's does,
+/// causing a DigestValue mismatch (rejeicao cStat 297). Use [`escape_xml_attr`]
+/// for attribute values.
 ///
 /// # Examples
 ///
@@ -20,8 +24,28 @@ pub fn escape_xml(s: &str) -> String {
             '&' => result.push_str("&amp;"),
             '<' => result.push_str("&lt;"),
             '>' => result.push_str("&gt;"),
+            '\r' => result.push_str("&#xD;"),
+            c => result.push(c),
+        }
+    }
+    result
+}
+
+/// Escape a string for use in an XML **attribute value** per Canonical XML 1.0:
+/// replaces `&`, `<`, `"` and the whitespace characters tab/newline/CR with
+/// their entity/char-ref forms. `>` and `'` are left literal (they need no
+/// escaping inside a double-quoted attribute), matching SEFAZ's C14N so the
+/// signed DigestValue stays consistent.
+pub fn escape_xml_attr(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
             '"' => result.push_str("&quot;"),
-            '\'' => result.push_str("&apos;"),
+            '\t' => result.push_str("&#x9;"),
+            '\n' => result.push_str("&#xA;"),
+            '\r' => result.push_str("&#xD;"),
             c => result.push(c),
         }
     }
@@ -59,7 +83,7 @@ pub fn extract_xml_tag_value(xml: &str, tag_name: &str) -> Option<String> {
 pub fn tag(name: &str, attrs: &[(&str, &str)], children: TagContent<'_>) -> String {
     use std::fmt::Write as _;
     let attr_str: String = attrs.iter().fold(String::new(), |mut s, (k, v)| {
-        let _ = write!(s, " {k}=\"{}\"", escape_xml(v));
+        let _ = write!(s, " {k}=\"{}\"", escape_xml_attr(v));
         s
     });
 
@@ -572,6 +596,31 @@ fn delete_all_between(input: &str, beginning: &str, end: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn escape_xml_text_keeps_apostrophe_and_quote_literal() {
+        // C14N text nodes escape only & < > (and \r); ' and " stay literal so the
+        // signed digest matches SEFAZ's re-canonicalization (avoids cStat 297).
+        assert_eq!(escape_xml("D'ALESSANDRO"), "D'ALESSANDRO");
+        assert_eq!(escape_xml("OLIVEIRA \"JR\""), "OLIVEIRA \"JR\"");
+        assert_eq!(escape_xml("A & B <C>"), "A &amp; B &lt;C&gt;");
+        assert_eq!(escape_xml("line\rend"), "line&#xD;end");
+    }
+
+    #[test]
+    fn escape_xml_attr_escapes_quote_but_not_apostrophe() {
+        assert_eq!(escape_xml_attr("a'b"), "a'b");
+        assert_eq!(escape_xml_attr("a\"b"), "a&quot;b");
+        assert_eq!(escape_xml_attr("x & y"), "x &amp; y");
+    }
+
+    #[test]
+    fn tag_text_preserves_apostrophe_in_name() {
+        // xNome with apostrophe must serialize literally (CENTR-25 / cStat 297 fix).
+        let xml = tag("xNome", &[], TagContent::Text("D'ALESSANDRO"));
+        assert_eq!(xml, "<xNome>D'ALESSANDRO</xNome>");
+        assert!(!xml.contains("&apos;"));
+    }
 
     #[test]
     fn pretty_print_simple_xml() {
