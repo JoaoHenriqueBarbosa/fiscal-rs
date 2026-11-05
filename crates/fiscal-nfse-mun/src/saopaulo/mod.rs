@@ -549,9 +549,10 @@ pub fn build_lote_rps_v2(input: &EmitInput, assinatura_b64: &str) -> String {
         rps.push(tag("EmailTomador", &[], TagContent::Text(em)));
     }
     rps.push(discriminacao(s));
-    // choice: ValorInicialCobrado OU ValorFinalCobrado (só um).
+    // choice: ValorInicialCobrado OU ValorFinalCobrado (só um). A prefeitura
+    // desativou o ValorInicialCobrado (erro 640): só ValorFinalCobrado.
     rps.push(tag(
-        "ValorInicialCobrado",
+        "ValorFinalCobrado",
         &[],
         TagContent::Text(&valor(s.valor_centavos)),
     ));
