@@ -87,6 +87,54 @@ fn signed_dps_validates_against_official_xsd() {
 }
 
 #[test]
+fn simples_nacional_me_epp_fields_are_emitted() {
+    let xml = build_dps_xml(&sample());
+    // tpEmit=1: prestador name comes from the CNC (Sefin E0121).
+    assert!(!xml.contains("<xNome>PRESTADOR TESTE LTDA</xNome>"));
+    assert!(xml.contains(
+        "<opSimpNac>3</opSimpNac><regApTribSN>1</regApTribSN><regEspTrib>0</regEspTrib>"
+    ));
+    assert!(xml.contains("<totTrib><pTotTribSN>6.00</pTotTribSN></totTrib>"));
+    assert!(xml.contains("<xDescServ>SERVICO DE TESTE</xDescServ><cNBS>115021000</cNBS>"));
+}
+
+/// Payloads without the new optional fields keep the previous output:
+/// no regApTribSN, indTotTrib=0, no cNBS.
+fn sample_nao_optante() -> DpsBuildData {
+    let mut data = sample();
+    data.prest.reg_trib.op_simp_nac = "1".into();
+    data.prest.reg_trib.reg_ap_trib_sn = None;
+    data.serv.c_nbs = None;
+    data.valores.trib.p_tot_trib_sn = None;
+    data
+}
+
+#[test]
+fn nao_optante_without_new_fields_keeps_previous_output() {
+    let xml = build_dps_xml(&sample_nao_optante());
+    assert!(xml.contains("<opSimpNac>1</opSimpNac><regEspTrib>0</regEspTrib>"));
+    assert!(!xml.contains("regApTribSN"));
+    assert!(xml.contains("<totTrib><indTotTrib>0</indTotTrib></totTrib>"));
+    assert!(!xml.contains("cNBS"));
+    let cert = load_certificate(&test_pfx(), "minhasenha").expect("cert");
+    let signed = sign_dps_xml(&xml, &cert.private_key, &cert.certificate).expect("sign");
+    if let Err(errs) = fiscal_xsd::schemas::dps().validate(&signed) {
+        panic!(
+            "DPS nao optante falhou no XSD oficial 1.01:\n{}",
+            errs.join("\n")
+        );
+    }
+}
+
+#[test]
+fn prestador_name_is_sent_when_issuer_is_not_the_prestador() {
+    let mut data = sample_nao_optante();
+    data.ide.tp_emit = "2".into();
+    let xml = build_dps_xml(&data);
+    assert!(xml.contains("<xNome>PRESTADOR TESTE LTDA</xNome>"));
+}
+
+#[test]
 fn signed_dps_with_ibscbs_and_tribfed_validates() {
     let mut data = sample();
     data.valores.trib.trib_fed = Some(TribFed {

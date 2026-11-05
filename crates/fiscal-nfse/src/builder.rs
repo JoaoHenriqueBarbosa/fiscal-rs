@@ -31,7 +31,7 @@ pub fn build_dps_xml(data: &DpsBuildData) -> String {
         tag("dCompet", &[], TagContent::Text(&data.ide.d_compet)),
         tag("tpEmit", &[], TagContent::Text(&data.ide.tp_emit)),
         tag("cLocEmi", &[], TagContent::Text(&data.ide.c_loc_emi)),
-        build_prest(&data.prest),
+        build_prest(&data.prest, &data.ide.tp_emit),
     ];
     if let Some(t) = &data.toma {
         c.push(build_pessoa("toma", t));
@@ -143,13 +143,14 @@ fn build_ender(e: &EnderNac) -> String {
     tag("end", &[], TagContent::Children(c))
 }
 
-fn build_prest(p: &Prestador) -> String {
+fn build_prest(p: &Prestador, tp_emit: &str) -> String {
     let mut c = vec![build_doc(&p.doc)];
     if let Some(v) = &p.im {
         c.push(tag("IM", &[], TagContent::Text(v)));
     }
-    // Sefin E0121: emitente = próprio prestador → nome vem do CNC, não se informa.
-    if !p.x_nome.trim().is_empty() {
+    // Sefin E0121: with tpEmit=1 the issuer is the prestador itself and its
+    // name comes from the CNC, so xNome must not be sent.
+    if tp_emit != "1" && !p.x_nome.trim().is_empty() {
         c.push(tag("xNome", &[], TagContent::Text(&p.x_nome)));
     }
     if let Some(e) = &p.end {

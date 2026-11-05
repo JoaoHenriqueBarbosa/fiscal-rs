@@ -64,6 +64,8 @@ pub struct Prestador {
     /// `IM` — inscrição municipal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub im: Option<String>,
+    /// `xNome` — razão social. Omitted from the XML when `tpEmit=1` (Sefin
+    /// E0121: the name comes from the CNC) or when empty.
     pub x_nome: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end: Option<EnderNac>,
