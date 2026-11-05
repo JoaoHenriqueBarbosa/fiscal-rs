@@ -80,7 +80,7 @@ pub fn generate_numeric_code() -> String {
 
 /// Format a `DateTime<FixedOffset>` as YYMM for the access key.
 pub fn format_year_month(dt: &chrono::DateTime<chrono::FixedOffset>) -> String {
-    format!("{}{:02}", &dt.format("%y"), dt.format("%m"))
+    format!("{}{:02}", dt.format("%y"), dt.format("%m"))
 }
 
 #[cfg(test)]
