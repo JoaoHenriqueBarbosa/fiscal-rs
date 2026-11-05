@@ -548,9 +548,30 @@ pub fn build_lote_rps_v2(input: &EmitInput, assinatura_b64: &str) -> String {
     if let Some(em) = &r.tomador.email {
         rps.push(tag("EmailTomador", &[], TagContent::Text(em)));
     }
+    // Intermediário: a assinatura v2 anexa indicador+CPF/CNPJ+S/N quando ele
+    // existe, então os campos têm que ir no RPS (senão 1206). Sem
+    // intermediário nada é emitido (nem ISSRetidoIntermediario, minOccurs=0).
+    if let Some(i) = &r.intermediario {
+        rps.push(cpfcnpj_tag("CPFCNPJIntermediario", &i.doc));
+        if let Some(im) = &i.im {
+            rps.push(tag(
+                "InscricaoMunicipalIntermediario",
+                &[],
+                TagContent::Text(im),
+            ));
+        }
+        rps.push(tag(
+            "ISSRetidoIntermediario",
+            &[],
+            TagContent::Text(if i.iss_retido { "true" } else { "false" }),
+        ));
+    }
     rps.push(discriminacao(s));
     // choice: ValorInicialCobrado OU ValorFinalCobrado (só um). A prefeitura
     // desativou o ValorInicialCobrado (erro 640): só ValorFinalCobrado.
+    // ValorFinalCobrado é o "valor total na nota" (cálculo do fim para o
+    // início). Com ISS por dentro, o valor do serviço já é o valor cobrado do
+    // tomador, que é o mesmo número de ValorServicos na assinatura.
     rps.push(tag(
         "ValorFinalCobrado",
         &[],
