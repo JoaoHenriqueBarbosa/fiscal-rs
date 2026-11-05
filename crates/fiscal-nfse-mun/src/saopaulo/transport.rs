@@ -74,6 +74,30 @@ fn tag_val(xml: &str, tag: &str) -> Option<String> {
     None
 }
 
+/// `Codigo: Descricao` de cada bloco `<{grupo}>` (Erro/Alerta) do retorno.
+fn mensagens(xml: &str, grupo: &str) -> Vec<String> {
+    let (open, close) = (format!("<{grupo}"), format!("</{grupo}>"));
+    let mut out = Vec::new();
+    let mut rest = xml;
+    while let Some(i) = rest.find(&open) {
+        let after = &rest[i + open.len()..];
+        // evita casar <ErroX>/<Alertas>: o próximo char tem que fechar a tag
+        if !after.starts_with('>') && !after.starts_with(' ') {
+            rest = after;
+            continue;
+        }
+        let Some(j) = after.find(&close) else { break };
+        let bloco = &after[..j];
+        match (tag_val(bloco, "Codigo"), tag_val(bloco, "Descricao")) {
+            (Some(c), Some(d)) => out.push(format!("{c}: {d}")),
+            (None, Some(d)) => out.push(d),
+            _ => {}
+        }
+        rest = &after[j + close.len()..];
+    }
+    out
+}
+
 /// Interpreta o `RetornoEnvioLoteRPS` (que vem escapado dentro do SOAP).
 pub fn parse_retorno(http_status: u16, body: &str) -> EmitOutput {
     let inner = unescape(body);
@@ -84,13 +108,23 @@ pub fn parse_retorno(http_status: u16, body: &str) -> EmitOutput {
 
     let numero = tag_val(&inner, "NumeroNFe").or_else(|| tag_val(&inner, "NumeroNota"));
     let cod_verif = tag_val(&inner, "CodigoVerificacao");
+    // O retorno pode trazer <Alerta> (ex.: 1651, aviso de layout) antes do
+    // <Erro> que de fato rejeitou: o motivo prioriza os erros e lista todos.
     let motivo = if ok {
         None
     } else {
-        match (tag_val(&inner, "Codigo"), tag_val(&inner, "Descricao")) {
-            (Some(c), Some(d)) => Some(format!("{c}: {d}")),
-            (_, Some(d)) => Some(d),
-            _ => Some(inner.chars().take(600).collect()),
+        let erros = mensagens(&inner, "Erro");
+        let alertas = mensagens(&inner, "Alerta");
+        if !erros.is_empty() {
+            Some(erros.join(" | "))
+        } else if !alertas.is_empty() {
+            Some(format!("sem <Erro> no retorno; alertas: {}", alertas.join(" | ")))
+        } else {
+            match (tag_val(&inner, "Codigo"), tag_val(&inner, "Descricao")) {
+                (Some(c), Some(d)) => Some(format!("{c}: {d}")),
+                (_, Some(d)) => Some(d),
+                _ => Some(inner.chars().take(600).collect()),
+            }
         }
     };
 
@@ -134,4 +168,27 @@ pub async fn post_envio(
         .await
         .map_err(|e| MunError::Transporte(format!("read body: {e}")))?;
     Ok((status, body))
+}
+
+#[cfg(test)]
+mod tests_retorno {
+    use super::*;
+
+    #[test]
+    fn rejeicao_prioriza_erro_sobre_alerta() {
+        let body = "<RetornoEnvioLoteRPS><Cabecalho><Sucesso>false</Sucesso></Cabecalho>\
+            <Alerta><Codigo>1651</Codigo><Descricao>Atencao layout</Descricao></Alerta>\
+            <Erro><Codigo>1234</Codigo><Descricao>Erro real</Descricao></Erro></RetornoEnvioLoteRPS>";
+        let out = parse_retorno(200, body);
+        assert!(matches!(out.status, Status::Rejeitado));
+        assert_eq!(out.motivo.as_deref(), Some("1234: Erro real"));
+    }
+
+    #[test]
+    fn so_alerta_vira_motivo_explicito() {
+        let body = "<RetornoEnvioLoteRPS><Cabecalho><Sucesso>false</Sucesso></Cabecalho>\
+            <Alerta><Codigo>1651</Codigo><Descricao>Atencao layout</Descricao></Alerta></RetornoEnvioLoteRPS>";
+        let out = parse_retorno(200, body);
+        assert_eq!(out.motivo.as_deref(), Some("sem <Erro> no retorno; alertas: 1651: Atencao layout"));
+    }
 }
