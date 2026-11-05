@@ -40,7 +40,8 @@ fn sample() -> DpsBuildData {
             fone: None,
             email: None,
             reg_trib: RegTrib {
-                op_simp_nac: "1".into(),
+                op_simp_nac: "3".into(),
+                reg_ap_trib_sn: Some("1".into()),
                 reg_esp_trib: "0".into(),
             },
         },
@@ -57,6 +58,7 @@ fn sample() -> DpsBuildData {
             c_trib_nac: "010101".into(),
             c_trib_mun: None,
             x_desc_serv: "SERVICO DE TESTE".into(),
+            c_nbs: Some("115021000".into()),
         },
         valores: Valores {
             v_serv: "100.00".into(),
@@ -67,6 +69,7 @@ fn sample() -> DpsBuildData {
                     tp_ret_issqn: "1".into(),
                 },
                 trib_fed: None,
+                p_tot_trib_sn: Some("6.00".into()),
             },
         },
         ibscbs: None,

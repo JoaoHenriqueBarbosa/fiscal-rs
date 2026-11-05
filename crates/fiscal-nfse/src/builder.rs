@@ -148,7 +148,10 @@ fn build_prest(p: &Prestador) -> String {
     if let Some(v) = &p.im {
         c.push(tag("IM", &[], TagContent::Text(v)));
     }
-    c.push(tag("xNome", &[], TagContent::Text(&p.x_nome)));
+    // Sefin E0121: emitente = próprio prestador → nome vem do CNC, não se informa.
+    if !p.x_nome.trim().is_empty() {
+        c.push(tag("xNome", &[], TagContent::Text(&p.x_nome)));
+    }
     if let Some(e) = &p.end {
         c.push(build_ender(e));
     }
@@ -158,18 +161,20 @@ fn build_prest(p: &Prestador) -> String {
     if let Some(v) = &p.email {
         c.push(tag("email", &[], TagContent::Text(v)));
     }
-    c.push(tag(
-        "regTrib",
+    let mut rt = vec![tag(
+        "opSimpNac",
         &[],
-        TagContent::Children(vec![
-            tag("opSimpNac", &[], TagContent::Text(&p.reg_trib.op_simp_nac)),
-            tag(
-                "regEspTrib",
-                &[],
-                TagContent::Text(&p.reg_trib.reg_esp_trib),
-            ),
-        ]),
+        TagContent::Text(&p.reg_trib.op_simp_nac),
+    )];
+    if let Some(v) = &p.reg_trib.reg_ap_trib_sn {
+        rt.push(tag("regApTribSN", &[], TagContent::Text(v)));
+    }
+    rt.push(tag(
+        "regEspTrib",
+        &[],
+        TagContent::Text(&p.reg_trib.reg_esp_trib),
     ));
+    c.push(tag("regTrib", &[], TagContent::Children(rt)));
     tag("prest", &[], TagContent::Children(c))
 }
 
@@ -206,6 +211,9 @@ fn build_serv(s: &Servico) -> String {
         cserv.push(tag("cTribMun", &[], TagContent::Text(v)));
     }
     cserv.push(tag("xDescServ", &[], TagContent::Text(&s.x_desc_serv)));
+    if let Some(v) = &s.c_nbs {
+        cserv.push(tag("cNBS", &[], TagContent::Text(v)));
+    }
     tag(
         "serv",
         &[],
@@ -239,7 +247,10 @@ fn build_valores(v: &Valores) -> String {
     trib_children.push(tag(
         "totTrib",
         &[],
-        TagContent::Children(vec![tag("indTotTrib", &[], TagContent::Text("0"))]),
+        TagContent::Children(vec![match &v.trib.p_tot_trib_sn {
+            Some(p) => tag("pTotTribSN", &[], TagContent::Text(p)),
+            None => tag("indTotTrib", &[], TagContent::Text("0")),
+        }]),
     ));
     let trib = tag("trib", &[], TagContent::Children(trib_children));
     tag(
