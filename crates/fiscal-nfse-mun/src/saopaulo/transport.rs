@@ -118,7 +118,10 @@ pub fn parse_retorno(http_status: u16, body: &str) -> EmitOutput {
         if !erros.is_empty() {
             Some(erros.join(" | "))
         } else if !alertas.is_empty() {
-            Some(format!("sem <Erro> no retorno; alertas: {}", alertas.join(" | ")))
+            Some(format!(
+                "sem <Erro> no retorno; alertas: {}",
+                alertas.join(" | ")
+            ))
         } else {
             match (tag_val(&inner, "Codigo"), tag_val(&inner, "Descricao")) {
                 (Some(c), Some(d)) => Some(format!("{c}: {d}")),
@@ -143,6 +146,8 @@ pub fn parse_retorno(http_status: u16, body: &str) -> EmitOutput {
         // SP não devolve URL pública confiável; o painel orienta consultar pelo
         // número + código de verificação no portal da prefeitura.
         link: None,
+        chave_nacional: tag_val(&inner, "ChaveNotaNacional")
+            .filter(|c| c.len() == 50 && c.chars().all(|d| d.is_ascii_digit())),
         raw: body.to_string(),
     }
 }
@@ -185,10 +190,30 @@ mod tests_retorno {
     }
 
     #[test]
+    fn autorizado_extrai_chave_nacional() {
+        let body = "<RetornoEnvioLoteRPS><Cabecalho><Sucesso>true</Sucesso></Cabecalho><ChaveNFeRPS><ChaveNFe>\
+            <InscricaoPrestador>48712345</InscricaoPrestador><NumeroNFe>13600</NumeroNFe>\
+            <CodigoVerificacao>ZQX54ZBS</CodigoVerificacao>\
+            <ChaveNotaNacional>35503081218885949000181000000001360026118378880233</ChaveNotaNacional>\
+            </ChaveNFe></ChaveNFeRPS></RetornoEnvioLoteRPS>";
+        let out = parse_retorno(200, body);
+        assert!(matches!(out.status, Status::Autorizado));
+        assert_eq!(out.numero_nfse.as_deref(), Some("13600"));
+        assert_eq!(out.codigo_verificacao.as_deref(), Some("ZQX54ZBS"));
+        assert_eq!(
+            out.chave_nacional.as_deref(),
+            Some("35503081218885949000181000000001360026118378880233")
+        );
+    }
+
+    #[test]
     fn so_alerta_vira_motivo_explicito() {
         let body = "<RetornoEnvioLoteRPS><Cabecalho><Sucesso>false</Sucesso></Cabecalho>\
             <Alerta><Codigo>1651</Codigo><Descricao>Atencao layout</Descricao></Alerta></RetornoEnvioLoteRPS>";
         let out = parse_retorno(200, body);
-        assert_eq!(out.motivo.as_deref(), Some("sem <Erro> no retorno; alertas: 1651: Atencao layout"));
+        assert_eq!(
+            out.motivo.as_deref(),
+            Some("sem <Erro> no retorno; alertas: 1651: Atencao layout")
+        );
     }
 }

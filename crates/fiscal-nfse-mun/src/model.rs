@@ -198,6 +198,10 @@ pub struct EmitOutput {
     /// o provedor o retorna (ex.: ABRASF `<Url>`). `None` p/ provedores sem URL.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
+    /// Chave de acesso **nacional** (50 dígitos) quando o município
+    /// compartilha a nota com o Ambiente Nacional (ex.: SP `ChaveNotaNacional`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chave_nacional: Option<String>,
     /// Corpo bruto do retorno (auditoria).
     pub raw: String,
 }
