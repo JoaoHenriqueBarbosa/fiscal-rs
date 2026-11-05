@@ -223,16 +223,20 @@ pub async fn consultar(
 
 /// Assinatura RPS **v1** (Inscrição Municipal com 8 posições).
 pub fn assinatura_string(input: &EmitInput) -> String {
-    assinatura_string_w(input, 8)
+    assinatura_string_w(input, 8, true)
 }
 
 /// Assinatura RPS **v2** (reforma — Inscrição Municipal com 12 posições).
+/// Sem intermediário a string termina no CPF/CNPJ do tomador: o `N` de
+/// ISSRetidoIntermediario do v1 não entra (senão a prefeitura devolve 1206).
 pub fn assinatura_string_v2(input: &EmitInput) -> String {
-    assinatura_string_w(input, 12)
+    assinatura_string_w(input, 12, false)
 }
 
 /// Monta a **string** a ser assinada (RSA-SHA1), com `im_width` posições na IM.
-fn assinatura_string_w(input: &EmitInput, im_width: usize) -> String {
+/// `iss_interm_sempre`: v1 sempre anexa o ISSRetidoIntermediario (`N` sem
+/// intermediário); v2 só anexa a cauda do intermediário quando ele existe.
+fn assinatura_string_w(input: &EmitInput, im_width: usize, iss_interm_sempre: bool) -> String {
     let e = &input.emitente;
     let r = &input.rps;
     let s = &r.servico;
@@ -279,7 +283,8 @@ fn assinatura_string_w(input: &EmitInput, im_width: usize) -> String {
             out.push_str(&format!("{dd:0>14}"));
             out.push_str(if i.iss_retido { "S" } else { "N" });
         }
-        None => out.push('N'),
+        None if iss_interm_sempre => out.push('N'),
+        None => {}
     }
     out
 }
@@ -690,6 +695,27 @@ mod tests {
             assinatura_string(&inp),
             "4871234599   00000000889920260527TNN00000000002900000000000000000007498222175916000115N"
         );
+    }
+
+    /// Layout 2 (reforma): string exata devolvida pela prefeitura no 1206 de um
+    /// envio real (IM 12 posições, sem tomador, sem a cauda `N` do v1).
+    #[test]
+    fn assinatura_v2_string_verificada_pela_prefeitura() {
+        let mut inp = sample();
+        inp.emitente.im = Some("4.871.234-5".into());
+        inp.rps.serie = "17".into();
+        inp.rps.numero = 1;
+        inp.rps.data_emissao = "2026-11-03T15:00:00-03:00".into();
+        inp.rps.tomador = Tomador::default();
+        inp.rps.servico.valor_centavos = 100;
+        inp.rps.servico.cod_tributacao_municipio = Some("07498".into());
+        assert_eq!(
+            assinatura_string_v2(&inp),
+            "00004871234517   00000000000120261103TNN000000000000100000000000000000074983\
+             00000000000000"
+        );
+        // v1 continua com a cauda `N` (confirmada contra envio real da Invoicy).
+        assert!(assinatura_string(&inp).ends_with("00000000000000N"));
     }
 
     /// Reproduz EXATAMENTE o exemplo do Manual Web Service SP (assinatura RPS v1).
