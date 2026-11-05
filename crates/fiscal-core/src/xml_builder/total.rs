@@ -1,5 +1,6 @@
 //! Build the `<total>` group of the NF-e XML.
 
+use crate::format_utils::decimal_str_to_cents;
 use crate::format_utils::format_cents;
 use crate::newtypes::Cents;
 use crate::tax_ibs_cbs::{self, IbsCbsTotData, IsTotData};
@@ -87,20 +88,6 @@ fn calculate_v_nf_v2(
     // V2 uses the same formula — the PHP difference is only in _where_
     // the input values come from (DOM tags vs. accumulated array).
     calculate_v_nf_v1(total_products, icms, other, v_serv)
-}
-
-/// Parse a decimal string (e.g. "100.50") into cents (i64).
-///
-/// Returns 0 when the string is empty or cannot be parsed.
-/// Used internally to extract numeric values from `IbsCbsTotData` / `IsTotData`
-/// for the `vNFTot` auto-calculation.
-fn parse_decimal_to_cents(s: &str) -> i64 {
-    if s.is_empty() {
-        return 0;
-    }
-    s.parse::<f64>()
-        .map(|v| (v * 100.0).round() as i64)
-        .unwrap_or(0)
 }
 
 /// Build the `<total>` element with ICMSTot, optional ISSQNtot, retTrib, ISTot, IBSCBSTot,
@@ -275,15 +262,15 @@ pub fn build_total(
                 let v_ibs = ibst
                     .g_ibs_v_ibs
                     .as_deref()
-                    .map(parse_decimal_to_cents)
+                    .map(decimal_str_to_cents)
                     .unwrap_or(0);
                 let v_cbs = ibst
                     .g_cbs_v_cbs
                     .as_deref()
-                    .map(parse_decimal_to_cents)
+                    .map(decimal_str_to_cents)
                     .unwrap_or(0);
                 let v_is = is_tot
-                    .map(|ist| parse_decimal_to_cents(&ist.v_is))
+                    .map(|ist| decimal_str_to_cents(&ist.v_is))
                     .unwrap_or(0);
                 v_nf + v_ibs + v_cbs + v_is
             };

@@ -7,6 +7,7 @@ mod prod;
 mod tests;
 
 use crate::FiscalError;
+use crate::format_utils::decimal_str_to_cents;
 use crate::format_utils::{format_cents, format_decimal, format_rate4};
 use crate::newtypes::{Cents, Rate4};
 use crate::tax_ibs_cbs;
@@ -65,6 +66,32 @@ pub struct DetResult {
     pub has_issqn: bool,
 }
 
+/// Parcela RTC do `vItem` (NT 2026.008, regras VB01-10/20): a partir de 2027
+/// o vItem soma também vIBS + vCBS + vIS + vTotIBSMonoItem + vTotCBSMonoItem.
+/// Em 2025/2026 a regra manda NÃO somar (Exceção 1) → 0. Usa os mesmos valores
+/// que vão no XML (vIBS ausente sai como 0.00).
+fn v_item_rtc_2027(item: &InvoiceItemData, data: &InvoiceBuildData) -> i64 {
+    use chrono::Datelike;
+    if data.issued_at.year() < 2027 {
+        return 0;
+    }
+    let mut total = 0i64;
+    if let Some(ref ic) = item.ibs_cbs {
+        if let Some(ref g) = ic.g_ibs_cbs {
+            total += decimal_str_to_cents(g.v_ibs.as_deref().unwrap_or("0"));
+            total += decimal_str_to_cents(&g.g_cbs.v_cbs);
+        }
+        if let Some(ref m) = ic.g_ibs_cbs_mono {
+            total += decimal_str_to_cents(&m.v_tot_ibs_mono_item);
+            total += decimal_str_to_cents(&m.v_tot_cbs_mono_item);
+        }
+    }
+    if let Some(ref is) = item.is_data {
+        total += decimal_str_to_cents(&is.v_is);
+    }
+    total
+}
+
 /// Build a `<det nItem="N">` element for one invoice item.
 pub(crate) fn build_det(
     item: &InvoiceItemData,
@@ -81,7 +108,7 @@ pub(crate) fn build_det(
 
     let is_simples = matches!(
         data.issuer.tax_regime,
-        TaxRegime::SimplesNacional | TaxRegime::SimplesExcess
+        TaxRegime::SimplesNacional | TaxRegime::SimplesExcess | TaxRegime::Mei
     );
 
     let has_issqn = item.issqn.is_some();
@@ -439,6 +466,7 @@ pub(crate) fn build_det(
                     + v_ipi_devol
                     + v_pis_st
                     + v_cofins_st
+                    + v_item_rtc_2027(item, data)
             };
             let v_item_str = format_cents(v_item_cents, 2);
             tag("vItem", &[], TagContent::Text(&v_item_str))

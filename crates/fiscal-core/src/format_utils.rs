@@ -122,3 +122,51 @@ pub fn format_rate4_or_zero(value: Option<i64>) -> String {
         None => "0.0000".to_string(),
     }
 }
+
+/// Parse an XML decimal string (`"1234.56"`) into cents (`123456`), using
+/// integer arithmetic only. Accepts no decimals or a single one; digits past
+/// the second are rounded half-up. Invalid input or overflow → `0`.
+///
+/// # Examples
+///
+/// ```
+/// use fiscal_core::format_utils::decimal_str_to_cents;
+/// assert_eq!(decimal_str_to_cents("1234.56"), 123456);
+/// assert_eq!(decimal_str_to_cents("1.005"), 101);
+/// assert_eq!(decimal_str_to_cents("abc"), 0);
+/// ```
+pub fn decimal_str_to_cents(v: &str) -> i64 {
+    let v = v.trim();
+    let (neg, v) = match v.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, v),
+    };
+    let (int_part, frac_part) = v.split_once('.').unwrap_or((v, ""));
+    let int = if int_part.is_empty() {
+        0
+    } else if int_part.chars().all(|c| c.is_ascii_digit()) {
+        match int_part.parse::<i64>() {
+            Ok(n) => n,
+            Err(_) => return 0,
+        }
+    } else {
+        return 0;
+    };
+    if !frac_part.chars().all(|c| c.is_ascii_digit()) {
+        return 0;
+    }
+    let d = |i: usize| {
+        frac_part
+            .as_bytes()
+            .get(i)
+            .map_or(0, |b| i64::from(b - b'0'))
+    };
+    let round = i64::from(d(2) >= 5);
+    let Some(cents) = int
+        .checked_mul(100)
+        .and_then(|c| c.checked_add(d(0) * 10 + d(1) + round))
+    else {
+        return 0;
+    };
+    if neg { -cents } else { cents }
+}

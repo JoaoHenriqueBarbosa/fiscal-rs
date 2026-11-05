@@ -175,6 +175,10 @@ pub enum TaxRegime {
     SimplesExcess = 2,
     /// `CRT=3` — Normal regime (Lucro Real or Lucro Presumido).
     Normal = 3,
+    /// `CRT=4` — Simples Nacional - Microempreendedor Individual (MEI).
+    /// Uses CSOSN like the Simples. Required since NT 2026.007 (rule 12C21-20,
+    /// cStat 180): CRT must match the issuer's regime in the RFB registry.
+    Mei = 4,
 }
 
 /// Contingency type used when the primary SEFAZ authorizer is unavailable.
