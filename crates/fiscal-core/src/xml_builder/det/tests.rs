@@ -1092,8 +1092,20 @@ fn csosn_empty_defaults_to_102() {
 fn mei_issuer_uses_csosn() {
     // CRT=4 (MEI) follows the Simples rules: ICMS is CSOSN, not CST.
     let item = InvoiceItemData::new(
-        1, "001", "Produto", "27101259", "5102", "UN", 1.0, Cents(1000), Cents(1000),
-        "102", Rate(0), Cents(0), "99", "99",
+        1,
+        "001",
+        "Produto",
+        "27101259",
+        "5102",
+        "UN",
+        1.0,
+        Cents(1000),
+        Cents(1000),
+        "102",
+        Rate(0),
+        Cents(0),
+        "99",
+        "99",
     );
     let mut data = sample_build_data();
     data.issuer.tax_regime = TaxRegime::Mei;
@@ -2504,6 +2516,52 @@ fn tp_cred_pres_ibs_zfm_position_after_cbenef_before_gcred() {
 }
 
 // ── vItem (PL010 only, inside <det>) ─────────────────────────────────
+
+/// NT 2026.008 VB01-10: em 2026 o vItem NÃO soma IBS/CBS/IS; a partir de 2027 soma.
+#[test]
+fn v_item_adds_ibs_cbs_only_from_2027() {
+    use crate::tax_ibs_cbs::{GCbsData, GIbsCbsData, GIbsMunData, GIbsUfData, IbsCbsData};
+    use chrono::TimeZone;
+    let g = GIbsCbsData::new(
+        "10.00",
+        GIbsUfData::new("0.1000", "0.70"),
+        GIbsMunData::new("0.0000", "0.30"),
+        GCbsData::new("0.9000", "9.00"),
+    )
+    .v_ibs("1.00");
+    let item = sample_item().ibs_cbs(IbsCbsData::new("000", "000001").g_ibs_cbs(g));
+    let v_item_at = |year: i32| {
+        let mut data = pl010_build_data();
+        data.items = vec![item.clone()];
+        data.issued_at = chrono::FixedOffset::west_opt(3 * 3600)
+            .unwrap()
+            .with_ymd_and_hms(year, 1, 2, 10, 0, 0)
+            .unwrap();
+        let xml = build_det(&item, &data).expect("build_det").xml;
+        let a = xml.find("<vItem>").expect("vItem") + "<vItem>".len();
+        let b = xml[a..].find("</vItem>").unwrap() + a;
+        xml[a..b].to_string()
+    };
+    let v2026 = v_item_at(2026);
+    let v2027 = v_item_at(2027);
+    let cents = |v: &str| (v.parse::<f64>().unwrap() * 100.0).round() as i64;
+    // vIBS 1.00 + vCBS 9.00 = 10.00 somados só em 2027
+    assert_eq!(
+        cents(&v2027) - cents(&v2026),
+        1000,
+        "2026={v2026} 2027={v2027}"
+    );
+}
+
+#[test]
+fn decimal_str_to_cents_parses_xml_decimals() {
+    assert_eq!(super::decimal_str_to_cents("1234.56"), 123456);
+    assert_eq!(super::decimal_str_to_cents("10"), 1000);
+    assert_eq!(super::decimal_str_to_cents("0.5"), 50);
+    assert_eq!(super::decimal_str_to_cents("1.005"), 101);
+    assert_eq!(super::decimal_str_to_cents("-2.50"), -250);
+    assert_eq!(super::decimal_str_to_cents("abc"), 0);
+}
 
 #[test]
 fn v_item_emitted_with_pl010_and_ibs_cbs() {

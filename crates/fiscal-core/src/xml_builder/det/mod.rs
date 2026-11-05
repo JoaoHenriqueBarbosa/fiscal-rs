@@ -66,6 +66,60 @@ pub struct DetResult {
 }
 
 /// Build a `<det nItem="N">` element for one invoice item.
+/// Parcela RTC do `vItem` (NT 2026.008, regras VB01-10/20): a partir de 2027
+/// o vItem soma também vIBS + vCBS + vIS + vTotIBSMonoItem + vTotCBSMonoItem.
+/// Em 2025/2026 a regra manda NÃO somar (Exceção 1) → 0. Usa os mesmos valores
+/// que vão no XML (vIBS ausente sai como 0.00).
+fn v_item_rtc_2027(item: &InvoiceItemData, data: &InvoiceBuildData) -> i64 {
+    use chrono::Datelike;
+    if data.issued_at.year() < 2027 {
+        return 0;
+    }
+    let mut total = 0i64;
+    if let Some(ref ic) = item.ibs_cbs {
+        if let Some(ref g) = ic.g_ibs_cbs {
+            total += decimal_str_to_cents(g.v_ibs.as_deref().unwrap_or("0"));
+            total += decimal_str_to_cents(&g.g_cbs.v_cbs);
+        }
+        if let Some(ref m) = ic.g_ibs_cbs_mono {
+            total += decimal_str_to_cents(&m.v_tot_ibs_mono_item);
+            total += decimal_str_to_cents(&m.v_tot_cbs_mono_item);
+        }
+    }
+    if let Some(ref is) = item.is_data {
+        total += decimal_str_to_cents(&is.v_is);
+    }
+    total
+}
+
+/// `"1234.56"` → `123456` centavos. Aceita sem decimais ou com 1 casa; casas
+/// além da 2ª são arredondadas (half-up). Valor inválido → 0.
+fn decimal_str_to_cents(v: &str) -> i64 {
+    let v = v.trim();
+    let (neg, v) = match v.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, v),
+    };
+    let (int_part, frac_part) = v.split_once('.').unwrap_or((v, ""));
+    let Ok(int) = (if int_part.is_empty() {
+        Ok(0)
+    } else {
+        int_part.parse::<i64>()
+    }) else {
+        return 0;
+    };
+    if !frac_part.chars().all(|c| c.is_ascii_digit()) {
+        return 0;
+    }
+    let digits: Vec<i64> = frac_part.chars().map(|c| c as i64 - '0' as i64).collect();
+    let d = |i: usize| digits.get(i).copied().unwrap_or(0);
+    let mut cents = int * 100 + d(0) * 10 + d(1);
+    if d(2) >= 5 {
+        cents += 1;
+    }
+    if neg { -cents } else { cents }
+}
+
 pub(crate) fn build_det(
     item: &InvoiceItemData,
     data: &InvoiceBuildData,
@@ -439,6 +493,7 @@ pub(crate) fn build_det(
                     + v_ipi_devol
                     + v_pis_st
                     + v_cofins_st
+                    + v_item_rtc_2027(item, data)
             };
             let v_item_str = format_cents(v_item_cents, 2);
             tag("vItem", &[], TagContent::Text(&v_item_str))
